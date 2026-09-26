@@ -6,9 +6,9 @@
   </picture>
 </p>
 
-# SCI 논문 본문·SI 수집·색인 스킬 패키지
-SCI 논문 본문과 SI PDF 파일을 자동으로 수집하고,<br>
-LLM이 다루기 쉬운 markdown 파일로 변환 및 색인화
+# SCI 논문 원문 수집 스킬 패키지
+논문 본문·SI PDF 파일을 자동으로 수집하고,<br>
+LLM이 다루기 쉬운 markdown 파일로 자동 변환 및 색인화
 
 <br>
 
@@ -16,7 +16,7 @@ LLM이 다루기 쉬운 markdown 파일로 변환 및 색인화
 
 | skill | 용도 | 기능 | 권장모델 |
 |-------|------|------|:--------:|
-| **sci-retr** | 수집 | 본문 SI PDF 다운로드, 본문 text를 md 파일로 변환 | Opus |
+| **sci-retr** | 수집, 전환 | 본문·SI PDF 다운로드, 본문 text를 md 파일로 변환 | Opus |
 | **sci-index** | 색인 | 서지 정보(제목 저널 저자 연도 키워드 초록 등)를 csv 파일로 정리 | Sonnet |
 
 <br>
@@ -47,7 +47,7 @@ https://github.com/angmond1/sci-retr 설치해줘
 ## 사용법 예시
 
 Web of Science, Scopus에서 수집하고자 하는 논문 리스트를 파일로 저장하고,<br>
-대화창에 드래그&드롭한 뒤에,<br>
+claude code, codex 대화창에 드래그&드롭한 뒤에,<br>
 "sci-retr 스킬로 논문 수집해줘"
 
 <br>
@@ -64,7 +64,7 @@ Web of Science, Scopus에서 수집하고자 하는 논문 리스트를 파일�
 | ACS, RSC, IOP, Science, Taylor & Francis, PNAS, AIP, Oxford, IEEE, ChemRxiv | - | 웹 다운로드 | 30-60초 |
 
 기관 미구독 출판사는 초록만 저장.<br>
-Elsevier 기관 API key, Wiley 기관 TDM 토큰, ACS API key는 발급 거절당함.
+Elsevier 기관 API key, Wiley 기관 TDM 토큰, ACS API key는 발급 거절당함 (26.04).
 
 <br>
 
