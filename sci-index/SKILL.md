@@ -5,6 +5,8 @@ description: 수집한 논문 폴더(papers/{paper_id}/)에서 검색용 색인 
 
 # sci-index — 논문 색인 지침서
 
+> 🐶 작업 보고의 첫 줄은 sci-retr 과 같은 상황별 머리표를 쓴다(`🐕 완료 — sci-index`, `🐩 완료`, `🎾 완료`, `🦮 완료`, `🐕‍🦺 중단`, `🦴 부분 완료`). 뜻은 sci-retr 지침 첫머리와 같다. `index.csv`·요약_ko·오류 문구에는 넣지 않는다.
+
 ## 1. 무엇을 하는가
 
 - `sci-retr` 가 만든 `papers/{paper_id}/` 폴더와 `collection_registry.csv` 를 읽어 **한 편 = 한 행**인 `index.csv` 를 만든다. 논문이 무엇인지 빨리 파악하고 고르기 위한 단순 정보만 담는다.
