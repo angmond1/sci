@@ -36,7 +36,7 @@ description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결
 ### 3.0 처음 한 번 (순서대로)
 
 1. **교내 망**에서 실행한다. 구독 논문은 KIST IP 로 열린다. 밖에서는 자동 경로와 웹 경로 모두 구독 논문을 받지 못한다.
-2. **Python 과 패키지**를 설치한다(3.1).
+2. **Python 과 패키지**를 설치한다(3.1). 저장소의 설치 스크립트(`install.ps1`, `install.sh`)가 Python 3.11 이상과 Google Chrome 이 없으면 winget(macOS 는 Homebrew)으로 설치하고, 패키지를 넣고, 점검까지 한다.
 3. **Chrome 설정 두 가지**를 맞춘다(3.1): "PDF 다운로드", 저장 위치 확인 끄기.
 4. **Claude in Chrome 확장**을 Chrome 에 설치하고 Claude 계정으로 로그인한다. 같은 계정으로 확장을 켠 다른 컴퓨터가 있으면 그 Chrome 도 목록에 나온다. Claude 는 이 컴퓨터의 것(`onThisComputer`)만 쓰고, 이 컴퓨터 것이 둘 이상이면 사용자에게 묻는다.
 5. **점검 명령**을 돌려 "문제 0" 을 확인한다. 읽기만 하고 아무것도 바꾸지 않는다.
@@ -58,7 +58,7 @@ python scripts/sci_collect.py doctor --kb-root <root>
   - `chrome://settings/downloads` 의 "다운로드 전에 각 파일의 저장 위치 확인" 을 끈다. 켜져 있으면 파일마다 저장 창이 떠서 웹 경로가 멈춘다.
   - 다운로드 폴더는 바꾸지 않아도 된다. `intake` 가 Chrome 설정과 Windows 의 다운로드 폴더 위치(OneDrive 로 옮긴 경우 포함)를 읽어 찾는다. 다른 곳이면 `--downloads` 나 설정 `downloads_dir`.
   - 영어 Chrome 에서는 PDF 를 열 때 뜨는 "열기" 버튼이 "Open" 이다. 위치는 같다.
-- 시작 전에 3.0 의 `doctor` 로 확인한다. `ModuleNotFoundError` 가 나면 다른 인터프리터(`py -3.12`, `python3.12` 등)로 같은 명령을 다시 시도해 되는 것을 쓴다. 패키지만 빠르게 볼 때는 다음 한 줄.
+- 시작 전에 3.0 의 `doctor` 로 확인한다. `ModuleNotFoundError` 가 나면 다른 인터프리터(`py -3.12`, `python3.12` 등)로 같은 명령을 다시 시도해 되는 것을 쓴다. macOS·Linux 에서 설치 스크립트가 가상환경을 만들었으면 `~/.sci-retr/venv/bin/python` 이다. 패키지만 빠르게 볼 때는 다음 한 줄.
 
 ```bash
 python -c "import requests, pymupdf, bs4, lxml, truststore, openpyxl; print('ok')"

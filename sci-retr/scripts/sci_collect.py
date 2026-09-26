@@ -1563,6 +1563,12 @@ def cmd_doctor(args) -> None:
             bad(f"Chrome({prof}) 저장 위치 확인 = 켜짐 — chrome://settings/downloads 에서 '다운로드 전에 각 파일의 저장 위치 확인' 을 끈다 (파일마다 저장 창이 떠서 웹 경로가 멈춤)")
         else:
             ok(f"Chrome({prof}) 저장 위치 확인 = 꺼짐")
+        ext_id = "fcoeoabgfenejglbffodgkkbkcdhcgfn"   # Claude in Chrome
+        ud = chrome_user_data_dir()
+        if ud and (ud / prof / "Extensions" / ext_id).exists():
+            ok(f"Chrome({prof}) Claude in Chrome 확장 설치됨")
+        else:
+            warn(f"Chrome({prof}) Claude in Chrome 확장 없음 — Claude 의 웹 다운로드에 필요. https://chromewebstore.google.com/detail/claude/{ext_id} 에서 설치 (Codex 는 필요 없음)")
     cfg = load_config(kb_root)
     ddir, how = find_downloads_dir(cfg)
     if ddir.exists() and os.access(ddir, os.W_OK):
@@ -1588,7 +1594,7 @@ def cmd_doctor(args) -> None:
         bad(f"SSL 오류 — 기관 망 인증서 문제. truststore 설치 확인: {str(exc)[:80]}")
     except Exception as exc:
         bad(f"인터넷 연결 실패 — {type(exc).__name__}: {str(exc)[:80]}")
-    info("이 명령으로 확인할 수 없는 것: Claude in Chrome 확장 연결(Claude 가 대화에서 확인), 교내 망 여부(구독 논문 페이지가 열리는지로 확인)")
+    info("이 명령으로 확인할 수 없는 것: Claude in Chrome 확장의 연결·로그인(Claude 가 대화에서 확인), 교내 망 여부(구독 논문 페이지가 열리는지로 확인)")
     say(f"=== 점검 끝: 문제 {len(problems)}, 주의 {len(warns)}" + (" — 문제를 고친 뒤 다시 실행" if problems else " — 시작해도 된다  ▼・ᴥ・▼"))
 
 
