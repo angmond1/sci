@@ -15,7 +15,7 @@ LLM이 다루기 쉬운 markdown 파일로 변환 및 색인화
 
 ## 설치
 
-claude code (claude 데스크탑 앱에서 code), codex 대화창에 아래 문구를 붙여넣는다.
+claude code (claude 데스크탑 앱에서 code), codex 대화창에
 
 ```
 https://github.com/angmond1/sci-retr 설치해줘
