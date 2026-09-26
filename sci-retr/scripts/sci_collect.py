@@ -518,7 +518,9 @@ def resolve_doi(ctx: Ctx, doi: str) -> dict:
     row = {
         "paper_id": make_paper_id(ctx, year, abbrev, surname, doi),
         "doi": doi, "title": strip_jats((cr.get("title") or [""])[0]), "year": year,
-        "journal": (cr.get("container-title") or [""])[0], "journal_abbrev": abbrev,
+        # 저널명이 없는 프리프린트는 OpenAlex 의 출처 이름(ChemRxiv 등), 없으면 서버 약어 (2026-09-27 색인 "저널 누락")
+        "journal": (cr.get("container-title") or [""])[0] or ((((oa or {}).get("primary_location") or {}).get("source") or {}).get("display_name") or "")
+                   or (abbrev if abbrev in PREPRINT_ABBREV.values() else ""), "journal_abbrev": abbrev,
         "volume": cr.get("volume") or "", "issue": cr.get("issue") or "", "pages": cr.get("page") or cr.get("article-number") or "",
         "corresponding": surname, "authors": authors_string(cr), "abstract": abstract,
         "publisher": publisher_of(doi, cr.get("publisher") or ""),
@@ -571,6 +573,33 @@ def is_pdf(data: bytes) -> bool:
 
 
 CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+# 합자(ﬁ ﬀ …)를 보통 글자로. PDF 텍스트는 NFKC 로 풀리지만 웹페이지 본문에도 남아 있어 검색이 빗나간다 (2026-09-27 Beilstein "diﬀerent")
+LIGATURES = str.maketrans({"\ufb00": "ff", "\ufb01": "fi", "\ufb02": "fl", "\ufb03": "ffi", "\ufb04": "ffl", "\ufb05": "st", "\ufb06": "st"})
+# UTF-8 페이지를 Latin-1 로 읽어 깨진 글자 (Ã© Â° â\x80\x93 …)
+MOJIBAKE_RE = re.compile("[\u00c2\u00c3][\u0080-\u00bf]|\u00e2[\u0080-\u009f\u20ac]")
+
+
+def resp_text(r) -> str:
+    """응답 본문 글자. Content-Type 에 charset 이 없으면 requests 는 ISO-8859-1 로 읽어 UTF-8 페이지가 깨진다
+    (2026-09-27 Copernicus "UniversitÃ© du QuÃ©bec"). 그때는 HTML 머리의 meta charset, 없으면 UTF-8 로 읽는다."""
+    if "charset=" in (r.headers.get("content-type") or "").lower():
+        return r.text
+    m = re.search(rb"<meta[^>]+charset=[\"']?\s*([A-Za-z0-9_-]+)", r.content[:4096], re.I)
+    enc = m.group(1).decode("ascii") if m else "utf-8"
+    try:
+        return r.content.decode(enc)
+    except (LookupError, UnicodeDecodeError):
+        return r.content.decode("utf-8", errors="replace")
+
+
+def fix_mojibake(s: str) -> str:
+    """UTF-8 을 Latin-1 로 읽어 깨진 글자를 되돌린다(저장된 옛 html 을 다시 뽑을 때). 되돌릴 수 없으면 그대로 둔다."""
+    if not s or not MOJIBAKE_RE.search(s):
+        return s
+    try:
+        return s.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return s
 
 
 def pdf_text(data: bytes) -> tuple[str, int]:
@@ -729,6 +758,7 @@ def write_paper(ctx: Ctx, row: dict, out: Outcome) -> Outcome:
         (d / "xml" / f"{pid}.xml").write_bytes(out.xml_raw)
         xml_text = elsevier_xml_text(out.xml_raw)
     text, source, tnote = choose_text(html_text, pdf_txt, xml_text, paper)
+    text = (text or "").translate(LIGATURES)
     if not text:
         out.status, out.note = "failed", (out.note + " no text").strip()
         return out
@@ -1142,7 +1172,7 @@ def h_springer(ctx: Ctx, row: dict) -> Outcome:
         h = ctx.session.get(out.page_url, timeout=60)
         codes.append(h.status_code)
         if h.status_code == 200:
-            out.html_raw = h.text
+            out.html_raw = resp_text(h)
     except Exception:
         pass
     if not out.pdf_data and not out.html_raw:
@@ -1166,7 +1196,7 @@ def h_mdpi(ctx: Ctx, row: dict) -> Outcome:
         h = ctx.session.get(f"https://doi.org/{row['doi']}", timeout=60)
         codes.append(h.status_code)
         if h.status_code == 200 and "html" in h.headers.get("content-type", ""):
-            out.html_raw, out.page_url = h.text, h.url
+            out.html_raw, out.page_url = resp_text(h), h.url
     except Exception:
         pass
     if not out.pdf_data and not out.html_raw:
@@ -1182,8 +1212,9 @@ def h_landing_generic(ctx: Ctx, row: dict, method_prefix: str) -> Outcome:
     h = ctx.session.get(f"https://doi.org/{row['doi']}", timeout=90)
     if h.status_code != 200:
         return Outcome(status="failed", note=f"landing status={h.status_code}")
-    out = Outcome(method=f"{method_prefix}_landing", html_raw=h.text, page_url=h.url)
-    cands = html_pdf_candidates(h.text, h.url)
+    raw = resp_text(h)
+    out = Outcome(method=f"{method_prefix}_landing", html_raw=raw, page_url=h.url)
+    cands = html_pdf_candidates(raw, h.url)
     for url in cands:
         try:
             r = ctx.session.get(url, headers={"Accept": "application/pdf,*/*", "Referer": h.url}, timeout=120)
@@ -1197,7 +1228,7 @@ def h_landing_generic(ctx: Ctx, row: dict, method_prefix: str) -> Outcome:
         # 실패로 두면 웹 목록에서 빠지므로 웹 경로 대상으로 둔다. 웹에서 구독 밖이면 mark --status abstract_only (2026-09-27)
         res.status = "human_required"
         res.note = "논문 페이지에 PDF 링크 없음 (구독 밖일 수 있음 → 웹 경로로 확인) — " + res.note
-    res.si_files = save_si(ctx, row["paper_id"], http_fetch(ctx), find_si_links(h.text, h.url))
+    res.si_files = save_si(ctx, row["paper_id"], http_fetch(ctx), find_si_links(raw, h.url))
     return res
 
 
@@ -1211,7 +1242,7 @@ def h_ecs(ctx: Ctx, row: dict) -> Outcome:
         time.sleep(3)
         pr = ctx.session.get(landing + "/pdf", headers={"Referer": landing, "Accept": "application/pdf,*/*"}, timeout=120)
         if pr.status_code == 200 and is_pdf(pr.content):
-            return write_paper(ctx, row, Outcome(method="ecs_iopscience_direct_pdf", pdf_data=pr.content, html_raw=lp.text if lp.status_code == 200 else "", page_url=landing))
+            return write_paper(ctx, row, Outcome(method="ecs_iopscience_direct_pdf", pdf_data=pr.content, html_raw=resp_text(lp) if lp.status_code == 200 else "", page_url=landing))
         if "perfdrive" in str(pr.url) or b"Radware" in pr.content[:30000]:
             return Outcome(status="human_required", note="IOP 봇 확인 페이지(pdf) → 사용자가 창에서 직접 확인")
         return Outcome(status="failed", note=f"iop pdf status={pr.status_code}")
@@ -1613,7 +1644,7 @@ def ingest_manual_pdfs(ctx: Ctx) -> int:
             say(f"  !! {p} 는 PDF 가 아닙니다 (저장 파일 확인 필요)"); continue
         html_p, xml_p = d / "html" / f"{row['paper_id']}.html", d / "xml" / f"{row['paper_id']}.xml"
         out = Outcome(method="manual_user_download", pdf_data=data,
-                      html_raw=html_p.read_text(encoding="utf-8", errors="ignore") if html_p.exists() else "",
+                      html_raw=fix_mojibake(html_p.read_text(encoding="utf-8", errors="ignore")) if html_p.exists() else "",
                       xml_raw=xml_p.read_bytes() if xml_p.exists() else b"",
                       page_url=row.get("landing_url") or f"https://doi.org/{row['doi']}")
         res = write_paper(ctx, row, out)
@@ -1640,7 +1671,7 @@ def cmd_reextract(args) -> None:
             sj = {}
         out = Outcome(method=sj.get("collection_method") or row.get("method") or "reextract",
                       pdf_data=pdf_p.read_bytes() if pdf_p.exists() else b"",
-                      html_raw=html_p.read_text(encoding="utf-8", errors="ignore") if html_p.exists() else "",
+                      html_raw=fix_mojibake(html_p.read_text(encoding="utf-8", errors="ignore")) if html_p.exists() else "",
                       xml_raw=xml_p.read_bytes() if xml_p.exists() else b"",
                       page_url=sj.get("source_url") or row.get("landing_url") or "")
         res = write_paper(ctx, row, out)
@@ -1918,11 +1949,13 @@ def update_manual_csv(ctx: Ctx, new_rows: list[dict]) -> Path:
                     rows[r.get("save_to") or r.get("paper_id", "")] = r
         for r in new_rows:
             rows[r["save_to"]] = r
-        # 이미 받아 정리한 행은 뺀다 (2026-09-26 중단·재개 시험): 저장 자리에 파일이 있거나, 본문 행인데 그 논문이 이미 전문/범위 밖이면 목록에서 제외.
-        done = {r["paper_id"] for r in ctx.registry.values() if r.get("status") in ("full", "out_of_scope")}
+        # 이미 받아 정리한 행은 뺀다 (2026-09-26 중단·재개 시험): 저장 자리에 파일이 있거나, 본문 행인데 그 논문이 이미 전문이면 목록에서 제외.
+        # 범위 밖·초록만으로 정한 논문은 SI 행까지 모두 뺀다 (2026-09-27: 초록만으로 표시한 논문이 목록에 남아 있었다)
+        full = {r["paper_id"] for r in ctx.registry.values() if r.get("status") == "full"}
+        closed = {r["paper_id"] for r in ctx.registry.values() if r.get("status") in ("out_of_scope", "abstract_only")}
         keep = [r for r in rows.values()
-                if not Path(r.get("save_to") or "").exists()
-                and not (r.get("paper_id") in done and str(r.get("save_to", "")).endswith(f"{r.get('paper_id')}.pdf"))]
+                if not Path(r.get("save_to") or "").exists() and r.get("paper_id") not in closed
+                and not (r.get("paper_id") in full and str(r.get("save_to", "")).endswith(f"{r.get('paper_id')}.pdf"))]
         with open(p, "w", encoding="utf-8-sig", newline="") as f:
             w = csv.DictWriter(f, fieldnames=MANUAL_FIELDS, extrasaction="ignore")
             w.writeheader(); w.writerows(keep)
@@ -1982,8 +2015,9 @@ def cmd_mark(args) -> None:
 # 최고 점수가 2 이상이고 한 논문에만 해당할 때만 옮긴다. 애매하거나 못 가린 파일은 그대로 두고 보고한다 (지우지 않는다).
 # PNAS SI 는 파일 이름이 {코드}.sapp.pdf 이고 첫 쪽이 "The PDF file includes: Supplementary Notes…" 로 시작한다 (2026-09-27 연습에서 본문으로 잘못 판정됨)
 SI_NAME_RE = re.compile(r"(mmc\d+|_suppl|_si_\d+|-sup-\d+|suppmat|suppdata|supp\d|[-_]sm[\s._(-]|[-_]sm$|supporting|supplement|[-_]esm\b|\.sapp\b)", re.I)
+# IEEE SI 는 논문 제목 이름으로 저장되고(본문에 " (1)" 이 붙음) 첫 줄이 "Supplementary File" 이다 (2026-09-27 본문 후보 2개로 멈춤)
 SI_TEXT_PHRASES = ("supportinginformation", "supplementarymaterial", "supplementaryinformation", "electronicsupplementary", "supplementarydata",
-                   "thepdffileincludes", "siappendix", "supplementarynote")
+                   "thepdffileincludes", "siappendix", "supplementarynote", "supplementaryfile", "supplementalmaterial", "supplementalinformation")
 INTAKE_EXTS = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".csv", ".zip", ".cif", ".txt", ".pptx", ".mp4", ".mov", ".avi"}
 
 
@@ -2256,7 +2290,7 @@ def doi_from_link(ctx: Ctx, url: str) -> str:
     try:
         r = ctx.session.get(url, timeout=60)
         if r.status_code == 200:
-            for tag in re.findall(r"<meta\b[^>]*>", r.text, re.I):
+            for tag in re.findall(r"<meta\b[^>]*>", resp_text(r), re.I):
                 if re.search(r"name=[\"'](citation_doi|dc\.identifier|prism\.doi)[\"']", tag, re.I):
                     mm = DOI_RE.search(tag)
                     if mm:

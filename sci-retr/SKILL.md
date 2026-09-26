@@ -223,8 +223,8 @@ python scripts/sci_collect.py assist --kb-root <root>
 3. **받기**: Claude in Chrome 확장으로 사용자 Chrome 의 새 탭에서 논문 주소를 연다. 한 편씩 진행한다. 그 Chrome 창은 화면 앞에 두고 수집 중에는 건드리지 않는다. 다른 모니터나 다른 프로그램은 써도 되지만, 그 창이 다른 창에 완전히 덮이거나 최소화되면 스크린샷이 안 되고 클릭이 빗나간다.
    - 출판사별 요령(선택자, 기다릴 시간, 누르는 순서, 함정)은 `references/web_download_playbook.md` 를 먼저 읽고 첫 논문부터 그대로 한다. 링크 찾기는 `references/web_find.js`(요령 문서 2.2)로 한다. 헤매는 호출을 줄이는 것이 시간을 가장 많이 줄인다.
    - 확인 창이 계속 다시 뜨면 반복해서 누르지 않고 그 사이트는 멈춘다.
-   - SI 는 문서(PDF, Word)만 받는다. 동영상·음성, 결정 구조 파일(CIF 등), 압축 파일(zip 등), 스프레드시트(Excel, CSV 등)는 받지 않는다(2026-09-25 사용자 지시). 결정 구조와 대형 스프레드시트 데이터는 대개 zip 이나 Excel 로 온다. 링크 글자나 파일 이름으로 형식을 보고 누른다. 도구의 자동 경로도 설정 `si_skip_exts` 로 같은 형식을 거른다.
-   - 6절 표의 버튼으로 본문 PDF 와 SI 를 받는다. 누르기 전에 버튼을 화면에 띄우고 스크린샷으로 위치를 확인한 뒤 좌표로 누른다. 페이지 배치가 바뀌어 클릭이 추천 논문 링크에 떨어진 적이 있다.
+   - SI 는 문서(PDF, Word)만 받는다. 동영상·음성, 결정 구조 파일(CIF 등), 압축 파일(zip 등), 스프레드시트(Excel, CSV 등)는 받지 않는다(2026-09-25 사용자 지시). 결정 구조와 대형 스프레드시트 데이터는 대개 zip 이나 Excel 로 온다. 링크 글자나 파일 이름으로 형식을 보고 누른다. 도구의 자동 경로도 설정 `si_skip_exts` 로 같은 형식을 거른다. Silverchair 사이트(AIP·ACS·RSC·Oxford)는 형식이 주소의 `/article-supplement/{번호}/{형식}/` 칸에 있다. `web_find.js` 가 pdf·docx·doc 가 아닌 것을 빼고 형식 칸을 보여 준다(2026-09-27 AIP zip 을 경로 끝만 보고 받음).
+   - 6절 표의 버튼으로 본문 PDF 와 SI 를 받는다. 누를 때는 한 호출에 `sciretrFocus(N, x, y)`(x, y 는 `web_find.js` 가 준 좌표)와 그 좌표 클릭을 넣는다. 예상 자리에 그 요소가 없으면 sciretrFocus 가 클릭을 막고(guard 1) 실제 좌표를 돌려주므로 그 좌표로 다시 누른다. 화면 가운데를 가정하거나 스크린샷을 보고 좌표를 정하지 않는다(2026-09-27 세 번 빗나감, 요령 문서 2.2). 페이지 배치가 바뀌어 클릭이 추천 논문 링크에 떨어진 적도 있다.
    - 쿠키 동의 창은 누르지 않는다(사용자 결정). 쿠키 창이 페이지 클릭을 막으면 스크립트로 읽은 PDF·SI 링크 주소로 탭을 옮겨 받고, 그래도 안 되면 사용자에게 버튼을 직접 눌러 달라고 한다(요령 문서 2.2·3.14). 뉴스레터·추천 논문 안내 창은 닫기(X)만 누른다. 다른 논문을 여러 편 받는 버튼("Download (6) PDFs" 등)은 누르지 않는다.
    - PDF 를 받으며 열린 보조 탭(확인 단계 탭 등)은 닫는다.
 4. **정리**: 받은 뒤 `intake` 로 다운로드 폴더의 파일을 논문 폴더로 옮기고 반영한다(5.6.1). 출력에서 가리지 못한 파일이 있으면 무엇인지 확인한다. '여러 논문에 해당' 으로 남은 파일은 대개 같은 논문의 두 DOI 다. resolve 가 Angewandte 독일어판(ange)·국제판(anie) 쌍은 독일어판을 범위 밖으로 두고, 그 밖의 같은 제목은 알려 준다. 이미 받았다면 받은 탭을 알고 있으니 `papers/{id}/pdf/{id}.pdf`, `{id}_SI.pdf` 로 옮긴 뒤 status 를 돌린다.
@@ -253,7 +253,7 @@ python scripts/sci_collect.py intake --kb-root <root>
 
 - 다운로드 폴더에서 논문 PDF·SI 를 찾아, 어느 논문인지 가린 뒤 `papers/{id}/pdf/` 에 정해진 이름(`{id}.pdf`, `{id}_SI.pdf`, `_SI_2` …)으로 옮기고 본문 텍스트를 반영한다.
 - 가리는 근거: 파일 이름의 논문 코드(Elsevier PII, DOI 끝부분), PDF 앞 두 쪽의 DOI, 첫 쪽의 제목, PDF 뒤쪽의 DOI. 근거가 충분하고 한 논문에만 해당할 때만 옮긴다. 참고문헌에 다른 논문 DOI 가 있어도 그것만으로는 옮기지 않는다. Science·IOP PDF 는 첫 쪽에 DOI 글자가 없어 파일 이름과 제목으로 가린다. Word(.docx) SI 는 본문 앞부분의 제목·DOI 로도 가린다. IOP 옛 논문 SI 는 파일 이름이 `1960.docx` 처럼 숫자뿐이다.
-- SI 구분: 파일 이름 규칙(mmc, _suppl, _si_, -sup-, -sm 등) 또는 첫 쪽 맨 앞의 Supporting/Supplementary 문구. ACS 본문 PDF 는 첫 쪽 중간에 "Supporting Information" 안내가 있어 맨 앞만 본다.
+- SI 구분: 파일 이름 규칙(mmc, _suppl, _si_, -sup-, -sm, PNAS `.sapp` 등), 첫 쪽 맨 앞의 Supporting/Supplementary/Supplemental 문구(IEEE SI 는 논문 제목 이름으로 저장되고 첫 줄이 "Supplementary File" 이다), 첫 쪽이 SI 쪽 번호 "S1 " 로 시작하는 파일. ACS 본문 PDF 는 첫 쪽 중간에 "Supporting Information" 안내가 있어 맨 앞만 본다.
 - 이미 본문 PDF 가 있거나 같은 SI 가 있으면 옮기지 않는다. 가리지 못한 파일도 그대로 둔다. 파일을 지우지 않는다.
 - 한 논문에 본문 후보가 둘 이상이면(SI 가 본문처럼 보인 것) 옮기지 않고 "본문 후보 N개" 로 알린다. 미리보기(`--dry-run`)에도 같게 나온다. SI 쪽을 `papers/{id}/pdf/{id}_SI.pdf` 로 직접 옮긴 뒤 다시 intake 한다(2026-09-27 PNAS `.sapp.pdf` 는 이제 SI 로 가린다).
 - 목록의 어떤 논문과도 근거가 없는 파일은 사용자 개인 파일일 수 있어 이름을 출력하지 않는다.
@@ -269,7 +269,7 @@ python scripts/sci_collect.py reextract --kb-root <root>
 ```
 
 - 저장된 PDF·HTML·XML 원본만으로 `source.md` 와 `source.json` 을 다시 만든다. 출판사에 요청을 보내지 않는다.
-- 추출 규칙이 바뀐 뒤 기존 수집분에 적용할 때 쓴다. 예: 2026-09-24 PDF 텍스트 순서 수정, 2026-09-26 제어 문자(NUL) 제거, 출판사 새 페이지 구조 반영.
+- 추출 규칙이 바뀐 뒤 기존 수집분에 적용할 때 쓴다. 예: 2026-09-24 PDF 텍스트 순서 수정, 2026-09-26 제어 문자(NUL) 제거, 2026-09-27 웹페이지 인코딩 깨짐(Copernicus "UniversitÃ©")·합자 되돌리기, 출판사 새 페이지 구조 반영. 색인의 '깨진 문자/합자' flag 가 이것으로 사라진다.
 - 이전 본문이 새 본문보다 훨씬 길면 `source_pre_<날짜>.md` 로 남겨 둔다.
 
 ### 5.7 색인 (편수에 따라 묻거나 생략)
@@ -356,10 +356,10 @@ python scripts/sci_collect.py refs --kb-root <root> --source <PDF 경로 | 링�
 | Nature | 10.1038 | 논문 페이지 + PDF + SI | 자동 실패한 논문만 | 15초 | 갓 나온 논문은 페이지에 초록만 있고 PDF 주소가 HTML 로 응답해 실패로 남는다(2026-09-26). 며칠 뒤 `collect --ids <id> --force` |
 | MDPI | 10.3390 | 직접 PDF + HTML + SI | 자동 실패한 논문만: "Download ▾" → "Download PDF"("with Cover" 아님, playbook 3.13) | 2초 | 모두 OA. 자동 요청을 막는 날이 있다(2026-09-27 첫 요청 403 → 도구가 나머지를 요청 없이 웹 경로로). 사용자 Chrome 에서는 바로 열린다 |
 | Frontiers, PLOS, Beilstein, Copernicus, APS, Cambridge | 10.3389, 10.1371, 10.3762, 10.5194, 10.1103, 10.1017 | 논문 페이지 + PDF + SI (일반 경로, 이름만 붙임) | 자동 실패한 논문만 | 5초 | 2026-09-26 확인: 사이트마다 3편을 5초 간격으로, 일곱 사이트 동시에 받아 차단 없음. 한 편 완료 간격 4~11초, PDF 가 8~11 MB 인 Beilstein·Copernicus 는 23~54초. APS 는 KIST 구독 저널(Phys. Rev. B)만 받히고 Phys. Rev. D·Applied·PRL 은 페이지에 PDF 링크가 없다(구독 밖일 수 있음 → 웹 목록에 넣어 확인, 구독 밖이면 `mark --status abstract_only`). 2026-09-27: PLOS SI(`type=supplementary`, Word 가 많음)·Copernicus SI(`-supplement.pdf`)를 자동으로 받는다. APS SI 는 목록 페이지를 스크립트가 그려 자동으로 못 받으므로 웹 목록에 SI 항목으로 올라간다 |
-| Taylor & Francis, PNAS, AIP, Oxford, IEEE | 10.1080, 10.1073, 10.1063, 10.1093, 10.1109 | 없음, 바로 웹 경로 (설정 `web_only_publishers`, 2026-09-26 실측 403·202) | playbook 3.7~3.11. T&F·PNAS·ChemRxiv 는 페이지 아래 "Download PDF", AIP 는 도구 막대 "PDF"(새 탭), Oxford 는 상단 "PDF", IEEE 는 "PDF" → "열기". PNAS·Oxford 는 저장 전에 Cloudflare 확인 화면을 스스로 통과 | 30~60초 (한 편 처리 시간, 따로 기다리지 않음) | 상황이 바뀌면 설정에서 뺀다 |
+| Taylor & Francis, PNAS, AIP, Oxford, IEEE | 10.1080, 10.1073, 10.1063, 10.1093, 10.1109 | 없음, 바로 웹 경로 (설정 `web_only_publishers`, 2026-09-26 실측 403·202) | playbook 3.7~3.11. T&F·PNAS·ChemRxiv 는 페이지 아래 "Download PDF", AIP 는 도구 막대 "PDF"(새 탭), Oxford 는 상단 "PDF", IEEE 는 "PDF" → "열기". Oxford 는 첫 편에서 Cloudflare 확인 화면을 스스로 통과(약 7초, 둘째 편부터 1~2초). PNAS 는 2026-09-26 에 같은 화면을 거쳤고 2026-09-27 4편은 거치지 않았다. IEEE SI 는 본문 끝 "Supplemental Items" 버튼 → 파일 카드 | 30~60초 (한 편 처리 시간, 따로 기다리지 않음) | 상황이 바뀌면 설정에서 뺀다 |
 | 그 외 | | 논문 페이지 + PDF 후보 + SI. 사이트(호스트)별로 한 번 막히면 그 사이트의 나머지는 요청하지 않고 웹 경로. 막힌 논문 자체도 웹 경로 대상으로 표시. 페이지에 PDF 링크가 없고 본문이 짧으면 '구독 밖일 수 있음' 으로 웹 경로 대상 | 막힌 논문 (playbook 3.15 의 처음 보는 사이트 순서) | 5초 | 2026-09-27: CCS Chemistry(chinesechemsoc.org) 403, De Gruyter(degruyterbrill.com) 202 로 막혀 웹 경로 |
 | 프리프린트 | 10.26434 (ChemRxiv), 10.48550 (arXiv), 10.1101 (bioRxiv) | ChemRxiv 는 자동 요청을 막아(403) 바로 웹 경로(설정 `web_only_publishers`). arXiv·bioRxiv 는 그 외와 같음 | playbook 3.12 (ChemRxiv "Download PDF") | 5초 | 접두어로 고정(Crossref 는 ChemRxiv 를 ACS 로 적음). 저널약어는 ChemRxiv·arXiv·bioRxiv |
-| 미구독 출판사 | 10.1055 (Thieme), 10.1142, 10.1246, 10.2174, 10.1098 | 초록만 저장. Open Access 논문은 한 번 자동 시도 | Open Access 논문 중 자동으로 못 받은 것 (Thieme 는 playbook 3.14: doi.org 로 열기, 쿠키 창은 주소 이동으로 우회) | | 사용자에게 알림. 구독이 생기면 설정에서 뺀다 |
+| 미구독 출판사 | 10.1055 (Thieme), 10.1142, 10.1246, 10.2174, 10.1098 | 초록만 저장. Open Access 논문은 한 번 자동 시도 | Open Access 논문 중 자동으로 못 받은 것 (Thieme 는 playbook 3.14: doi.org 로 열기, 쿠키 창은 주소 이동으로 우회) | | 사용자에게 알림. 구독이 생기면 설정에서 뺀다. 10.1246(CSJ)은 academic.oup.com/chemlett 로 열리고 KIST 가 기관으로 인식되지만 구독 밖이다(2026-09-27 웹 확인) |
 
 - 웹 경로는 논문 사이에 따로 기다리지 않는다(2026-09-25 사용자 지시로 30초 간격 폐지). 페이지 열기, 누르기, 확인, 정리까지 한 편에 보통 30초~1분이 걸린다. 실측(2026-09-25, 여섯 출판사 18편)은 한 편 26~262초, 중앙값 60초였고 Wiley 가 가장 느렸다(references/publisher_matrix.md). 요령 문서대로 새 논문 18편을 받은 2차 시험은 16.7분, 한 편 중앙값 42.5초였다(references/web_download_playbook.md). 출판사당 한 번에 수십 편 이내로 나눈다.
 - 2026-09-24 사용자 Chrome 실측: Elsevier·RSC·Wiley·Science·IOP 는 확인 창 없이 열렸고 ACS 만 한 번 떴다. 날마다 달라질 수 있다.
