@@ -1,11 +1,24 @@
 ﻿# sci-retr 설치 (Windows PowerShell)
-# 사용: powershell -ExecutionPolicy Bypass -File .\install.ps1
-# 하는 일: sci-retr, sci-index 두 skill 폴더를 ~/.claude/skills/ 로 복사하고 파이썬 패키지를 설치한다.
+# 사용: powershell -ExecutionPolicy Bypass -File .\install.ps1          (Claude: ~/.claude/skills)
+#       powershell -ExecutionPolicy Bypass -File .\install.ps1 -Codex   (Codex: ~/.codex/skills)
+# 하는 일: sci-retr, sci-index 두 skill 폴더를 skills 폴더로 복사하고 파이썬 패키지를 설치한다.
 param(
     [string]$Root = $PSScriptRoot,
-    [string]$Dest = (Join-Path $env:USERPROFILE ".claude\skills")
+    [switch]$Codex,
+    [string]$Dest = ""
 )
 $ErrorActionPreference = "Stop"
+$app = "Claude"
+if ($Codex) { $app = "Codex" }
+if (-not $Dest) {
+    if ($Codex) {
+        $codexHome = $env:CODEX_HOME
+        if (-not $codexHome) { $codexHome = Join-Path $env:USERPROFILE ".codex" }
+        $Dest = Join-Path $codexHome "skills"
+    } else {
+        $Dest = Join-Path $env:USERPROFILE ".claude\skills"
+    }
+}
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 
 foreach ($skill in @("sci-retr", "sci-index")) {
@@ -35,7 +48,7 @@ cmd /c "$py -m pip install --quiet --disable-pip-version-check requests pymupdf 
 if ($LASTEXITCODE -ne 0) { throw "pip 설치 실패" }
 
 Write-Host ""
-Write-Host "설치 완료. Claude 를 재시작한 뒤 이렇게 시작하세요:"
+Write-Host "설치 완료. $app 를 재시작한 뒤 이렇게 시작하세요:"
 Write-Host "  1) Chrome 설정: chrome://settings/content/pdfDocuments 를 'PDF 다운로드' 로, chrome://settings/downloads 의 '저장 위치 확인' 은 끄기"
 Write-Host "  2) 점검: $py `"$Dest\sci-retr\scripts\sci_collect.py`" doctor --kb-root <논문 폴더>"
 Write-Host "  3) 대화창에 '이 DOI 목록 논문 받아줘' 라고 말하면 sci-retr 이 시작됩니다."

@@ -1,10 +1,23 @@
 #!/usr/bin/env bash
 # sci-retr 설치 (macOS / Linux)
-# 사용: bash ./install.sh
-# 하는 일: sci-retr, sci-index 두 skill 폴더를 ~/.claude/skills/ 로 복사하고 파이썬 패키지를 설치한다.
+# 사용: bash ./install.sh            (Claude: ~/.claude/skills)
+#       bash ./install.sh --codex    (Codex: ~/.codex/skills, CODEX_HOME 이 있으면 그 아래)
+# 하는 일: sci-retr, sci-index 두 skill 폴더를 skills 폴더로 복사하고 파이썬 패키지를 설치한다.
 set -euo pipefail
-ROOT="${1:-$(cd "$(dirname "$0")" && pwd)}"
-DEST="$HOME/.claude/skills"
+CODEX=0
+ROOT=""
+for arg in "$@"; do
+  case "$arg" in
+    --codex) CODEX=1 ;;
+    *) ROOT="$arg" ;;
+  esac
+done
+ROOT="${ROOT:-$(cd "$(dirname "$0")" && pwd)}"
+if [ "$CODEX" = 1 ]; then
+  DEST="${CODEX_HOME:-$HOME/.codex}/skills"; APP="Codex"
+else
+  DEST="$HOME/.claude/skills"; APP="Claude"
+fi
 mkdir -p "$DEST"
 
 for skill in sci-retr sci-index; do
@@ -26,7 +39,7 @@ echo "패키지 설치: $PY -m pip install ..."
 
 cat <<EOF
 
-설치 완료. Claude 를 재시작한 뒤 이렇게 시작하세요:
+설치 완료. $APP 를 재시작한 뒤 이렇게 시작하세요:
   1) Chrome 설정: chrome://settings/content/pdfDocuments 를 'PDF 다운로드' 로, chrome://settings/downloads 의 '저장 위치 확인' 은 끄기
   2) 점검: $PY "$DEST/sci-retr/scripts/sci_collect.py" doctor --kb-root <논문 폴더>
   3) 대화창에 '이 DOI 목록 논문 받아줘' 라고 말하면 sci-retr 이 시작됩니다.

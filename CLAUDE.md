@@ -2,6 +2,7 @@
 
 > 이 문서는 Claude (Claude Code CLI / Claude Desktop 앱) 가 sci-retr 을 설치할 때 따르는 기준이다.
 > 사용자가 "sci-retr 설치해줘", "이거 설치해줘" 라고 하면 추측하지 말고 아래 1번 절차를 순서대로 실행한다.
+> Codex 사용자는 [CODEX.md](CODEX.md).
 
 ## 0. sci-retr 이 무엇인가 (한 줄)
 
