@@ -9,6 +9,9 @@
 # 개인 설정
 sci_collect.config.json
 
+# 설치 스크립트가 skill 폴더에 적는 이 PC 의 Python 경로
+python.txt
+
 # 이전 판 보관 (로컬 전용)
 _history/
 

@@ -49,7 +49,7 @@
 3. 파이썬 패키지(requests, pymupdf, truststore, beautifulsoup4, lxml, openpyxl, wiley-tdm, playwright) 설치. 권한 문제면 `--user` 로 다시 한다. macOS/Linux 에서 시스템 Python 에 pip 이 없거나(Ubuntu 24.04 기본 상태) 설치를 막으면 `~/.sci-retr/venv` 가상환경에 설치한다.
 4. 환경 점검(`doctor`) 실행. Claude in Chrome 확장이 없으면 Chrome 웹스토어 페이지를 연다.
 
-출력 끝의 `▼・ᴥ・▼  sci-retr 설치 완료` 와 점검 결과를 읽고, `[문제]` 로 나온 것과 새로 설치한 프로그램을 사용자에게 알린다. 프로그램을 설치하지 않고 확인만 하려면 `-NoAutoInstall`(install.sh 는 `--no-auto-install`). 가상환경에 설치했으면 이후 모든 명령을 `~/.sci-retr/venv/bin/python` 으로 실행한다. `ModuleNotFoundError` 가 나면 다른 인터프리터(`py -3.12`, `python3.12` 등)로 같은 명령을 다시 시도한다.
+출력 끝의 `▼・ᴥ・▼  sci-retr 설치 완료` 와 점검 결과를 읽고, `[문제]` 로 나온 것과 새로 설치한 프로그램을 사용자에게 알린다. 프로그램을 설치하지 않고 확인만 하려면 `-NoAutoInstall`(install.sh 는 `--no-auto-install`). 이후 명령은 설치 스크립트가 `sci-retr/python.txt` 에 적어 둔 Python 으로 실행한다(가상환경에 설치했으면 `~/.sci-retr/venv/bin/python`). `ModuleNotFoundError` 가 나면 다른 인터프리터(`py -3.12`, `python3.12` 등)로 같은 명령을 다시 시도한다.
 
 ### Step 3 — "Claude in Chrome" 확장
 확장은 자동으로 설치할 수 없다. 설치 스크립트가 확장이 없으면 웹스토어 페이지를 열어 준다. 사용자에게 'Chrome에 추가' 를 누르고 Claude 계정으로 로그인해 달라고 한다. 주소: https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn . Claude 데스크탑 앱(Code 탭 포함)은 좌하단 이니셜 클릭 → "설정" → 좌측 탭 "Claude in Chrome 설정" → "Claude in Chrome 사용설정" 켜기(설정 첫 화면에는 안 보인다). 터미널의 Claude Code CLI 는 `claude --chrome` 으로 시작한다. 세션에서 `list_connected_browsers` 가 이 컴퓨터의 브라우저를 돌려주면 성공. 같은 계정으로 확장을 켠 다른 컴퓨터도 목록에 나오므로 이 컴퓨터 것(`onThisComputer`)만 쓴다.

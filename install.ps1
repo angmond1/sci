@@ -147,6 +147,14 @@ if ($LASTEXITCODE -ne 0) {
     if ($LASTEXITCODE -ne 0) { throw "pip 설치 실패. 인터넷 연결을 확인하고 다시 실행하세요." }
 }
 
+# 이 skill 이 쓸 Python 을 기록한다 (Python 이 여러 개인 PC 에서 에이전트가 패키지 없는 python 을 부르지 않게)
+$pyExe = cmd /c "$py -c ""import sys; print(sys.executable)"" 2>nul"
+$pyExe = "$pyExe".Trim()
+if ($pyExe) {
+    [IO.File]::WriteAllText((Join-Path $Dest "sci-retr\python.txt"), $pyExe, (New-Object Text.UTF8Encoding($false)))
+    Write-Host "[확인] 이 skill 이 쓸 Python: $pyExe (sci-retr\python.txt 에 기록)"
+}
+
 # 4) 점검
 Write-Host "=== 4. 환경 점검"
 $checkRoot = Join-Path $env:TEMP "sci-retr-check"

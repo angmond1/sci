@@ -24,7 +24,7 @@ description: 수집한 논문 폴더(papers/{paper_id}/)에서 검색용 색인 
 
 ## 3. 명령
 
-스크립트는 `sci-retr` skill 폴더의 `scripts/sci_index.py` 다(`sci_collect.py` 와 같은 폴더). 파이썬 인터프리터는 sci-retr 지침 3절과 같은 것을 쓴다.
+스크립트는 `sci-retr` skill 폴더의 `scripts/sci_index.py` 다(`sci_collect.py` 와 같은 폴더). 파이썬 인터프리터는 sci-retr skill 폴더의 `python.txt` 에 적힌 것을 쓴다(설치 스크립트가 기록, sci-retr 지침 5절 첫머리).
 
 ```bash
 python <sci-retr>/scripts/sci_index.py build --kb-root <논문 폴더 root>

@@ -120,6 +120,11 @@ if ! "$PY" -m pip install --quiet --disable-pip-version-check $PACKAGES 2>"$PIP_
   fi
 fi
 
+# 이 skill 이 쓸 Python 을 기록한다 (Python 이 여러 개인 PC 에서 에이전트가 패키지 없는 python 을 부르지 않게)
+PY_EXE="$("$PY" -c 'import sys; print(sys.executable)')"
+printf '%s\n' "$PY_EXE" > "$DEST/sci-retr/python.txt"
+echo "[확인] 이 skill 이 쓸 Python: $PY_EXE (sci-retr/python.txt 에 기록)"
+
 echo "=== 4. 환경 점검"
 CHECK_ROOT="${TMPDIR:-/tmp}/sci-retr-check"
 DOCTOR_OUT="$("$PY" "$DEST/sci-retr/scripts/sci_collect.py" doctor --kb-root "$CHECK_ROOT" 2>&1 || true)"

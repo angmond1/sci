@@ -25,7 +25,7 @@ description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결
 2. **막히는 곳에는 자동 요청을 보내지 않는다.** ACS·RSC·Science·ECS/IOP, 토큰 없는 Wiley, OA 가 아닌 Elsevier 구독 논문은 자동 단계에서 요청하지 않고 바로 웹 경로로 넘긴다. 그 밖의 출판사도 확인 페이지나 403 이 한 번 나오면 나머지 논문은 요청 없이 웹 경로로 넘긴다(도구가 자동으로 처리).
 3. **Elsevier API 는 OA 논문에만 쓴다.** OA 가 아닌 구독 논문에는 API 를 호출하지 않는다. 기관 토큰이 없어 첫 페이지만 오기 때문이다.
 4. **자격증명은 `.env` 로만.** 스크립트나 지침에 값을 적지 않고, 채팅에 값을 출력하지 않는다.
-5. **사용자에게 묻는 것은 여섯 가지뿐.** 저장 폴더 확인(5.0), 수집 범위 확인, review 인용 follow-up 여부, 웹 경로로 받을 파일 목록 확인(묶음당 한 번), 확인 창 클릭 요청, 색인 여부(30편 이상일 때, 5.7). 옵션 이름이나 내부 상태값은 말하지 않고 자연어로 설명한다.
+5. **사용자에게 묻는 것은 이것뿐.** 저장 폴더(5.0), 주제 확인(30편을 넘을 때, 5.2), review 인용 follow-up(5.8), 웹 경로로 받을 파일 목록(묶음당 한 번), 확인 창 클릭, 색인 여부(30편 이상일 때, 5.7). 처음 한 번의 키·토큰 안내(3.2.1)와 이 컴퓨터의 Chrome 이 둘 이상일 때의 선택(3.0)도 여기에 든다. 옵션 이름이나 내부 상태값은 말하지 않고 자연어로 설명한다.
 6. **미구독 출판사는 초록만 저장**하고 그 사실을 사용자에게 알린다.
 7. **양과 간격.** 자동 경로는 설정 간격(3.3)을 지킨다. 웹 경로는 같은 출판사 안에서 한 편씩 받고, 한 편이 끝나면 기다리지 않고 바로 다음 논문으로 간다(2026-09-25 사용자 지시로 30초 간격 폐지). 한 편에 보통 30초~1분이 걸린다. 출판사당 한 번에 수십 편 이내로 나눈다. 수백 편 이상이 필요하면 도서관을 통해 출판사의 텍스트 마이닝 이용을 정식으로 요청하도록 안내한다. 차단 문구가 보이면 그 사이트는 즉시 멈추고 30분 뒤 다시 한다.
 8. **몇 편을 수집·읽을지 강제하지 않는다.** 사용자의 목록이 기준이고, follow-up 은 제안만 한다.
@@ -58,7 +58,7 @@ python scripts/sci_collect.py doctor --kb-root <root>
   - `chrome://settings/downloads` 의 "다운로드 전에 각 파일의 저장 위치 확인" 을 끈다. 켜져 있으면 파일마다 저장 창이 떠서 웹 경로가 멈춘다.
   - 다운로드 폴더는 바꾸지 않아도 된다. `intake` 가 Chrome 설정과 Windows 의 다운로드 폴더 위치(OneDrive 로 옮긴 경우 포함)를 읽어 찾는다. 다른 곳이면 `--downloads` 나 설정 `downloads_dir`.
   - 영어 Chrome 에서는 PDF 를 열 때 뜨는 "열기" 버튼이 "Open" 이다. 위치는 같다.
-- 시작 전에 3.0 의 `doctor` 로 확인한다. `ModuleNotFoundError` 가 나면 다른 인터프리터(`py -3.12`, `python3.12` 등)로 같은 명령을 다시 시도해 되는 것을 쓴다. macOS·Linux 에서 설치 스크립트가 가상환경을 만들었으면 `~/.sci-retr/venv/bin/python` 이다. 패키지만 빠르게 볼 때는 다음 한 줄.
+- 명령의 `python` 은 이 skill 폴더의 `python.txt` 에 적힌 인터프리터다. 설치 스크립트가 패키지를 넣은 Python 을 기록해 둔다. 시작 전에 3.0 의 `doctor` 로 확인한다. `python.txt` 가 없는데 `ModuleNotFoundError` 가 나면 다른 인터프리터(`py -3.12`, `python3.12` 등)로 같은 명령을 다시 시도해 되는 것을 쓴다. macOS·Linux 에서 설치 스크립트가 가상환경을 만들었으면 `~/.sci-retr/venv/bin/python` 이다. 패키지만 빠르게 볼 때는 다음 한 줄.
 
 ```bash
 python -c "import requests, pymupdf, bs4, lxml, truststore, openpyxl; print('ok')"
@@ -109,7 +109,7 @@ python -c "import requests, pymupdf, bs4, lxml, truststore, openpyxl; print('ok'
 
 ## 5. 절차
 
-모든 명령은 `python <이 skill 폴더>/scripts/sci_collect.py <명령> --kb-root <root> …` 형태다. 아래에서는 `scripts/sci_collect.py` 로 줄여 쓴다.
+모든 명령은 `python <이 skill 폴더>/scripts/sci_collect.py <명령> --kb-root <root> …` 형태다. 아래에서는 `scripts/sci_collect.py` 로 줄여 쓴다. `python` 자리에는 이 skill 폴더의 `python.txt` 에 적힌 경로를 쓴다(설치 스크립트가 패키지를 넣은 Python). Python 이 여러 개인 PC 에서 패키지가 없는 `python` 을 부르는 일을 막는다.
 
 ### 5.0 저장 폴더 확인 (수집 전에 항상)
 
@@ -120,6 +120,7 @@ python -c "import requests, pymupdf, bs4, lxml, truststore, openpyxl; print('ok'
   - 패키지 폴더와 skill 폴더 안은 쓰지 않는다.
 - 사용자가 요청에서 폴더를 이미 말했으면 그 경로를 한 줄로 확인만 한다.
 - 고른 폴더에 `collection_registry.csv` 가 이미 있으면 이어서 받는다고 알린다. 이미 받은 논문은 다시 받지 않는다.
+- 그 폴더에서 처음 수집하는 경우(`collection_registry.csv` 가 없음) `doctor --kb-root <폴더>` 를 한 번 돌려 문제 0 을 확인한다. 문제가 있으면 안내대로 고친 뒤 진행한다.
 - 메시지 예시:
 
 ```
@@ -136,13 +137,16 @@ python scripts/sci_collect.py resolve --kb-root <root> --input <DOI 파일 또�
 
 - Crossref 와 OpenAlex 에서 제목·저자·연도·저널·권호·초록·OA 여부·출판사를 받아 `collection_registry.csv` 에 기록한다. 가입이나 인증은 필요 없다.
 - `paper_id` 를 `연도_저널약어_교신저자` 로 만든다(예시: `2021_ACS-Catal_Cheng`). 충돌하면 `_2`, `_3`. 한 번 부여한 id 는 다시 실행해도 바뀌지 않는다.
-- 출력 한 줄이 논문 한 편이다: `paper_id 출판사 oa=1/0 abs=Y/- 제목`. 출판사별 편수와 OA 수를 세어, 5.4 전에 사용자에게 자동으로 받을 편수와 웹 경로로 받을 편수를 알린다(6절 표 기준).
+- 출력 한 줄이 논문 한 편이다: `paper_id 출판사 oa=1/0 abs=Y/- 제목`. 출판사별 편수와 OA 수를 세어 5.2 의 안내에 쓴다.
 
-### 5.2 규모 판단과 범위 확인 (Claude)
+### 5.2 편수 안내와 범위 확인 (Claude)
 
-- 30편 이하면 바로 5.4 로 간다.
-- 30편을 넘거나 입력이 WoS·Scopus export 면 레지스트리의 제목·초록 몇 개로 주제를 추정하고 사용자에게 한 줄로 확인한다. 사용자가 이미 주제를 말했으면 묻지 않는다.
-- 같은 메시지에 review follow-up 질문(5.8)을 묶어 한 번만 묻는다.
+resolve 가 끝나면 한 메시지로 알린다.
+
+- 자동으로 받을 편수, 웹 경로(평소 쓰는 Chrome)로 받을 편수, 초록만 저장할 편수(미구독 출판사 이름)를 출판사별로 알린다(6절 표 기준).
+- 30편을 넘으면 레지스트리의 제목·초록 몇 개로 주제를 추정해 한 줄로 확인한다. 관련 논문만 받도록 5.3 사전 분류를 한다. 사용자가 이미 주제를 말했으면 묻지 않는다. 30편 이하면 입력 형식(WoS·Scopus export 포함)과 관계없이 주제를 묻지 않고 목록 그대로 받는다.
+- review 논문이 있으면(5.8) 편수와 관계없이 같은 메시지에 인용 논문 follow-up 질문을 묶는다.
+- 물을 것이 없으면(30편 이하, review 없음) 답을 기다리지 않고 5.4 로 간다. 물을 것이 있으면 답을 받은 뒤 간다.
 
 ### 5.3 사전 분류 (sonnet 하위 에이전트, 큰 목록일 때만)
 
@@ -248,7 +252,7 @@ python scripts/sci_collect.py reextract --kb-root <root>
 
 ### 5.8 review 인용 follow-up (선택, Claude)
 
-- resolve 결과에서 제목·초록으로 review·perspective·roadmap 류를 알아본다. 있으면 5.2 의 확인 메시지에 "review 논문 N편의 인용 논문도 이어서 받을까요?" 를 묶어 한 번만 묻는다.
+- resolve 결과에서 제목·초록으로 review·perspective·roadmap 류를 알아본다. 있으면 5.2 의 안내 메시지에 "review 논문 N편의 인용 논문도 이어서 받을까요?" 를 묶어 한 번만 묻는다.
 - 동의하면 수집이 끝난 뒤 해당 review 의 `source.md` 참고문헌에서 DOI 를 뽑고(정규식 `10\.\d{4,9}/\S+`), 레지스트리에 없는 것만 골라 편수를 알린 뒤 5.1 부터 다시 돈다. 어떤 인용을 고를지는 사용자의 주제에 맞춰 Claude 가 판단하되, 수를 채우려고 고르지 않는다.
 
 ### 5.9 보고
