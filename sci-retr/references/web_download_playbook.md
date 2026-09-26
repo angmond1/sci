@@ -50,6 +50,10 @@
 - 좌표는 누르기 직전에 읽는다. 늦게 뜨는 요소 때문에 배치가 수십 px 밀린다(ACS SI 미리보기 창, Wiley SI 펼침, Elsevier 추천 창 닫기, IOP).
 - 버튼 위치는 외워 두지 않는다. 누를 때마다 스크립트로 그 페이지에서 요소의 위치를 읽고, 스크린샷으로 확인한다. 그래서 모니터 해상도, 창 크기, 브라우저 확대 비율이 사용자마다 달라도 같은 방법으로 된다. 사이트가 개편되어 요소 이름이나 문구가 바뀔 때만 이 문서를 고친다. 창이 아주 좁으면 사이트가 모바일 배치로 바뀌어 버튼이 메뉴 안으로 숨을 수 있다.
 - 창이 작아도 된다. 1366×768 창(페이지 1355×586)에서 여섯 출판사 6편을 같은 절차로 받았다(2026-09-26). 여섯 사이트 모두 데스크톱 배치를 유지했고 버튼을 다시 찾은 일이 없었다. 작은 창에서 자리가 화면 기준인 버튼도 그대로였다. Wiley "열기"는 가운데 +45 px, Science 온라인 보기의 다운로드 아이콘은 오른쪽 끝에서 40 px 안쪽·위에서 30 px.
+- 사이트의 첫 논문에서 스크립트가 'Inspected target navigated or closed' 로 끝나면 첫 방문에서 페이지가 한 번 다시 뜬 것이다(2026-09-27 Science·T&F·PNAS 첫 편, 둘째 편부터 없음). 기다리지 말고 같은 스크립트를 한 번 더 돌린다.
+- 누르기 직전 확인은 스크린샷·확대 캡처 대신 `sciretrFocus` 결과의 `hit`(elementFromPoint)로 한다. 확인과 클릭을 한 호출에 넣을 수 있고 30초 시간 초과를 피한다(2026-09-27 PNAS 13~37초). 스크린샷은 페이지를 연 직후에만 찍는다. 스크롤한 뒤나 무거운 페이지(T&F figshare 틀, PNAS 끝부분)의 스크린샷은 다섯 번 시간 초과가 났다.
+- 스크린샷이 시간 초과로 끝나면 보이는 영역이 축소 크기로 남기도 한다(2026-09-27 T&F innerWidth 1289→275, 모바일 배치). 스크립트의 `w` 가 갑자기 줄었으면 그 좌표로 누르지 말고 같은 주소로 다시 이동한다.
+- 틀·안내 창이 링크를 가려 누르기 어려우면 `sciretrGo(N)` 으로 그 링크 주소로 탭을 옮긴다(누른 것과 같다). 첨부 파일 주소면 탭은 논문 페이지에 남고 몇 초 안에 저장된다.
 - javascript_tool 결과는 약 1,000자에서 잘린다. `web_find.js` 는 그 안에 맞춰 짧게 낸다. 다른 스크립트도 결과를 짧게 받는다(항목 몇 개, 글자 수십 자).
 - 수천 px 를 순간 스크롤한 직후의 스크린샷·확대 캡처는 하얗게 나올 수 있다. 1~2초 뒤 다시 찍고, 하얗게 나온 채로는 같은 호출에서 누르지 않는다.
 - 쿠키 동의 창이 배경막으로 페이지 전체 클릭을 막으면(Thieme 의 OneTrust) 쿠키 창을 누르지 말고, 스크립트로 읽은 PDF·SI 링크의 경로로 탭을 옮겨 받는다(3.14). 그래도 안 되면 사용자에게 그 페이지의 다운로드 버튼을 직접 눌러 달라고 한다.
@@ -66,7 +70,8 @@
 ### 2.3 다운로드 폴더
 
 - 같은 이름이 이미 있으면 Chrome 이 " (1)", " (2)" 를 붙인다. intake 는 내용으로 가리므로 그대로 둔다.
-- 확인은 최근 몇 분 안의 파일만 본다(`find ~/Downloads -maxdepth 1 -newermt '-3 minutes'`). 다운로드 폴더에는 사용자 파일이 많다.
+- 확인은 최근 몇 분 안의 파일만 본다(`find ~/Downloads -maxdepth 1 -newermt '-3 minutes'`). 다운로드 폴더에는 사용자 파일이 많다. 파일 이름은 나열하지 않는다(개인 파일 보호).
+- 다운로드 확인에 따로 `sleep` 을 두지 않는다. 확인 명령은 다음 논문 열기와 같은 차례에 보낸다(2026-09-27 따로 기다린 시간이 16편에 약 5분).
 - 큰 SI 는 `.crdownload` 가 사라질 때까지 기다린다. 30 MB 에 약 15초 걸렸다.
 - 정리는 묶음 끝에 intake 한 번이다. 먼저 `--dry-run` 으로 못 가린 파일을 본다. 한 시간 안에 받은 것만 보려면 `--hours 1`.
 
@@ -127,6 +132,8 @@
 
 ### 3.5 ECS/IOP
 
+- 2026-09-27 연습(4편): SI 는 "Supplementary data" 버튼을 누르는 대신 탭을 `https://iopscience.iop.org/article/{DOI}/data` 로 옮긴다. 버튼은 그래픽 초록이 늦게 떠서 좌표를 읽은 뒤 약 290 px 밀렸다. /data 페이지의 파일 링크(IOP S3 서명 주소, `web_find.js` 가 허용)는 좌표로 누른다. SI 3편이 모두 Word(`jes{코드}supp1.docx`·`.doc`)였다.
+
 - 주소 `https://iopscience.iop.org/article/{DOI}`. 확인 창은 없다. 쿠키 동의 창은 누르지 않는다.
 - 본문 먼저: "PDF" 버튼(`a[href$="/pdf"]`, 새 탭). 내려간 뒤에는 오른쪽 위 고정 "PDF". 새 탭이 잠깐 열렸다 닫히며 3~4초 안에 저장된다.
 - SI 나중: 초록 아래 "Supplementary data" 버튼(`a[href$="/data"]`)을 누르면 SI 목록 페이지(`/article/{DOI}/data`)로 간다. 거기서 파일 링크("Supplemental Material" 등)를 누른다. PDF·Word 만 받고 README, zip, 스프레드시트는 받지 않는다.
@@ -137,6 +144,8 @@
 
 ### 3.6 Science
 
+- 2026-09-27 연습(4편): 온라인 보기가 "Loading publication (N MB)" 를 띄우는 동안 다운로드 아이콘("Download PDF • 크기", 오른쪽 위)은 반응하지 않는다. 누른 뒤 3초 안에 파일이 생기지 않으면 한 번 더 누른다. SI 를 받느라 내려간 뒤에는 상단 고정 막대의 빨간 아이콘을 SI 클릭과 같은 호출에서 누른다. SI 유무는 `a[href*=suppl_file]` 개수로 본다. Perspective 는 SI 가 없다.
+
 - 주소 `https://www.science.org/doi/10.1126/science.{코드}`. 대개 확인 창 없이 뜨지만, 첫 접속에서 Cloudflare 의 "Just a moment…/Performing security verification" 화면에 20초 넘게 멈추기도 한다(2026-09-27). 그 화면에서는 스크린샷이 시간 초과로 실패하고 체크박스는 없었다. 15초쯤 기다렸다 새로고침하면 열린다. 오른쪽 "RECOMMENDED" 추천 창이나 아래쪽 뉴스레터 안내가 뜨지만 버튼을 가리지 않았다. 가리면 X 를 누른다.
 - SI 먼저: "Supplementary Materials" 절의 "DOWNLOAD"(`a[href*="suppl_file"]`, 크기 표시). 새 탭 없이 저장된다. PDF 만 받고, 동영상 묶음(Movies)과 데이터 파일(Data S1 등, zip·Excel)은 받지 않는다. "MDAR Reproducibility Checklist" PDF 는 보고 양식이라 받지 않는다. 링크 주소에 토큰이 들어 있어 스크립트 결과로 파일 이름을 통째로 받으면 가려지므로, 확장자와 `mdar` 여부만 받는다.
 - 본문: 빨간 PDF 아이콘(제목 아래 오른쪽, 내리면 상단 고정 막대)을 누르면 5초 안에 온라인 보기(`/doi/epdf/`)가 열린다(아이콘 링크는 `/doi/reader/` 이고 열리면 `/doi/epdf/` 로 넘어간다. 찾을 때 둘 다 본다). 오른쪽 위 둥근 청록색 다운로드 아이콘("Download PDF • 크기")을 누르면 2~3초 안에 저장된다. 대안은 도구 막대 "View Options" 의 "DOWNLOAD PDF".
@@ -146,12 +155,16 @@
 
 ### 3.7 Taylor & Francis (2026-09-26, 1편)
 
+- 2026-09-27 연습(4편): SI 파일은 `a[href*="/action/downloadSupplement"]`(글자 "Download MS Word (… KB)" 등)다. `/doi/suppl/` 는 파일이 아니라 "Supplemental" 탭이다. 페이지가 뜨고 몇 초 뒤 figshare 틀이 이 링크를 숨기고(크기 0) 그 페이지 스크린샷은 30초 시간 초과가 난다. 누르지 말고 `sciretrGo(N)` 으로 링크 주소로 탭을 옮긴다. 본문도 "Download PDF"(`/doi/pdf/`) 를 `sciretrGo` 로 옮기면 된다. 탭은 논문 페이지에 남고 2~4초 안에 저장된다(2편 12·20초).
+
 - 주소 `https://www.tandfonline.com/doi/full/{DOI}`. KIST 망에서 확인 창 없이 뜬다.
 - 본문: 페이지 맨 아래 참고문헌 뒤의 작은 "Download PDF"(`a[href*="/doi/pdf/"]`, 글자 "Download PDF"). 가운데로 스크롤해 좌표를 읽고 누르면 새 탭 없이 바로 저장된다(8 MB 에 몇 초). 상단 고정 막대의 초록 "View PDF" 는 온라인 보기(`/doi/epdf/`)라 쓰지 않는다.
 - SI: "Supplemental material" 절의 `a[href*="/doi/suppl/"]` 링크(이번 논문에는 없었음).
 - 파일 이름은 논문 제목이다. intake 는 본문 DOI·제목으로 가린다.
 
 ### 3.8 PNAS (2026-09-26, 1편)
+
+- 2026-09-27 연습(4편): 본문은 참고문헌 뒤 "DOWNLOAD PDF"(`/doi/pdf/`) 다. 같은 경로의 옆 패널 "PDF" 가 화면 밖에 먼저 있어 `web_find.js` 가 화면 밖 링크를 뺀다. 4편 모두 확인 화면 없이 논문 페이지에 머문 채 저장됐다. SI 첫 클릭이 반응하지 않은 적이 있다. 3초 안에 파일이 없으면 한 번 더 누른다. "DOWNLOAD PDF AND SUPPORTING INFORMATION"(묶음)은 누르지 않는다. SI 파일 이름은 `pnas.{코드}.sapp.pdf` 이고 intake 가 SI 로 가린다.
 
 - 주소 `https://www.pnas.org/doi/{DOI}`. 확인 창 없이 뜬다.
 - SI 먼저: "Supporting Information" 절의 "DOWNLOAD"(`a[href*="/doi/suppl/"]`, 파일 `pnas.{번호}.sapp.pdf`). 가운데로 스크롤해 누르면 바로 저장된다. 데이터 파일(xlsx 등)은 받지 않는다.

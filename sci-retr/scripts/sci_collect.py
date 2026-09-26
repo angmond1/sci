@@ -1980,8 +1980,10 @@ def cmd_mark(args) -> None:
 # SI 구분: 파일명 규칙(mmc·_suppl·_si_·-sup-·-sm 등) 또는 첫 쪽 맨 앞 80자 안의 'Supporting/Supplementary' 문구.
 #   (ACS 본문 PDF 는 첫 쪽 286자 뒤에 'Supporting Information' 안내가 있어 넓게 보면 SI 로 오판 — 2026-09-25 실측)
 # 최고 점수가 2 이상이고 한 논문에만 해당할 때만 옮긴다. 애매하거나 못 가린 파일은 그대로 두고 보고한다 (지우지 않는다).
-SI_NAME_RE = re.compile(r"(mmc\d+|_suppl|_si_\d+|-sup-\d+|suppmat|suppdata|supp\d|[-_]sm[\s._(-]|[-_]sm$|supporting|supplement|[-_]esm\b)", re.I)
-SI_TEXT_PHRASES = ("supportinginformation", "supplementarymaterial", "supplementaryinformation", "electronicsupplementary", "supplementarydata")
+# PNAS SI 는 파일 이름이 {코드}.sapp.pdf 이고 첫 쪽이 "The PDF file includes: Supplementary Notes…" 로 시작한다 (2026-09-27 연습에서 본문으로 잘못 판정됨)
+SI_NAME_RE = re.compile(r"(mmc\d+|_suppl|_si_\d+|-sup-\d+|suppmat|suppdata|supp\d|[-_]sm[\s._(-]|[-_]sm$|supporting|supplement|[-_]esm\b|\.sapp\b)", re.I)
+SI_TEXT_PHRASES = ("supportinginformation", "supplementarymaterial", "supplementaryinformation", "electronicsupplementary", "supplementarydata",
+                   "thepdffileincludes", "siappendix", "supplementarynote")
 INTAKE_EXTS = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".csv", ".zip", ".cif", ".txt", ".pptx", ".mp4", ".mov", ".avi"}
 
 
@@ -2071,7 +2073,9 @@ def match_download(ctx: Ctx, f: Path) -> dict:
     if len(tops) > 1:
         return {"status": "ambiguous", "reason": "여러 논문에 해당: " + ", ".join(x[1]["paper_id"] for x in tops[:3])}
     s, row, why = scored[0]
-    slot = "si" if (not is_pdf_file or SI_NAME_RE.search(f.name) or any(ph in p1_n[:80] for ph in SI_TEXT_PHRASES)) else "main"
+    # 첫 쪽이 SI 쪽 번호 "S1 " 로 시작하는 것도 SI (2026-09-27 PNAS SI "S1 Electrochemical Borylation…"). "S1P receptor" 같은 제목은 띄어쓰기가 없어 걸리지 않는다
+    slot = "si" if (not is_pdf_file or SI_NAME_RE.search(f.name) or any(ph in p1_n[:80] for ph in SI_TEXT_PHRASES)
+                    or re.match(r"\s*S1\s", p1 or "")) else "main"
     return {"status": "matched", "paper_id": row["paper_id"], "row": row, "slot": slot, "score": s, "reason": " + ".join(why)}
 
 
@@ -2148,16 +2152,23 @@ def cmd_intake(args) -> None:
     if skipped:
         say(f"  받지 않는 SI 형식(동영상, 결정 구조, 압축, 스프레드시트 등) {len(skipped)}개는 옮기지 않고 그대로 둠: " + ", ".join(p.name for p in skipped[:5]))
     moved_main, results = 0, []
-    for f in files:
-        m = match_download(ctx, f)
+    matches = [(f, match_download(ctx, f)) for f in files]
+    main_cands: dict[str, int] = {}
+    for f, m in matches:
+        if m["status"] == "matched" and m["slot"] == "main":
+            main_cands[m["paper_id"]] = main_cands.get(m["paper_id"], 0) + 1
+    for f, m in matches:
         action = "그대로 둠"
         if m["status"] == "matched":
             pid, row = m["paper_id"], m["row"]
             pdir = paper_dir(ctx, pid) / "pdf"
             if m["slot"] == "main":
                 dst = pdir / f"{pid}.pdf"
-                if dst.exists():
-                    action = "이미 본문 PDF 있음 — 그대로 둠"
+                if not dst.exists() and main_cands.get(pid, 0) > 1:
+                    # 한 논문에 본문 후보가 둘 이상 = 하나는 SI 를 본문으로 본 것 (받은 순서대로 옮기면 SI 가 본문 자리를 차지한다)
+                    action = f"본문 후보 {main_cands[pid]}개 — 옮기지 않음 (SI 쪽을 {pid}_SI.pdf 로 직접 옮긴 뒤 다시 intake)"
+                elif dst.exists():
+                    action = "이미 본문 PDF 있음 — 그대로 둠 (SI 가 본문으로 판정된 것일 수 있다: 첫 쪽 확인)"
                 else:
                     action = f"본문 PDF → {dst.name}"
                     if not args.dry_run:
@@ -2177,7 +2188,9 @@ def cmd_intake(args) -> None:
                     if not args.dry_run:
                         shutil.move(str(f), str(dst))
         results.append((f.name, m, action))
-        say(f"  {f.name[:60]:60s} | {m.get('paper_id', '-'):32s} | {m.get('slot', '-'):4s} | {m.get('reason', '')[:40]:40s} | {action}")
+        # 목록의 어떤 논문과도 근거가 없는 파일은 사용자 개인 파일일 수 있어 이름을 출력하지 않는다 (2026-09-27)
+        shown = f.name[:60] if m.get("reason") != "해당 논문 없음" else "(목록과 무관한 파일 — 이름 생략)"
+        say(f"  {shown:60s} | {m.get('paper_id', '-'):32s} | {m.get('slot', '-'):4s} | {m.get('reason', '')[:40]:40s} | {action}")
     if not args.dry_run:
         p = ctx.work / "intake_log.csv"
         new = not p.exists()

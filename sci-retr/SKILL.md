@@ -255,6 +255,8 @@ python scripts/sci_collect.py intake --kb-root <root>
 - 가리는 근거: 파일 이름의 논문 코드(Elsevier PII, DOI 끝부분), PDF 앞 두 쪽의 DOI, 첫 쪽의 제목, PDF 뒤쪽의 DOI. 근거가 충분하고 한 논문에만 해당할 때만 옮긴다. 참고문헌에 다른 논문 DOI 가 있어도 그것만으로는 옮기지 않는다. Science·IOP PDF 는 첫 쪽에 DOI 글자가 없어 파일 이름과 제목으로 가린다. Word(.docx) SI 는 본문 앞부분의 제목·DOI 로도 가린다. IOP 옛 논문 SI 는 파일 이름이 `1960.docx` 처럼 숫자뿐이다.
 - SI 구분: 파일 이름 규칙(mmc, _suppl, _si_, -sup-, -sm 등) 또는 첫 쪽 맨 앞의 Supporting/Supplementary 문구. ACS 본문 PDF 는 첫 쪽 중간에 "Supporting Information" 안내가 있어 맨 앞만 본다.
 - 이미 본문 PDF 가 있거나 같은 SI 가 있으면 옮기지 않는다. 가리지 못한 파일도 그대로 둔다. 파일을 지우지 않는다.
+- 한 논문에 본문 후보가 둘 이상이면(SI 가 본문처럼 보인 것) 옮기지 않고 "본문 후보 N개" 로 알린다. 미리보기(`--dry-run`)에도 같게 나온다. SI 쪽을 `papers/{id}/pdf/{id}_SI.pdf` 로 직접 옮긴 뒤 다시 intake 한다(2026-09-27 PNAS `.sapp.pdf` 는 이제 SI 로 가린다).
+- 목록의 어떤 논문과도 근거가 없는 파일은 사용자 개인 파일일 수 있어 이름을 출력하지 않는다.
 - 다운로드 폴더는 설정 `downloads_dir`, Chrome 설정의 다운로드 폴더, Windows 의 다운로드 폴더, `~/Downloads` 순으로 찾고 어느 근거인지 출력한다. 기본은 최근 24시간 안에 받은 파일만 본다(`--hours`). 다른 폴더는 `--downloads`. `--dry-run` 이면 옮기지 않고 판정만 보여 준다.
 - 판정 기록: `_collect/intake_log.csv`.
 - 시험 (2026-09-25): 여섯 출판사 실제 다운로드 이름 그대로 11개 파일 → 모두 맞는 논문·자리로 이동, 목록에 없는 논문 PDF 1개는 그대로 둠, 같은 파일을 다시 넣으면 옮기지 않음.
