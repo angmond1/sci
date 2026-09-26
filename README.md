@@ -16,7 +16,7 @@ LLM이 다루기 쉬운 markdown 파일로 자동 변환 및 색인화
 
 | skill | 용도 | 기능 | 권장모델 |
 |-------|------|------|:--------:|
-| **sci-retr** | 수집, 전환 | 본문·SI PDF 다운로드, 본문 text를 md 파일로 변환 | Opus |
+| **sci-retr** | 수집, 변환 | 본문·SI PDF 다운로드, 본문 text를 md 파일로 변환 | Opus |
 | **sci-index** | 색인 | 서지 정보(제목 저널 저자 연도 키워드 초록 등)를 csv 파일로 정리 | Sonnet |
 
 <br>
