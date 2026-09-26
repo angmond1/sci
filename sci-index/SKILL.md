@@ -31,11 +31,16 @@ python <sci-retr>/scripts/sci_index.py build --kb-root <논문 폴더 root>
 ```
 
 ```bash
-python <sci-retr>/scripts/sci_index.py apply --kb-root <논문 폴더 root> --gists <검수 결과 csv>
+python <sci-retr>/scripts/sci_index.py prep --kb-root <논문 폴더 root> [--size 50]
 ```
 
-- `build`: `index.csv`, `index_check.csv`(결정적 검수), `README.md`(Claude 용 5줄 사용법)를 만든다. 이미 채워진 요약_ko 는 보존한다.
-- `apply`: Claude 가 만든 검수 결과(`paper_id, 요약_ko, check_flags`)를 index.csv 와 index_check.csv 에 병합한다.
+```bash
+python <sci-retr>/scripts/sci_index.py apply --kb-root <논문 폴더 root> --gists "<root>/_collect/index_gists_*.csv"
+```
+
+- `build`: `index.csv`, `index_check.csv`(결정적 검수), `README.md`(에이전트용 5줄 사용법)를 만든다. 이미 채워진 요약_ko 와 검수 flag 는 보존한다. 648편에 2.5초(2026-09-27 실측). 옛 수집기 폴더(PDF 이름이 다르거나 DOI 칸이 틀린 것, 폴더 바로 아래 PDF 만 있는 것)도 읽는다.
+- `prep`: 요약 패스용 묶음 파일을 만든다(5.3).
+- `apply`: 에이전트가 만든 검수 결과(`paper_id, 요약_ko, check_flags`)를 index.csv 와 index_check.csv 에 병합한다. 여러 파일·와일드카드를 받는다.
 
 ## 4. 열 정의
 
@@ -82,26 +87,38 @@ python <sci-retr>/scripts/sci_index.py apply --kb-root <논문 폴더 root> --gi
 
 ### 5.3 검수 + 요약 패스 (sonnet)
 
-- 대상: index.csv 에서 요약_ko 가 비어 있는 행 전부. 30~40편 단위로 나눠 sonnet 하위 에이전트 여러 개에 동시에 맡긴다. 2026-09-26 시험에서 10편에 약 7분, 14만 토큰이 들었다(에이전트가 본문 10편을 모두 읽고 단어수까지 다시 셌을 때). 본문은 flag 있는 행만 읽게 하면 훨씬 준다.
-- 에이전트가 읽는 것: index.csv 의 해당 행(제목·초록·원문상태·단어수). 초록이 없거나 잘림이 의심되면 `papers/{paper_id}/source.md` 앞부분. 그 밖의 행은 본문을 읽지 않는다. 단어수는 색인 값으로만 판단하고 본문을 다시 세지 않는다.
+요약_ko 가 빈 행을 스크립트가 묶음 파일로 나눈다. 하위 에이전트는 묶음 파일 하나만 읽고 결과 CSV 하나를 쓴다. index.csv 나 source.md 를 따로 읽지 않는다(초록이 없거나 짧은 행은 본문 앞부분을 스크립트가 묶음 파일에 넣어 둔다).
+
+```bash
+python <sci-retr>/scripts/sci_index.py prep --kb-root <root> [--size 50]
+```
+
+- 출력: `_collect/index_batch_<n>.md`(묶음마다 결과 파일 경로가 적혀 있다). 이미 있는 결과 파일(`index_gists_<n>.csv`)의 다음 번호부터 붙여 덮어쓰지 않는다. 다시 돌리면 아직 빈 행만 묶는다.
+- 묶음 하나를 sonnet 하위 에이전트 하나에 맡기고, 묶음이 여럿이면 동시에 돌린다.
+- 실측(2026-09-27, 옛 KB 648편 중): 35편 묶음은 9.2분·16.2만 토큰(한 편 약 4.6천), 70편 묶음은 15.3분·19.9만 토큰(한 편 약 2.8천). 예전 방식(에이전트가 index.csv 와 source.md 를 직접 읽음)은 10편에 7분·14만 토큰(한 편 1.4만)이었다. 묶음이 클수록 한 편당 토큰이 준다. 기본 50편은 묶음 파일(약 40KB)이 한 번에 읽히는 크기다.
+- 도구 호출이 늘수록 같은 내용이 다시 들어가 토큰이 는다. 프롬프트에 "읽기 한 번, 쓰기 한 번"을 적는다.
 - 판단: 제목과 초록이 같은 논문인가, 초록이 잘렸거나 보일러플레이트(저작권 문구·목차·다른 논문)인가, 원문상태와 본문 길이가 맞는가.
-- 출력: `_collect/index_gists_<n>.csv`, 열은 `paper_id, 요약_ko, check_flags`. 문제가 없으면 check_flags 는 빈칸.
+- 출력: 묶음 파일에 적힌 `_collect/index_gists_<n>.csv`, 열은 `paper_id, 요약_ko, check_flags`. 문제가 없으면 check_flags 는 빈칸.
 - 하위 에이전트 프롬프트 골격:
 
 ```
-index.csv 의 다음 행들을 검수하고 요약하라. 각 행에 대해
-1) 제목과 초록이 같은 논문인지, 초록이 잘렸거나 보일러플레이트(저작권·목차·다른 논문)인지 판단한다.
-2) 원문상태가 '전문'인데 본문 단어수가 비정상이면 표시한다.
-3) 요약_ko: 이 논문이 무엇을 했고 무엇을 찾았는지 한국어 한 문장(200자 이내, 마침표로 끝냄)으로 쓴다. 제목 번역이 아니다.
-본문(source.md)은 초록이 없거나 잘린 행만 앞부분(초록·서론)을 읽는다. 단어수는 색인 값으로만 판단하고 본문을 다시 세지 않는다.
-결과를 CSV(paper_id, 요약_ko, check_flags)로 <출력 경로>에 저장한다(파이썬 csv 모듈, UTF-8 BOM). check_flags 는 문제 없으면 빈칸, 여러 개면 `;` 로 잇는다(예: 초록 없음-본문으로 요약, 초록 잘림, 제목-초록 불일치, 단어수 비정상).
-마지막에 행 수와 flag 붙은 paper_id 만 짧게 보고한다.
-대상: <paper_id 목록>. 색인: <index.csv 경로>. 본문이 필요하면 <papers 경로>/{paper_id}/source.md 를 읽는다.
+논문 색인 검수·요약 묶음 하나를 처리한다. 도구 호출은 읽기 한 번(묶음 파일 전체), 쓰기 한 번(Bash 로 파이썬 csv 모듈)만 한다. 다른 파일은 읽지 않는다.
+입력: <묶음 파일 경로>. 출력: 묶음 파일 머리에 적힌 index_gists_<n>.csv.
+각 논문(## paper_id 블록)에 대해
+1) 요약_ko: 이 논문이 무엇을 했고 무엇을 찾았는지 한국어 한 문장(200자 이내, 마침표로 끝냄). 제목 번역이 아니다. 초록이 없으면 '본문 앞부분'을, 그것도 없으면 제목을 쓴다.
+2) check_flags: 제목-초록 불일치, 초록 잘림, 초록 보일러플레이트, 초록 없음-본문으로 요약, 단어수 비정상(전문인데 1500 미만). 없으면 빈칸, 여러 개면 `;`.
+CSV 는 encoding="utf-8-sig", newline="" 로 쓰고 묶음의 모든 논문을 쓴다. 끝나면 쓴 행 수만 한 줄로 보고한다.
 ```
 
 ### 5.4 apply
 
-gists 파일마다 `apply` 를 실행한다. index.csv 의 요약_ko 가 채워지고, check_flags 는 index_check.csv 에 `LLM:` 접두로 붙는다. build 를 다시 돌려도 요약_ko 는 남는다.
+결과 파일을 한꺼번에 병합한다. 여러 파일·와일드카드를 받는다. UTF-8(BOM 있든 없든)과 cp949 를 모두 읽고, index.csv 에 없는 paper_id 는 건너뛰며 알린다. 아직 빈 행 수도 알려 준다.
+
+```bash
+python <sci-retr>/scripts/sci_index.py apply --kb-root <root> --gists "<root>/_collect/index_gists_*.csv"
+```
+
+index.csv 의 요약_ko 가 채워지고, check_flags 는 index_check.csv 에 `LLM:` 접두로 붙는다. build 를 다시 돌려도 요약_ko 와 `LLM:` flag 는 남는다.
 
 ### 5.5 보고
 
@@ -125,9 +142,10 @@ gists 파일마다 `apply` 를 실행한다. index.csv 의 요약_ko 가 채워�
 <root>/
   index.csv                  색인 (정본)
   index_check.csv            검수 flag
-  README.md                  Claude 용 5줄 사용법 (build 가 생성)
+  README.md                  에이전트용 5줄 사용법 (build 가 생성)
   collection_registry.csv    sci-retr 레지스트리
   papers/{paper_id}/         source.md, source.json, pdf/, html/, xml/
+  _collect/index_batch_*.md  요약 패스 묶음 (prep 이 생성)
   _collect/index_gists_*.csv 검수 패스 출력
 ```
 
@@ -137,10 +155,11 @@ gists 파일마다 `apply` 를 실행한다. index.csv 의 요약_ko 가 채워�
 python <sci-retr>/scripts/sci_index.py build --kb-root D:/papers/my_topic
 ```
 
-출력 예시: `index.csv: 42행 — 전문 38, 초록만 3, 전문(PDF 없음, 재시도 대상) 1`, flag 5편, 요약_ko 0/42. sonnet 하위 에이전트 1개가 42편을 검수해 `_collect/index_gists_1.csv` 를 만들면 병합한다.
+출력 예시: `index.csv: 42행 — 전문 38, 초록만 3, 전문(PDF 없음, 재시도 대상) 1`, flag 5편, 요약_ko 0/42. `prep` 이 묶음 1개(42편)를 만들고, sonnet 하위 에이전트 1개가 `_collect/index_gists_1.csv` 를 쓰면 병합한다.
 
 ```bash
-python <sci-retr>/scripts/sci_index.py apply --kb-root D:/papers/my_topic --gists D:/papers/my_topic/_collect/index_gists_1.csv
+python <sci-retr>/scripts/sci_index.py prep --kb-root D:/papers/my_topic
+python <sci-retr>/scripts/sci_index.py apply --kb-root D:/papers/my_topic --gists "D:/papers/my_topic/_collect/index_gists_*.csv"
 ```
 
 ## 9. 하지 않는 것

@@ -141,6 +141,11 @@ def validate_collected_paper(
             head = _pdf_head_text(pdf_path, 2)
             others = sorted({m.group(1).rstrip(".,;)") for m in DOI_RE.finditer(head)}, key=str.lower)
             others = [d for d in others if d.lower() != expected_doi.lower()]
+            # 첫 쪽에 이 논문 제목이 있으면 같은 논문이다 (Nature Research Briefing 처럼 원 연구 논문 DOI 만 찍힌 경우, 2026-09-27)
+            fm = re.search(r'^title:\s*"(.+?)"\s*$', src_md, re.M)
+            norm = lambda s: re.sub(r"[^a-z0-9]+", "", s.lower())
+            if fm and len(norm(fm.group(1))) >= 20 and norm(fm.group(1))[:40] in norm(head):
+                others = []
             if others:
                 issues.append(f"doi_mismatch_suspected:expected={expected_doi},found={others[0]}")
 

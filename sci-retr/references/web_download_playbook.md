@@ -29,15 +29,16 @@
 - Chrome 설정 두 가지를 `sci_collect.py doctor` 로 확인한다. `chrome://settings/content/pdfDocuments` 가 "PDF 다운로드" 가 아니면 PDF 보기 화면이 뜨고, 그 화면의 다운로드 버튼은 저장 창을 띄운다. `chrome://settings/downloads` 의 "다운로드 전에 각 파일의 저장 위치 확인" 이 켜져 있으면 파일마다 저장 창이 뜬다.
 - 영어 Chrome 에서는 "열기" 버튼이 "Open" 이다. 위치는 같다.
 - 연결된 브라우저가 둘 이상이면 이 컴퓨터의 것을 고른다(`list_connected_browsers` 다음 `select_browser`).
+- 처음에 `visibilityState` 가 hidden 이어도 스크린샷·클릭이 되는 때가 있다(2026-09-27). 사용자에게 부탁하기 전에 작은 스크린샷으로 먼저 확인한다.
 - 확장이 새로 만드는 Chrome 창은 대개 뒤에(최소화 상태로) 열린다(2026-09-26 두 번 확인. 2026-09-27 에는 처음부터 앞에 열린 적도 있다). 탭을 만든 뒤 스크립트로 `document.visibilityState` 와 `outerWidth` 를 읽어, hidden 이거나 0 일 때만 사용자에게 그 창을 앞으로 가져와 달라고 한다. 탭 그룹이 사라져 다시 만들 때도 같다.
 - 새 탭 그룹 하나로 진행하고, 받는 탭은 화면 앞에 둔다. 한 창에서 앞에 나와 있지 않은 탭(이 문서에서 '뒤쪽 탭', `document.visibilityState` 가 hidden)은 Chrome 이 화면을 그리지 않아 스크린샷이 하얗거나 시간 초과가 난다. Chrome 창을 최소화하거나 다른 창에 완전히 덮여도 그렇게 될 수 있다. 그러면 사용자에게 그 탭을 앞으로 가져와 달라고 한다.
 - 받을 논문과 파일(본문, SI)을 출판사별로 한 번에 알리고 확인을 받는다.
 
 ### 2.2 한 편 처리 순서
 
-링크 찾기는 같은 폴더의 `web_find.js` 로 한다(세션에서 한 번 읽어 두고 페이지마다 javascript_tool 로 실행). 본문 PDF·SI 링크 후보를 번호와 좌표로 돌려주고, 클릭은 하지 않는다. 누르기 전에 `window.sciretrFocus(N)` 으로 화면 가운데로 스크롤해 화면 좌표를 받는다. 결과가 비거나 페이지가 아직 뜨는 중이면 몇 초 뒤 다시 돌리고, 그래도 비면 3절의 출판사별 선택자로 직접 찾는다. 2026-09-27 확인: RSC(SI `article-supplement`, 본문 `article-pdf`), ACS(`sifile1`, `Open PDF`), Wiley(접힌 "Supporting Information" 제목, `/doi/pdf/` Download PDF, 온라인 보기 `/doi/epdf/` 는 online 표시)에서 요령 문서와 같은 링크를 찾았다. 링크 후보를 매번 새 스크립트로 찾던 것을 이 스크립트 하나로 대신해 왕복과 판단을 줄인다.
+링크 찾기는 같은 폴더의 `web_find.js` 로 한다(세션에서 한 번 읽어 두고 페이지마다 javascript_tool 로 실행). 본문 PDF·SI 링크 후보를 번호와 좌표로 돌려주고, 클릭은 하지 않는다. 누르기 전에 `window.sciretrFocus(N)` 으로 화면 가운데로 스크롤해 화면 좌표를 받는다. 스크립트는 링크 후보가 나타날 때까지 1초 간격으로 스스로 확인하고 나타나는 즉시 돌려준다(최대 20초, `waited_ms` 가 실제 기다린 시간). 그래서 페이지를 연 뒤 고정 시간을 기다리지 않고 바로 이 스크립트를 돌린다(2026-09-27 사용자 지적: 고정 대기는 빨리 뜨면 낭비, 늦게 뜨면 부족). 20초 뒤에도 비면 `title` 로 확인 화면인지 보고, 아니면 3절의 출판사별 선택자로 직접 찾는다. 2026-09-27 확인: RSC(SI `article-supplement`, 본문 `article-pdf`), ACS(`sifile1`, `Open PDF`), Wiley(접힌 "Supporting Information" 제목, `/doi/pdf/` Download PDF, 온라인 보기 `/doi/epdf/` 는 online 표시)에서 요령 문서와 같은 링크를 찾았다. 링크 후보를 매번 새 스크립트로 찾던 것을 이 스크립트 하나로 대신해 왕복과 판단을 줄인다.
 
-1. **열고 찾기 (호출 1번)**: 논문 주소 열기, 출판사별 대기, 스크립트로 SI 링크를 찾아 화면 가운데로 즉시 스크롤(`scrollIntoView({block:'center', behavior:'instant'})`), 1초 대기, 좌표 다시 읽기, 0.4배 스크린샷.
+1. **열고 찾기 (호출 1번)**: 논문 주소 열기, `web_find.js`(준비될 때까지 스스로 기다림), 스크립트로 SI 링크를 찾아 화면 가운데로 즉시 스크롤(`scrollIntoView({block:'center', behavior:'instant'})`), 1초 대기, 좌표 다시 읽기, 0.4배 스크린샷.
 2. **누르기 (호출 1~3번)**: SI 먼저, 본문 나중. 자리가 일정한 버튼은 앞 호출에서 읽은 좌표로 같은 호출 안에서 이어서 누른다. 2차 시험에서 자리가 일정했던 버튼은 다음과 같다.
    - 상단 고정 막대: Elsevier "View PDF", RSC 툴바 "PDF", Science 빨간 PDF 아이콘.
    - 화면 가운데로 스크롤한 요소: Wiley SI 항목(h2), Wiley "Download PDF", ACS "Open PDF".
@@ -49,6 +50,8 @@
 - 좌표는 누르기 직전에 읽는다. 늦게 뜨는 요소 때문에 배치가 수십 px 밀린다(ACS SI 미리보기 창, Wiley SI 펼침, Elsevier 추천 창 닫기, IOP).
 - 버튼 위치는 외워 두지 않는다. 누를 때마다 스크립트로 그 페이지에서 요소의 위치를 읽고, 스크린샷으로 확인한다. 그래서 모니터 해상도, 창 크기, 브라우저 확대 비율이 사용자마다 달라도 같은 방법으로 된다. 사이트가 개편되어 요소 이름이나 문구가 바뀔 때만 이 문서를 고친다. 창이 아주 좁으면 사이트가 모바일 배치로 바뀌어 버튼이 메뉴 안으로 숨을 수 있다.
 - 창이 작아도 된다. 1366×768 창(페이지 1355×586)에서 여섯 출판사 6편을 같은 절차로 받았다(2026-09-26). 여섯 사이트 모두 데스크톱 배치를 유지했고 버튼을 다시 찾은 일이 없었다. 작은 창에서 자리가 화면 기준인 버튼도 그대로였다. Wiley "열기"는 가운데 +45 px, Science 온라인 보기의 다운로드 아이콘은 오른쪽 끝에서 40 px 안쪽·위에서 30 px.
+- javascript_tool 결과는 약 1,000자에서 잘린다. `web_find.js` 는 그 안에 맞춰 짧게 낸다. 다른 스크립트도 결과를 짧게 받는다(항목 몇 개, 글자 수십 자).
+- 수천 px 를 순간 스크롤한 직후의 스크린샷·확대 캡처는 하얗게 나올 수 있다. 1~2초 뒤 다시 찍고, 하얗게 나온 채로는 같은 호출에서 누르지 않는다.
 - 쿠키 동의 창이 배경막으로 페이지 전체 클릭을 막으면(Thieme 의 OneTrust) 쿠키 창을 누르지 말고, 스크립트로 읽은 PDF·SI 링크의 경로로 탭을 옮겨 받는다(3.14). 그래도 안 되면 사용자에게 그 페이지의 다운로드 버튼을 직접 눌러 달라고 한다.
 - 사이트별 확대(Chrome 의 사이트 설정)가 100% 가 아니면 스크린샷 좌표계가 달라진다(2026-09-27 Elsevier 125%: 페이지 폭 882). 아래의 `innerWidth` 비율 규칙으로 처리한다. 사용자 PC 마다 다를 수 있다.
 - 확장의 둥근 배지(별 모양)가 페이지 왼쪽 아래에 떠서 버튼을 가릴 수 있다. Elsevier "View PDF" 의 왼쪽 절반을 가렸다(2026-09-26). 버튼의 오른쪽 부분을 누른다.
@@ -72,6 +75,10 @@
 ### 3.1 Elsevier (ScienceDirect)
 
 - 주소 `https://www.sciencedirect.com/science/article/pii/{PII}`. KIST 망에서 확인 창 없이 3초 안에 뜬다.
+- SI 파일은 다른 도메인(`ars.els-cdn.com/content/image/1-s2.0-{PII}-mmc{n}.{확장자}`)에 있다. `web_find.js` 가 이 도메인을 허용하고, 추천·인용 논문의 View PDF(다른 PII)는 뺀다(2026-09-27).
+- 사이트 확대가 125% 인 PC 에서는 뜬 직후 좌표가 확대 전 값으로 나온다. 누르기 직전에 `sciretrFocus` 로 좌표를 다시 읽고 (스크린샷 폭 ÷ innerWidth) 를 곱한다. View PDF 뒤 확인 단계 탭(pdfft)이 앞으로 나와 논문 탭 스크린샷이 하얗게 나오는 것은 정상이다.
+- 새 배치(2026년 논문)는 상단 고정 막대의 View PDF 가 왼쪽이고 바로 오른쪽 약 160 px 에 "Download full issue" 가 붙어 있다. 누르지 않는다.
+- News & Views·Preview 같은 짧은 기사는 SI 가 없고 두 쪽이라 intake 가 본문 길이 경고를 낸다. 정상이다.
 - SI: 부록 "Appendix A. Supplementary material/data" 의 "Download: Download …(크기)" 링크. 선택자는 `a[href*="mmc"]` 가운데 글자가 "Download" 로 시작하는 것이다. 오른쪽 목록의 "Multimedia component 1" 도 같은 파일을 가리켜 먼저 잡힐 수 있다. 리뷰 논문은 SI 가 없기도 하다.
 - SI 가 여럿일 수 있다(Word 와 동영상 등). 받을 SI 를 모두 먼저 받고 View PDF 는 마지막에 누른다.
 - 동영상(mp4) SI 는 받지 않는다(2026-09-25 사용자 지시). 누르면 새 탭에서 재생만 되고, 저장하려면 재생기 ⋮ 메뉴를 거쳐 70초쯤 더 든다. 부록의 "Download all supplementary files" 는 동영상까지 묶어 받을 수 있어 쓰지 않는다.
@@ -86,15 +93,20 @@
 ### 3.2 Wiley (TDM 토큰이 없을 때)
 
 - 주소 `https://onlinelibrary.wiley.com/doi/{DOI}`. Chemistry Europe 저널은 `chemistry-europe.onlinelibrary.wiley.com`, Advanced 계열은 `advanced.onlinelibrary.wiley.com` 에서 열린다.
-- 페이지가 늦게 뜰 때가 있다. 8초 기다린 뒤 스크린샷으로 본다. 대개 8초 안에 뜨지만, 1차 시험에 1분 넘게, 2차 시험에 약 45초 늦게 뜬 편이 하나씩 있었다. 머리 부분만 보이면 10초씩 기다리며 스크린샷으로 확인한다. Cloudflare "Verification successful. Waiting…" 에서 멈추면 새로고침한다.
+- 페이지가 늦게 뜰 때가 있다(대개 8초 안, 1차 시험에 1분 넘게, 2차 시험에 약 45초 늦게 뜬 편이 하나씩). 고정 시간을 기다리지 않고 `web_find.js` 를 돌린다. 링크가 나타나는 즉시 돌아오고, 20초 뒤에도 비면 한 번 더 돌린다. Cloudflare "Verification successful. Waiting…" 에서 멈추면 새로고침한다.
 - 아래쪽 "AI Companion" 안내는 무시한다. 다만 이 안내 창이 펼친 SI 링크 자리를 덮을 수 있다. 그러면 SI 링크를 화면 가운데로 다시 스크롤한 뒤 누른다. SI 링크가 두 줄이면 사각형 가운데가 글자 밖일 수 있으니 첫 줄 글자 위를 누른다.
+- SI 제목은 주소가 없는 `a.accordion__control` 이다. `web_find.js` 가 경로 없는 s 항목으로 내고, 펼치기 전 파일 링크는 "접힘" 으로 낸다. 제목을 눌러 펼친 뒤 스크립트를 다시 돌린다(2026-09-27).
+- 저자 사진이 있는 기사(Concept·Review)는 사진이 늦게 떠서 끝부분 Download PDF 가 수백 px 밀린다. 가운데로 스크롤 → 1.5초 → `sciretrFocus` 로 한 번 더 스크롤한 뒤 좌표를 읽는다.
+- SI 파일 이름은 `-sup-0001-SuppMat.pdf` 와 `-supp-0001-SuppMat.docx` 두 가지가 있다.
 - SI: 본문 끝 접힌 "Supporting Information"(h2)을 화면 가운데로 스크롤한 뒤 그 자리를 눌러 펼친다. 펼친 뒤 `a[href*="downloadSupplement"]`(`…-sup-0001-SuppMat.pdf`, `.docx`, `misc_information.pdf` 등)의 좌표를 읽고 누른다. 새 탭 없이 저장된다. 파일 이름이 .pdf·.doc·.docx 로 끝나는 것만 누른다. 리뷰는 SI 가 없기도 하다.
 - 본문: 맨 끝 오른쪽의 작은 "Download PDF"(`/doi/pdf/`). 위쪽 "PDF" 는 온라인 보기라 쓰지 않는다. 가운데로 스크롤해 좌표를 읽고 누른다. 탭이 `/doi/pdf/` 로 넘어가고, 5~8초 뒤 어두운 화면에 파일 이름과 "열기" 버튼이 뜬다.
-- "Download PDF" 를 누르고 7초 기다린 뒤, 확대 캡처로 "열기"를 확인하고 같은 호출에서 누른다. "열기"는 화면 가운데보다 40~50 px 아래에 있다. 누르면 2~3초 안에 저장된다.
+- "Download PDF" 를 누른 뒤 고정 7초를 기다리지 않는다. 3초 뒤부터 1초 간격으로 작은 스크린샷(0.3배)을 찍어 "열기"가 보이는 즉시 누른다(대개 5~8초). "열기" 화면은 Chrome 자체 화면이라 스크립트로는 볼 수 없다. "열기"는 화면 가운데보다 40~50 px 아래에 있다. 누르면 2~3초 안에 저장된다.
 - 파일: `{저널} - {연도} - {제1저자} - {제목 앞부분}.pdf`, `{코드}-sup-0001-suppmat.pdf`.
 - TDM 토큰이 있으면 웹 대신 자동 경로로 받는다.
 
 ### 3.3 ACS
+
+- 주소가 Silverchair 형 `pubs.acs.org/{저널코드}/article/…` 로 넘어간다(2026-09-27). 본문 속 'Figure S1'·'Table S1' 링크가 모두 SI 주소라 `web_find.js` 가 뺀다. SI 는 글자나 aria-label 에 'sifile' 이 든 링크다. 가운데로 스크롤하면 sifile1 과 Open PDF 가 같은 줄(y 가 같음)에 온다.
 
 - 주소 `https://pubs.acs.org/doi/{DOI}` 는 Silverchair 주소로 넘어간다. 4초 안에 뜬다. Cloudflare 확인 창은 2026-09-24 에 한 번 떴고, 09-25 6편에서는 없었다.
 - SI: 본문 속 "Figure S1", "Table S1" 링크도 SI 주소에 걸리므로 무시한다. 실제 파일은 aria-label "Download sifile1"(글자 "sifile1") 링크로, SI 미리보기 창 바로 아래에 있다. 미리보기 창이 늦게 커져 링크가 화면 밖으로 밀린다. 링크를 가운데로 스크롤하고 3초 뒤 한 번 더 스크롤한 다음 좌표를 읽는다. 미리보기 창의 Download 버튼은 쓰지 않는다.
@@ -103,6 +115,8 @@
 - 파일: `{코드}.pdf`, `{코드}_si_001.pdf`.
 
 ### 3.4 RSC
+
+- SI 링크 칸이 본문 폭 전체라 칸 가운데는 글자 오른쪽 빈칸이다. `web_find.js`·`sciretrFocus` 는 글자 쪽(왼쪽 40px) 좌표를 준다. 툴바 PDF 는 네 편 모두 같은 자리였다(2026-09-27).
 
 - 주소는 `https://doi.org/{DOI}` 로 열면 `https://pubs.rsc.org/{저널}/article/{권}/{호}/{쪽}/{id}` 로 넘어간다. 조용한 SSO 확인 뒤 4초 안에 뜬다. 확인 창은 없다.
 - SI: "Supplementary data" 절의 "Supplementary information (PDF)"(`a[href*="/article-supplement/"]`). 새 탭 없이 저장된다. 링크가 페이지 끝 가까이에 있으면 가운데까지 스크롤되지 않으니, 가운데라고 가정하지 말고 좌표를 읽는다.

@@ -116,7 +116,7 @@ WEB_NOTE = {   # 웹 경로(평소 쓰는 Chrome) 목록 안내 — 2026-09-25 �
     "chemrxiv": "ChemRxiv 는 자동 요청을 막아 평소 쓰시는 Chrome 에서 받아야 합니다.",
 }
 SI_LINK_RE = re.compile(
-    r'href=["\']([^"\']*(?:/suppl_file/|/suppl/|supplementary|supporting[-_ ]?information|mmc\d+|MOESM\d+_ESM|/suppdata/|downloadSupplement|/esm/|/article-supplement/|ESM\.pdf)[^"\']*)["\']',
+    r'href=["\']([^"\']*(?:/suppl_file/|/suppl/|supplement|supporting[-_ ]?information|mmc\d+|MOESM\d+_ESM|/suppdata/|downloadSupplement|/esm/|/article-supplement/|ESM\.pdf)[^"\']*)["\']',
     re.I,
 )
 
@@ -448,21 +448,27 @@ def journal_abbrev(m: dict) -> str:
     return "-".join(out)[:30] or "Journal"
 
 
+NOT_A_SURNAME = {"anonymous", "unknown", "collaboration", "consortium", "group", "team", "investigators", "authors", "et", "al"}
+
+
 def corresponding_surname(cr: dict, oa: dict | None) -> tuple[str, str]:
-    """(surname, source) — OpenAlex is_corresponding 우선, 없으면 Crossref 마지막 저자."""
+    """(surname, source) — OpenAlex is_corresponding 우선, 없으면 Crossref 마지막 저자.
+    'Anonymous'·'ALICE Collaboration' 같은 이름은 쓰지 않는다 (2026-09-27 PRL 공동연구단 논문 id 가 Anonymous 로 붙었음)."""
     if oa:
         corr = [a for a in (oa.get("authorships") or []) if a.get("is_corresponding")]
         if corr:
             name = (corr[-1].get("author") or {}).get("display_name") or ""
-            if name:
+            if name and name.split()[-1].lower() not in NOT_A_SURNAME:
                 return name.split()[-1], "openalex_corresponding"
     authors = cr.get("author") or []
-    if authors:
-        last = authors[-1]
-        fam = last.get("family") or (last.get("name") or "").split()[-1:] or [""]
-        fam = fam if isinstance(fam, str) else (fam[0] if fam else "")
-        if fam:
-            return fam, "crossref_last_author"
+    for a in (authors[-1:] + authors[:1]) if authors else []:
+        if a.get("family") and a["family"].lower() not in NOT_A_SURNAME:
+            return a["family"], "crossref_last_author"
+        nm = (a.get("name") or "").split()
+        if nm and "collaboration" in (a.get("name") or "").lower():
+            return nm[0], "crossref_collaboration"      # 'ALICE Collaboration' → ALICE
+        if nm and nm[-1].lower() not in NOT_A_SURNAME:
+            return nm[-1], "crossref_last_author"
     return "Unknown", "none"
 
 
@@ -548,6 +554,7 @@ def cmd_resolve(args) -> None:
         time.sleep(1.0)
     save_registry(ctx)
     say(f"registry 저장: {registry_path(ctx)} (신규 {n_new}건)")
+    mark_same_paper(ctx)
     plan_block(ctx)
 
 
@@ -770,6 +777,11 @@ def write_abstract_only(ctx: Ctx, row: dict, reason: str) -> Outcome:
 
 
 # ------------------------------------------------------------------ SI
+# SI 링크 중 파일이어야 할 것 / 한 단계 들어가 볼 목록 페이지 (2026-09-27 전 출판사 연습: PLOS·Copernicus·APS SI 를 놓쳤음)
+SI_FILE_HINT = re.compile(r"\.pdf(\?|$)|\.docx?(\?|$)|/suppl_file/|mmc\d|MOESM|suppdata|downloadSupplement|/esm/|/article-supplement/|type=supplementary|-supplement(\.pdf)?(\?|$)", re.I)
+SI_LANDING_HINT = re.compile(r"/supplemental/|/suppl/|supplementary[-_]?(material|information|data)s?/?(\?|$)", re.I)
+
+
 def find_si_links(raw_html: str, base_url: str) -> list[str]:
     links = []
     for m in SI_LINK_RE.finditer(raw_html or ""):
@@ -777,8 +789,8 @@ def find_si_links(raw_html: str, base_url: str) -> list[str]:
         if href.startswith("#") or "javascript" in href:
             continue
         links.append(urljoin(base_url, href))
-    pref = [l for l in dict.fromkeys(links) if re.search(r"\.pdf(\?|$)|/suppl_file/|mmc\d|MOESM|suppdata|downloadSupplement|/esm/|/article-supplement/", l, re.I)]
-    return pref[:6]
+    pref = [l for l in dict.fromkeys(links) if SI_FILE_HINT.search(l) or SI_LANDING_HINT.search(l)]
+    return pref[:8]
 
 
 def si_ext(url: str, default: str = "bin") -> str:
@@ -829,28 +841,55 @@ def si_name(pid: str, k: int, ext: str) -> str:
 
 def save_si(ctx: Ctx, pid: str, fetch, links: list[str]) -> int:
     """SI 를 받은 형식 그대로 pdf/ 폴더에 {pid}_SI*.{ext} 로 저장. 거부·빈 응답·HTML 이 온 링크는 우회하지 않고 직접 다운로드 목록에 올린다."""
+    import hashlib
     d = paper_dir(ctx, pid) / "pdf"
     n, failed = 0, []
     skip = si_skip_set(ctx)
-    for url in links:
-        if si_skipped(url, skip):
+    seen_hash = {hashlib.sha1(p.read_bytes()).hexdigest() for p in d.glob(f"{pid}_SI*")}   # 이미 있는 SI 와 같은 내용은 다시 저장하지 않는다
+    queue, visited = [(u, 0) for u in links], set()
+    while queue:
+        url, depth = queue.pop(0)
+        if url in visited or si_skipped(url, skip):
             continue   # 받지 않는 SI 형식 (동영상, 결정 구조, 압축, 스프레드시트 등)
+        visited.add(url)
         try:
             data, ctype = fetch(url)
         except Exception:
-            failed.append(url); continue
+            if SI_FILE_HINT.search(url):
+                failed.append(url)
+            continue
         if not data:
-            failed.append(url); continue
+            if SI_FILE_HINT.search(url):
+                failed.append(url)
+            continue
         is_html = "html" in (ctype or "").lower() or data[:15].lower().startswith(b"<!doctype html") or data[:6].lower() == b"<html>"
         if is_html:
-            failed.append(url); continue   # 확인·거부 페이지 또는 landing 이 온 것
+            if depth == 0 and SI_LANDING_HINT.search(url):
+                # SI 목록 페이지(APS link.aps.org/supplemental/… 등): 한 단계만 들어가 문서 링크를 받는다
+                page = data.decode("utf-8", "ignore")
+                subs = [urljoin(url, htmlmod.unescape(h)) for h in re.findall(r'href=["\']([^"\'#]+)["\']', page)]
+                subs = [s for s in dict.fromkeys(subs) if re.search(r"\.(pdf|docx?)(\?|$)", s, re.I) and re.search(r"suppl|/sm|_si|esi|support", s, re.I)]
+                queue += [(s, 1) for s in subs[:4]]
+                if not subs:
+                    failed.append(url)   # 목록 페이지는 있는데 문서 링크를 스크립트가 그린다(APS) → 웹 경로 SI 목록에 올린다
+            elif SI_FILE_HINT.search(url):
+                failed.append(url)   # 파일이어야 할 주소에 확인·거부 페이지가 온 것 → 웹 경로 목록
+            continue
         ct = (ctype or "").lower()
-        pdf = is_pdf(data)
-        ext = "pdf" if pdf else (zip_kind(data) or si_ext(url))
-        if not pdf and ext not in ("doc", "docx") and (ext in skip or any(k in ct for k in SI_SKIP_CT)):
-            continue   # 받지 않는 SI 형식 (확장자 없이 온 동영상·결정 구조·압축·스프레드시트)
-        if len(data) < 5000 and not pdf:
+        if is_pdf(data):
+            ext = "pdf"
+        elif zip_kind(data) == "docx":
+            ext = "docx"
+        elif data[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" and ("msword" in ct or si_ext(url) == "doc"):
+            ext = "doc"
+        else:
+            continue   # SI 는 문서(PDF·Word)만 받는다 (2026-09-25 사용자 지시). 그림·표·압축·동영상은 버린다
+        if len(data) < 5000 and ext != "pdf":
             continue   # 너무 작은 비 PDF 응답은 SI 파일로 보지 않음
+        h = hashlib.sha1(data).hexdigest()
+        if h in seen_hash:
+            continue   # 같은 파일이 다른 주소로 한 번 더 온 것 (Copernicus 의 .pdf 와 doi.org 주소 등)
+        seen_hash.add(h)
         n += 1
         (d / si_name(pid, n, ext)).write_bytes(data)
         time.sleep(2)
@@ -1155,6 +1194,8 @@ def h_landing_generic(ctx: Ctx, row: dict, method_prefix: str) -> Outcome:
     res = write_paper(ctx, row, out)
     if res.status == "failed" and not cands:
         # 논문 페이지에 PDF 링크가 없고 본문도 짧으면 대개 구독 밖(초록만 보이는 페이지)이다 (2026-09-26 APS PRD·PR Applied 실측)
+        # 실패로 두면 웹 목록에서 빠지므로 웹 경로 대상으로 둔다. 웹에서 구독 밖이면 mark --status abstract_only (2026-09-27)
+        res.status = "human_required"
         res.note = "논문 페이지에 PDF 링크 없음 (구독 밖일 수 있음 → 웹 경로로 확인) — " + res.note
     res.si_files = save_si(ctx, row["paper_id"], http_fetch(ctx), find_si_links(h.text, h.url))
     return res
@@ -1633,6 +1674,32 @@ def pub_counts(rows: list[dict]) -> str:
     return ", ".join(f"{k} {v}" for k, v in sorted(by.items(), key=lambda kv: (-kv[1], kv[0]))) or "-"
 
 
+def mark_same_paper(ctx: Ctx) -> None:
+    """같은 논문이 두 DOI 로 목록에 있으면 알린다. Angewandte 독일어판(10.1002/ange.)과 국제판(10.1002/anie.)은 같은 논문이라
+    독일어판을 범위 밖으로 둔다 — 두 판을 다 받으면 intake 가 파일을 가리지 못한다 (2026-09-27 전 출판사 연습)."""
+    by_title: dict[str, list[dict]] = {}
+    for r in ctx.registry.values():
+        key = re.sub(r"[^a-z0-9]+", "", (r.get("title") or "").lower())[:80]
+        if len(key) >= 20:
+            by_title.setdefault(key, []).append(r)
+    changed = False
+    for rs in by_title.values():
+        if len(rs) < 2:
+            continue
+        anie = [r for r in rs if r["doi"].lower().startswith("10.1002/anie.")]
+        ange = [r for r in rs if r["doi"].lower().startswith("10.1002/ange.")]
+        if anie and ange:
+            for r in ange:
+                if r.get("status") in ("resolved", "", "failed", "human_required"):
+                    r["status"], r["note"], r["updated_at"] = "out_of_scope", f"Angewandte 독일어판 — 국제판 {anie[0]['paper_id']} 와 같은 논문", utc_now()
+                    changed = True
+                    say(f"  같은 논문 두 판: {r['paper_id']}(독일어판)는 범위 밖, 국제판 {anie[0]['paper_id']} 만 받음")
+        else:
+            say(f"  !! 같은 제목 {len(rs)}편: {', '.join(r['paper_id'] for r in rs)} — 같은 논문이면 하나를 mark --status out_of_scope")
+    if changed:
+        save_registry(ctx)
+
+
 def plan_block(ctx: Ctx) -> None:
     """resolve 뒤: 경로별 편수, review, 키·토큰 질문 여부, 주제 확인 여부, 다음 명령. SKILL.md 5.2 의 안내는 이 블록을 옮겨 적는다."""
     rows = [r for r in ctx.registry.values() if r.get("status") != "out_of_scope"]
@@ -1889,6 +1956,11 @@ def cmd_mark(args) -> None:
     for row in ctx.registry.values():
         if row["paper_id"].lower() in want or row["doi"].lower() in want:
             hit |= {row["paper_id"].lower(), row["doi"].lower()}
+            if args.status == "abstract_only":
+                out = write_abstract_only(ctx, row, args.note or "웹에서 확인: 구독 밖 — 원문 미수집, 초록만 보관")
+                row.update({"status": "abstract_only", "method": "abstract_only", "note": out.note, "updated_at": utc_now()})
+                n += 1
+                continue
             row["status"] = args.status
             row["method"] = ""
             row["note"] = args.note or ("범위 밖 — 수집 제외" if args.status == "out_of_scope" else "")
@@ -1896,6 +1968,8 @@ def cmd_mark(args) -> None:
             n += 1
     save_registry(ctx)
     miss = sorted(want - hit)
+    if (ctx.work / "manual_download.csv").exists():
+        update_manual_csv(ctx, [])   # 초록만·범위 밖으로 바뀐 논문은 웹 목록에서 뺀다
     say(f"{args.status} 표시: {n}편 (요청 {len(want)}건)" + (f" — 목록에 없는 id: {', '.join(miss)}" if miss else ""))
     summarize(ctx)
 
@@ -2295,7 +2369,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("assist", parents=[common]); p.add_argument("--ids", nargs="*"); p.add_argument("--publishers", default=None); p.add_argument("--exclude-publishers", default=None); p.add_argument("--force", action="store_true"); p.add_argument("--window", action="store_true", help="예전 도구 창 방식 (기본: 창 없이 웹 경로 목록만)")
     p = sub.add_parser("intake", parents=[common]); p.add_argument("--downloads", default=None, help="다운로드 폴더 (기본: 설정 downloads_dir → Chrome 설정 → Windows 다운로드 폴더 → ~/Downloads)"); p.add_argument("--hours", type=float, default=24, help="최근 몇 시간 안에 받은 파일만"); p.add_argument("--dry-run", action="store_true", help="옮기지 않고 판정만 보기")
     p = sub.add_parser("reextract", parents=[common]); p.add_argument("--ids", nargs="*"); p.add_argument("--publishers", default=None)
-    p = sub.add_parser("mark", parents=[common]); p.add_argument("--ids", nargs="+", required=True, help="paper_id 또는 DOI"); p.add_argument("--status", choices=["out_of_scope", "resolved"], required=True); p.add_argument("--note", default="")
+    p = sub.add_parser("mark", parents=[common]); p.add_argument("--ids", nargs="+", required=True, help="paper_id 또는 DOI"); p.add_argument("--status", choices=["out_of_scope", "resolved", "abstract_only"], required=True, help="abstract_only: 웹에서 구독 밖으로 확인한 논문을 초록만 저장"); p.add_argument("--note", default="")
     sub.add_parser("status", parents=[common])
     sub.add_parser("doctor", parents=[common], help="처음 쓰기 전 환경 점검 (읽기만 함)")
     p = sub.add_parser("refs", parents=[common], help="한 논문(PDF·링크·DOI·paper_id)의 참고문헌 DOI 목록 만들기 (수집은 하지 않음)")

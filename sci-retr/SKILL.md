@@ -116,7 +116,7 @@ python scripts/sci_collect.py token --kb-root <root>
 | `intervals` | elsevier_api 3, wiley 5, springer 2, mdpi 2, nature 15, generic 5 (초) | 자동 경로에서 같은 출판사 논문 사이의 대기. 요청을 보내지 않은 논문 뒤에는 기다리지 않는다. acs·science·rsc·ecs·elsevier 값은 웹 전용 출판사를 목록에서 뺄 때만 쓰인다 |
 | `web_only_publishers` | acs, rsc, science, ecs, tandf, pnas, aip, oup, ieee, chemrxiv | 자동 요청을 보내지 않고 바로 웹 경로로 보낼 출판사(2026-09-26 여섯 곳 추가). 사이트 사정이 바뀌면 여기서 뺀다 |
 | `abstract_only_publishers` | thieme, world_scientific, csj, bentham, royal_society | 초록만 저장할 미구독 출판사 (Open Access 논문은 예외: 한 번 자동 시도, 안 되면 웹 경로) |
-| `si_skip_exts` | mp4·avi·mov 등 동영상, mp3·wav, cif·fcf·hkl·mol·mol2·sdf·pdb·xyz·cdx, zip·rar·7z·tar·gz·tgz, xls·xlsx·xlsm·xlsb·csv·ods | 받지 않는 SI 형식. 링크 확장자로 거르고, 받은 뒤 파일 형식으로도 거른다(zip 형식이라도 안이 Word 문서면 받는다). intake 도 이 형식은 옮기지 않는다 |
+| `si_skip_exts` | mp4·avi·mov 등 동영상, mp3·wav, cif·fcf·hkl·mol·mol2·sdf·pdb·xyz·cdx, zip·rar·7z·tar·gz·tgz, xls·xlsx·xlsm·xlsb·csv·ods | 받지 않는 SI 형식. 링크 확장자로 먼저 거른다. 자동 경로는 받은 뒤 실제 형식이 PDF·Word(docx·doc)인 것만 저장하고 그 밖(그림·표·압축·동영상·PowerPoint)은 버린다(2026-09-27 허용 목록 방식). 같은 내용이 다른 주소로 두 번 오면 한 번만 저장한다. intake 도 이 형식은 옮기지 않는다 |
 | `downloads_dir` | 없음 → Chrome 설정의 다운로드 폴더 → Windows 다운로드 폴더 → 사용자 Downloads 순으로 찾음 | intake 가 볼 다운로드 폴더 (`--downloads` 로도 가능). intake 와 doctor 가 어느 근거로 정했는지 출력한다 |
 | `crossref_mailto` | 빈 값 | Crossref·OpenAlex 예의용 이메일 (`--mailto` 로도 가능) |
 | `assist_wait_seconds` | 300 | 예전 도구 창 방식(`assist --window`)에서만 쓰임 |
@@ -227,7 +227,8 @@ python scripts/sci_collect.py assist --kb-root <root>
    - 6절 표의 버튼으로 본문 PDF 와 SI 를 받는다. 누르기 전에 버튼을 화면에 띄우고 스크린샷으로 위치를 확인한 뒤 좌표로 누른다. 페이지 배치가 바뀌어 클릭이 추천 논문 링크에 떨어진 적이 있다.
    - 쿠키 동의 창은 누르지 않는다(사용자 결정). 쿠키 창이 페이지 클릭을 막으면 스크립트로 읽은 PDF·SI 링크 주소로 탭을 옮겨 받고, 그래도 안 되면 사용자에게 버튼을 직접 눌러 달라고 한다(요령 문서 2.2·3.14). 뉴스레터·추천 논문 안내 창은 닫기(X)만 누른다. 다른 논문을 여러 편 받는 버튼("Download (6) PDFs" 등)은 누르지 않는다.
    - PDF 를 받으며 열린 보조 탭(확인 단계 탭 등)은 닫는다.
-4. **정리**: 받은 뒤 `intake` 로 다운로드 폴더의 파일을 논문 폴더로 옮기고 반영한다(5.6.1). 출력에서 가리지 못한 파일이 있으면 무엇인지 확인한다.
+4. **정리**: 받은 뒤 `intake` 로 다운로드 폴더의 파일을 논문 폴더로 옮기고 반영한다(5.6.1). 출력에서 가리지 못한 파일이 있으면 무엇인지 확인한다. '여러 논문에 해당' 으로 남은 파일은 대개 같은 논문의 두 DOI 다. resolve 가 Angewandte 독일어판(ange)·국제판(anie) 쌍은 독일어판을 범위 밖으로 두고, 그 밖의 같은 제목은 알려 준다. 이미 받았다면 받은 탭을 알고 있으니 `papers/{id}/pdf/{id}.pdf`, `{id}_SI.pdf` 로 옮긴 뒤 status 를 돌린다.
+   - 페이지가 구독 밖이면(Access through your institution, Purchase, Get access, 초록만 보임) 받지 말고 `mark --ids <paper_id> --status abstract_only --note "웹 확인: 구독 밖"` 으로 초록만 저장한다(웹 목록에서도 빠진다).
 5. **간격과 양**: 같은 출판사 안에서는 한 편씩 받고, 한 편이 끝나면 기다리지 않고 바로 다음 논문으로 간다. 출판사당 한 번에 수십 편 이내로 나눈다. 탭은 하나만 쓰고, 그 탭을 화면 앞에 둔 채 순서대로 받는다(2026-09-26 사용자 확정). 여러 탭이나 여러 창을 번갈아 쓰는 방식은 쓰지 않는다. 시험 결과 시간 이득이 18편에 1~3분에 그쳤고, 뒤쪽 탭에서는 클릭이 빗나가고 연결이 끊겼으며, 확장은 탭을 앞으로 가져오거나 창을 옮길 수 없다(references/web_download_playbook.md 4절).
 6. **마무리**: 작업이 끝나면 연 탭을 모두 닫는다.
 7. **중단 뒤 재개**: 탭이 닫혔거나 세션이 끊겼으면 `intake` → `status` → `assist` 순으로 돌린다. 받아 둔 파일이 정리되고 남은 논문만 목록에 남는다. 확장이 새로 만드는 Chrome 창은 뒤에 열리므로 사용자에게 앞으로 가져와 달라고 한 뒤 이어서 받는다(references/web_download_playbook.md 5절).
@@ -351,10 +352,10 @@ python scripts/sci_collect.py refs --kb-root <root> --source <PDF 경로 | 링�
 | Science | 10.1126 | 없음, 바로 웹 경로 | 제목 아래 오른쪽 빨간 PDF 아이콘 → 열린 온라인 보기의 오른쪽 위 둥근 다운로드 아이콘. 또는 도구 막대 눈 아이콘 "View Options" → "DOWNLOAD PDF". SI 는 Supplementary Material 의 "DOWNLOAD" | 30~60초 (한 편 처리 시간, 따로 기다리지 않음) | 아래쪽 뉴스레터 안내는 닫기 |
 | Springer | 10.1007, 10.1023 | 직접 PDF + HTML + SI | 자동 실패한 논문만 | 2초 | |
 | Nature | 10.1038 | 논문 페이지 + PDF + SI | 자동 실패한 논문만 | 15초 | 갓 나온 논문은 페이지에 초록만 있고 PDF 주소가 HTML 로 응답해 실패로 남는다(2026-09-26). 며칠 뒤 `collect --ids <id> --force` |
-| MDPI | 10.3390 | 직접 PDF + HTML + SI | 자동 실패한 논문만: "Download ▾" → "Download PDF"("with Cover" 아님, playbook 3.13) | 2초 | 모두 OA. 자동 요청이 막혀도 사용자 Chrome 에서는 바로 열린다 |
-| Frontiers, PLOS, Beilstein, Copernicus, APS, Cambridge | 10.3389, 10.1371, 10.3762, 10.5194, 10.1103, 10.1017 | 논문 페이지 + PDF + SI (일반 경로, 이름만 붙임) | 자동 실패한 논문만 | 5초 | 2026-09-26 확인: 사이트마다 3편을 5초 간격으로, 일곱 사이트 동시에 받아 차단 없음. 한 편 완료 간격 4~11초, PDF 가 8~11 MB 인 Beilstein·Copernicus 는 23~54초. APS 는 KIST 구독 저널(Phys. Rev. B)만 받히고 Phys. Rev. D·Applied 는 페이지에 PDF 링크가 없어 실패(구독 밖) |
+| MDPI | 10.3390 | 직접 PDF + HTML + SI | 자동 실패한 논문만: "Download ▾" → "Download PDF"("with Cover" 아님, playbook 3.13) | 2초 | 모두 OA. 자동 요청을 막는 날이 있다(2026-09-27 첫 요청 403 → 도구가 나머지를 요청 없이 웹 경로로). 사용자 Chrome 에서는 바로 열린다 |
+| Frontiers, PLOS, Beilstein, Copernicus, APS, Cambridge | 10.3389, 10.1371, 10.3762, 10.5194, 10.1103, 10.1017 | 논문 페이지 + PDF + SI (일반 경로, 이름만 붙임) | 자동 실패한 논문만 | 5초 | 2026-09-26 확인: 사이트마다 3편을 5초 간격으로, 일곱 사이트 동시에 받아 차단 없음. 한 편 완료 간격 4~11초, PDF 가 8~11 MB 인 Beilstein·Copernicus 는 23~54초. APS 는 KIST 구독 저널(Phys. Rev. B)만 받히고 Phys. Rev. D·Applied·PRL 은 페이지에 PDF 링크가 없다(구독 밖일 수 있음 → 웹 목록에 넣어 확인, 구독 밖이면 `mark --status abstract_only`). 2026-09-27: PLOS SI(`type=supplementary`, Word 가 많음)·Copernicus SI(`-supplement.pdf`)를 자동으로 받는다. APS SI 는 목록 페이지를 스크립트가 그려 자동으로 못 받으므로 웹 목록에 SI 항목으로 올라간다 |
 | Taylor & Francis, PNAS, AIP, Oxford, IEEE | 10.1080, 10.1073, 10.1063, 10.1093, 10.1109 | 없음, 바로 웹 경로 (설정 `web_only_publishers`, 2026-09-26 실측 403·202) | playbook 3.7~3.11. T&F·PNAS·ChemRxiv 는 페이지 아래 "Download PDF", AIP 는 도구 막대 "PDF"(새 탭), Oxford 는 상단 "PDF", IEEE 는 "PDF" → "열기". PNAS·Oxford 는 저장 전에 Cloudflare 확인 화면을 스스로 통과 | 30~60초 (한 편 처리 시간, 따로 기다리지 않음) | 상황이 바뀌면 설정에서 뺀다 |
-| 그 외 | | 논문 페이지 + PDF 후보 + SI. 사이트(호스트)별로 한 번 막히면 그 사이트의 나머지는 요청하지 않고 웹 경로. 막힌 논문 자체도 웹 경로 대상으로 표시. 페이지에 PDF 링크가 없고 본문이 짧으면 '구독 밖일 수 있음' 으로 표시 | 막힌 논문 | 5초 | |
+| 그 외 | | 논문 페이지 + PDF 후보 + SI. 사이트(호스트)별로 한 번 막히면 그 사이트의 나머지는 요청하지 않고 웹 경로. 막힌 논문 자체도 웹 경로 대상으로 표시. 페이지에 PDF 링크가 없고 본문이 짧으면 '구독 밖일 수 있음' 으로 웹 경로 대상 | 막힌 논문 (playbook 3.15 의 처음 보는 사이트 순서) | 5초 | 2026-09-27: CCS Chemistry(chinesechemsoc.org) 403, De Gruyter(degruyterbrill.com) 202 로 막혀 웹 경로 |
 | 프리프린트 | 10.26434 (ChemRxiv), 10.48550 (arXiv), 10.1101 (bioRxiv) | ChemRxiv 는 자동 요청을 막아(403) 바로 웹 경로(설정 `web_only_publishers`). arXiv·bioRxiv 는 그 외와 같음 | playbook 3.12 (ChemRxiv "Download PDF") | 5초 | 접두어로 고정(Crossref 는 ChemRxiv 를 ACS 로 적음). 저널약어는 ChemRxiv·arXiv·bioRxiv |
 | 미구독 출판사 | 10.1055 (Thieme), 10.1142, 10.1246, 10.2174, 10.1098 | 초록만 저장. Open Access 논문은 한 번 자동 시도 | Open Access 논문 중 자동으로 못 받은 것 (Thieme 는 playbook 3.14: doi.org 로 열기, 쿠키 창은 주소 이동으로 우회) | | 사용자에게 알림. 구독이 생기면 설정에서 뺀다 |
 
