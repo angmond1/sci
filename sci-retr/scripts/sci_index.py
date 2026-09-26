@@ -101,7 +101,9 @@ def build_rows(kb_root: Path) -> tuple[list[dict], list[dict]]:
     papers = kb_root / "papers"
     rows, checks = [], []
     seen_doi: dict[str, str] = {}
-    ids = sorted({p.name for p in papers.glob("*") if p.is_dir()} | set(reg.keys()))
+    # 논문 폴더로 볼 것: 레지스트리에 있거나 source.json·source.md·pdf/ 가 있는 폴더 (잡폴더는 뺀다, 2026-09-27)
+    dirs = {p.name for p in papers.glob("*") if p.is_dir() and ((p / "source.json").exists() or (p / "source.md").exists() or (p / "pdf").exists())} if papers.exists() else set()
+    ids = sorted(dirs | set(reg.keys()))
     for pid in ids:
         r = reg.get(pid, {})
         d = papers / pid
@@ -178,6 +180,8 @@ README_TEXT = """# 논문 색인 사용법 (Claude 용 5줄)
 
 def cmd_build(args) -> None:
     kb_root = Path(args.kb_root).resolve()
+    if not kb_root.exists() or not ((kb_root / "papers").exists() or (kb_root / "collection_registry.csv").exists()):
+        print(f"논문 폴더가 아닙니다 (papers/ 나 collection_registry.csv 가 없음): {kb_root}"); raise SystemExit(1)
     rows, checks = build_rows(kb_root)
     out = kb_root / "index.csv"
     existing = {}
@@ -188,6 +192,15 @@ def cmd_build(args) -> None:
                     existing[r["paper_id"]] = r["요약_ko"]
     for r in rows:
         r["요약_ko"] = existing.get(r["paper_id"], "")
+    chk_path = kb_root / "index_check.csv"
+    if chk_path.exists():   # 검수 패스가 붙인 'LLM: …' flag 는 build 를 다시 해도 남긴다
+        with open(chk_path, encoding="utf-8-sig", newline="") as f:
+            llm = {c["paper_id"]: [x.strip() for x in c.get("flags", "").split(";") if x.strip().startswith("LLM:")] for c in csv.DictReader(f)}
+        for c in checks:
+            keep = llm.get(c["paper_id"]) or []
+            if keep:
+                c["flags"] = "; ".join(x for x in [c["flags"]] + keep if x)
+                c["n_flags"] = len([x for x in c["flags"].split(";") if x.strip()])
     with open(out, "w", encoding="utf-8-sig", newline="") as f:
         w = csv.DictWriter(f, fieldnames=COLUMNS); w.writeheader(); w.writerows(rows)
     with open(kb_root / "index_check.csv", "w", encoding="utf-8-sig", newline="") as f:
@@ -206,6 +219,10 @@ def cmd_apply(args) -> None:
     """gists csv: paper_id, 요약_ko[, check_flags] — Claude 가 작성. index.csv 의 요약_ko 채우고 flag 는 index_check 에 추가."""
     kb_root = Path(args.kb_root).resolve()
     out = kb_root / "index.csv"
+    if not out.exists():
+        print(f"index.csv 가 없습니다. 먼저 build: {out}"); raise SystemExit(1)
+    if not Path(args.gists).exists():
+        print(f"검수 결과 파일이 없습니다: {args.gists}"); raise SystemExit(1)
     with open(out, encoding="utf-8-sig", newline="") as f:
         rows = list(csv.DictReader(f))
     with open(args.gists, encoding="utf-8-sig", newline="") as f:

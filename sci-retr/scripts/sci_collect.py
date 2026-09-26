@@ -298,6 +298,9 @@ def read_dois(inputs: list[str]) -> list[str]:
                 text = p.read_text(encoding="utf-8-sig", errors="ignore")
                 dois += DOI_RE.findall(text)
         else:
+            if re.search(r"[\\/]|\.(txt|csv|tsv|xlsx|xls|md)$", item, re.I) and not DOI_RE.search(item):
+                say(f"!! 입력 파일을 찾을 수 없습니다: {item}")
+                continue
             dois += DOI_RE.findall(item)
     out, seen = [], set()
     for d in dois:
@@ -545,6 +548,7 @@ def cmd_resolve(args) -> None:
         time.sleep(1.0)
     save_registry(ctx)
     say(f"registry 저장: {registry_path(ctx)} (신규 {n_new}건)")
+    plan_block(ctx)
 
 
 # ------------------------------------------------------------------ 저장 (폴더 표준)
@@ -1361,6 +1365,8 @@ def cmd_collect(args) -> None:
     for t in threads:
         t.join()
     summarize(ctx, header="collect 완료")
+    write_web_list(ctx)   # assist 를 따로 돌리지 않아도 웹 경로 목록이 생긴다
+    report_block(ctx)
 
 
 # ------------------------------------------------------------------ assist (보이는 Chrome, 사용자 확인 협력)
@@ -1481,7 +1487,7 @@ def cmd_assist(args) -> None:
     if lst:
         say(f"   전체 목록: {lst}  (받은 뒤 intake 실행)")
     if not groups:
-        summarize(ctx, header="assist 완료"); return
+        summarize(ctx, header="assist 완료"); report_block(ctx); return
     say("=== 사람 확인 협력 단계 ===")
     say("보이는 Chrome 창이 열립니다. 확인 창(체크박스)이 보이면 한 번 눌러 주세요. 같은 사이트의 다음 논문은 대체로 자동으로 넘어갑니다.")
     for pub, rs in groups.items():
@@ -1522,6 +1528,7 @@ def cmd_assist(args) -> None:
             say(f"   {r['paper_id']}: {manual_url(r)}  →  {paper_dir(ctx, r['paper_id']) / 'pdf' / (r['paper_id'] + '.pdf')}")
         say(f"   전체 목록: {lst}  (저장 후 status 실행)")
     summarize(ctx, header="assist 완료")
+    report_block(ctx)
 
 
 # ------------------------------------------------------------------ status
@@ -1602,6 +1609,112 @@ def cmd_reextract(args) -> None:
     summarize(ctx)
 
 
+
+
+# ------------------------------------------------------------------ 에이전트용 판단 블록 (LLM 이 세거나 판단하지 않아도 되게 스크립트가 낸다, 2026-09-27)
+def route_of(ctx: Ctx, row: dict) -> str:
+    """자동 경로를 돌리기 전에 이 논문이 갈 경로: auto(파이썬) / web(사용자 Chrome) / abstract(초록만)."""
+    pub = row["publisher"]
+    if pub in ctx.config.get("abstract_only_publishers", []) and row.get("is_oa") != "1":
+        return "abstract"
+    if pub in ctx.config.get("web_only_publishers", []):
+        return "web"
+    if pub == "elsevier":
+        return "auto" if row.get("is_oa") == "1" and ctx.env.get("ELSEVIER_API_KEY") else "web"
+    if pub == "wiley":
+        return "auto" if (ctx.env.get("TDM_API_TOKEN") or ctx.env.get("WILEY_TDM_TOKEN")) else "web"
+    return "auto"
+
+
+def pub_counts(rows: list[dict]) -> str:
+    by: dict[str, int] = {}
+    for r in rows:
+        by[r["publisher"]] = by.get(r["publisher"], 0) + 1
+    return ", ".join(f"{k} {v}" for k, v in sorted(by.items(), key=lambda kv: (-kv[1], kv[0]))) or "-"
+
+
+def plan_block(ctx: Ctx) -> None:
+    """resolve 뒤: 경로별 편수, review, 키·토큰 질문 여부, 주제 확인 여부, 다음 명령. SKILL.md 5.2 의 안내는 이 블록을 옮겨 적는다."""
+    rows = [r for r in ctx.registry.values() if r.get("status") != "out_of_scope"]
+    pending = [r for r in rows if r.get("status") in ("resolved", "failed", "pdf_missing", "human_required", "")]
+    routes: dict[str, list[dict]] = {"auto": [], "web": [], "abstract": []}
+    for r in pending:
+        routes[route_of(ctx, r)].append(r)
+    reviews = [r["paper_id"] for r in pending if r.get("doc_type") == "review"]
+    els_oa = [r for r in pending if r["publisher"] == "elsevier" and r.get("is_oa") == "1"]
+    wil = [r for r in pending if r["publisher"] == "wiley"]
+    no_key = bool(els_oa) and not ctx.env.get("ELSEVIER_API_KEY")
+    no_tok = bool(wil) and not (ctx.env.get("TDM_API_TOKEN") or ctx.env.get("WILEY_TDM_TOKEN"))
+    say("=== 다음 단계 (에이전트용 — 이 숫자와 판단을 그대로 안내 메시지에 옮긴다) ===")
+    say(f"  자동으로 받을 논문 {len(routes['auto'])}편: {pub_counts(routes['auto'])}")
+    say(f"  Chrome 에서 받을 논문 {len(routes['web'])}편: {pub_counts(routes['web'])}")
+    say(f"  초록만 저장 {len(routes['abstract'])}편: {pub_counts(routes['abstract'])}")
+    say(f"  review 논문 {len(reviews)}편: {', '.join(reviews) or '-'}" + ("  → 인용 논문 follow-up 질문 (5.8)" if reviews else ""))
+    q = []
+    if no_key:
+        q.append(f"Elsevier OA {len(els_oa)}편인데 ELSEVIER_API_KEY 없음")
+    if no_tok:
+        q.append(f"Wiley {len(wil)}편인데 WILEY_TDM_TOKEN 없음")
+    say("  키·토큰 질문: " + ("; ".join(q) + "  → 발급 여부 질문 (3.2.1)" if q else "없음"))
+    say(f"  주제 확인: 목록 {len(rows)}편 → " + ("30편 초과 → 주제 한 줄 확인 + 사전 분류 (5.2·5.3)" if len(rows) > 30 else "묻지 않음"))
+    excl = ",".join(p for p, need in (("elsevier", no_key), ("wiley", no_tok)) if need)
+    if reviews or q or len(rows) > 30:
+        say("  물을 것 있음 → 답과 무관한 자동 수집을 먼저: collect" + (f" --exclude-publishers {excl}" if excl else "") + "  (그 결과와 질문을 한 메시지로)")
+    else:
+        say("  물을 것 없음 → 바로 collect")
+
+
+def report_block(ctx: Ctx) -> None:
+    """collect·intake·status 뒤: 상태별 편수(출판사별), SI 수, 실패 사유, 색인 판단, 머리표. SKILL.md 5.9 보고는 이 블록을 옮겨 적는다."""
+    rows = [r for r in ctx.registry.values() if r.get("status") != "out_of_scope"]
+    full = [r for r in rows if r.get("status") == "full"]
+    absonly = [r for r in rows if r.get("status") == "abstract_only"]
+    web = [r for r in rows if r.get("status") in ("human_required", "pdf_missing")]
+    failed = [r for r in rows if r.get("status") == "failed"]
+    todo = [r for r in rows if r.get("status") in ("resolved", "")]
+    n_si_papers = n_si_files = 0
+    for r in full:
+        d = ctx.papers_root() / r["paper_id"] / "pdf"
+        k = len(list(d.glob(f"{r['paper_id']}_SI*"))) if d.exists() else 0
+        n_si_papers += 1 if k else 0
+        n_si_files += k
+    say("=== 보고용 요약 (에이전트용 — 이 숫자를 그대로 보고에 옮긴다) ===")
+    say(f"  전문 {len(full)}편: {pub_counts(full)}  (SI 있는 논문 {n_si_papers}편, SI 파일 {n_si_files}개)")
+    say(f"  초록만 {len(absonly)}편: {pub_counts(absonly)}")
+    say(f"  Chrome 에서 받을 논문 {len(web)}편: {pub_counts(web)}" + (f"  (목록 {ctx.work / 'manual_download.csv'})" if web else ""))
+    if todo:
+        say(f"  아직 시도 안 함 {len(todo)}편: {pub_counts(todo)}  → collect")
+    say(f"  실패 {len(failed)}편" + (": " + "; ".join(f"{r['paper_id']} — {(r.get('note') or '')[:60]}" for r in failed[:8]) if failed else ""))
+    n = len(full) + len(absonly)
+    idx = ctx.kb_root / "index.csv"
+    if web or todo:
+        say("  색인 판단: 받을 논문이 남아 있음 → 다 받은 뒤(intake) 판단")
+    elif idx.exists():
+        say('  색인 판단: index.csv 있음 → "새로 받은 논문을 기존 색인에 반영할까요?" 질문 (5.7)')
+    elif n >= 20:
+        say(f'  색인 판단: 수집 {n}편 ≥ 20 → "수집한 논문 {n}편의 서지정보를 색인화 하겠습니까?" 질문 (5.7)')
+    else:
+        say(f'  색인 판단: 수집 {n}편 < 20 → "수집 논문이 20편 미만이라 색인 과정은 생략하겠습니다. 원하시면 말씀해 주세요." 안내 (5.7)')
+    if failed:
+        say("  머리표: 부분 완료 (실패가 남음)")
+    elif web:
+        say(f"  머리표: 완료 (Chrome 다운로드 {len(web)}편은 사용자 차례)")
+    else:
+        say("  머리표: 완료")
+
+
+def write_web_list(ctx: Ctx) -> None:
+    """웹 경로 대상(human_required·pdf_missing)을 출판사별로 _collect/manual_download.csv 에 적는다 (collect 가 끝날 때 자동)."""
+    groups: dict[str, list[dict]] = {}
+    for r in ctx.registry.values():
+        if r.get("status") in ("human_required", "pdf_missing"):
+            groups.setdefault(r["publisher"], []).append(r)
+    for pub, rs in groups.items():
+        write_manual_list(ctx, rs, WEB_NOTE.get(pub, "자동으로 받지 못해 평소 쓰시는 Chrome 에서 받아야 합니다."))
+    if (ctx.work / "manual_download.csv").exists():
+        update_manual_csv(ctx, [])   # 끝난 논문은 뺀다
+
+
 def cmd_status(args) -> None:
     ctx = make_ctx(args)
     changed = ingest_manual_pdfs(ctx)
@@ -1610,6 +1723,7 @@ def cmd_status(args) -> None:
     if (ctx.work / "manual_download.csv").exists():
         update_manual_csv(ctx, [])   # 끝난 논문을 웹 경로 목록에서 뺀다
     summarize(ctx)
+    report_block(ctx)
 
 
 PIP_NAMES = {"bs4": "beautifulsoup4", "wiley_tdm": "wiley-tdm"}
@@ -1692,6 +1806,8 @@ def cmd_doctor(args) -> None:
     info(f"키·토큰 파일 {TOKEN_FILE} ({'있음' if TOKEN_FILE.exists() else '아직 없음 — token --create 로 만든다'})")
     used = next((p for p in (kb_root / "sci_collect.config.json", Path.home() / ".claude" / "sci" / "sci_collect.config.json") if p.exists()), None)
     info(f"설정 파일 {used or '없음 (기본값)'}")
+    if len(str(kb_root)) > 150:
+        warn(f"논문 폴더 경로가 깁니다({len(str(kb_root))}자) — Windows 는 파일 경로 260자 제한이 있어 SI 저장이 실패할 수 있습니다. 더 짧은 폴더를 권합니다")
     reg = kb_root / "collection_registry.csv"
     if reg.exists():
         with open(reg, encoding="utf-8-sig", newline="") as fh:
@@ -1769,15 +1885,18 @@ def cmd_mark(args) -> None:
     ctx = make_ctx(args)
     want = {w.lower() for w in args.ids}
     n = 0
+    hit: set[str] = set()
     for row in ctx.registry.values():
         if row["paper_id"].lower() in want or row["doi"].lower() in want:
+            hit |= {row["paper_id"].lower(), row["doi"].lower()}
             row["status"] = args.status
             row["method"] = ""
             row["note"] = args.note or ("범위 밖 — 수집 제외" if args.status == "out_of_scope" else "")
             row["updated_at"] = utc_now()
             n += 1
     save_registry(ctx)
-    say(f"{args.status} 표시: {n}편 (요청 {len(want)}건)")
+    miss = sorted(want - hit)
+    say(f"{args.status} 표시: {n}편 (요청 {len(want)}건)" + (f" — 목록에 없는 id: {', '.join(miss)}" if miss else ""))
     summarize(ctx)
 
 
@@ -2003,6 +2122,8 @@ def cmd_intake(args) -> None:
     if not args.dry_run and (ctx.work / "manual_download.csv").exists():
         update_manual_csv(ctx, [])   # 끝난 논문을 웹 경로 목록에서 뺀다 (중단 뒤 재개 때 남은 것만 보이게)
     summarize(ctx, header="intake 완료" if not args.dry_run else "intake 미리보기")
+    if not args.dry_run:
+        report_block(ctx)
 
 
 REF_HEAD_RE = re.compile(r"^\s*(references(?: and notes)?|bibliography|literature cited|참고\s*문헌)\s*$", re.I | re.M)

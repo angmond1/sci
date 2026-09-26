@@ -35,6 +35,8 @@
 
 ### 2.2 한 편 처리 순서
 
+링크 찾기는 같은 폴더의 `web_find.js` 로 한다(세션에서 한 번 읽어 두고 페이지마다 javascript_tool 로 실행). 본문 PDF·SI 링크 후보를 번호와 좌표로 돌려주고, 클릭은 하지 않는다. 누르기 전에 `window.sciretrFocus(N)` 으로 화면 가운데로 스크롤해 화면 좌표를 받는다. 결과가 비거나 페이지가 아직 뜨는 중이면 몇 초 뒤 다시 돌리고, 그래도 비면 3절의 출판사별 선택자로 직접 찾는다. 2026-09-27 확인: RSC(SI `article-supplement`, 본문 `article-pdf`), ACS(`sifile1`, `Open PDF`), Wiley(접힌 "Supporting Information" 제목, `/doi/pdf/` Download PDF, 온라인 보기 `/doi/epdf/` 는 online 표시)에서 요령 문서와 같은 링크를 찾았다. 링크 후보를 매번 새 스크립트로 찾던 것을 이 스크립트 하나로 대신해 왕복과 판단을 줄인다.
+
 1. **열고 찾기 (호출 1번)**: 논문 주소 열기, 출판사별 대기, 스크립트로 SI 링크를 찾아 화면 가운데로 즉시 스크롤(`scrollIntoView({block:'center', behavior:'instant'})`), 1초 대기, 좌표 다시 읽기, 0.4배 스크린샷.
 2. **누르기 (호출 1~3번)**: SI 먼저, 본문 나중. 자리가 일정한 버튼은 앞 호출에서 읽은 좌표로 같은 호출 안에서 이어서 누른다. 2차 시험에서 자리가 일정했던 버튼은 다음과 같다.
    - 상단 고정 막대: Elsevier "View PDF", RSC 툴바 "PDF", Science 빨간 PDF 아이콘.
