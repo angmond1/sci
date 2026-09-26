@@ -1589,7 +1589,7 @@ def cmd_doctor(args) -> None:
     except Exception as exc:
         bad(f"인터넷 연결 실패 — {type(exc).__name__}: {str(exc)[:80]}")
     info("이 명령으로 확인할 수 없는 것: Claude in Chrome 확장 연결(Claude 가 대화에서 확인), 교내 망 여부(구독 논문 페이지가 열리는지로 확인)")
-    say(f"=== 점검 끝: 문제 {len(problems)}, 주의 {len(warns)}" + (" — 문제를 고친 뒤 다시 실행" if problems else " — 시작해도 된다  U^.^U"))
+    say(f"=== 점검 끝: 문제 {len(problems)}, 주의 {len(warns)}" + (" — 문제를 고친 뒤 다시 실행" if problems else " — 시작해도 된다  ▼・ᴥ・▼"))
 
 
 def manual_url(row: dict) -> str:

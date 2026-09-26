@@ -39,7 +39,7 @@ echo "패키지 설치: $PY -m pip install ..."
 
 cat <<EOF
 
-U^.^U  sci-retr 설치 완료
+▼・ᴥ・▼  sci-retr 설치 완료
 $APP 를 재시작한 뒤 이렇게 시작하세요:
   1) Chrome 설정: chrome://settings/content/pdfDocuments 를 'PDF 다운로드' 로, chrome://settings/downloads 의 '저장 위치 확인' 은 끄기
   2) 점검: $PY "$DEST/sci-retr/scripts/sci_collect.py" doctor --kb-root <논문 폴더>

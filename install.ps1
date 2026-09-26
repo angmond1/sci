@@ -48,7 +48,7 @@ cmd /c "$py -m pip install --quiet --disable-pip-version-check requests pymupdf 
 if ($LASTEXITCODE -ne 0) { throw "pip 설치 실패" }
 
 Write-Host ""
-Write-Host "U^.^U  sci-retr 설치 완료"
+Write-Host "▼・ᴥ・▼  sci-retr 설치 완료"
 Write-Host "$app 를 재시작한 뒤 이렇게 시작하세요:"
 Write-Host "  1) Chrome 설정: chrome://settings/content/pdfDocuments 를 'PDF 다운로드' 로, chrome://settings/downloads 의 '저장 위치 확인' 은 끄기"
 Write-Host "  2) 점검: $py `"$Dest\sci-retr\scripts\sci_collect.py`" doctor --kb-root <논문 폴더>"
