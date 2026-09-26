@@ -28,10 +28,11 @@ import threading
 import time
 import unicodedata
 import html as htmlmod
+import io
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import quote, urljoin, urlparse
+from urllib.parse import quote, unquote, urljoin, urlparse
 
 import truststore
 
@@ -53,8 +54,9 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 # ------------------------------------------------------------------ 상수
-UA_BROWSER = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
-UA_API = "sci_collect/1.0 (KIST; mailto:{mailto})"
+# 모든 자동 요청은 정직한 도구 이름으로 보낸다. 브라우저인 척하지 않는다 (원칙 1, 2026-09-27 첫 사용자 시뮬레이션에서 남아 있던 위장 발견)
+UA_TOOL = "sci-retr/0.2.1 (+https://github.com/angmond1/sci)"
+UA_API = "sci-retr/0.2.1 (+https://github.com/angmond1/sci; mailto:{mailto})"
 CHROME_EXE = Path(os.environ.get("CHROME_EXE", r"C:\Program Files\Google\Chrome\Application\chrome.exe"))
 
 PREFIX_PUBLISHER = {
@@ -147,7 +149,8 @@ class Ctx:
         return float(self.config.get("intervals", {}).get(key, DEFAULT_CONFIG["intervals"].get(key, 5)))
 
     def api_headers(self) -> dict:
-        return {"User-Agent": UA_API.format(mailto=self.config.get("crossref_mailto") or "unknown")}
+        mailto = self.config.get("crossref_mailto")
+        return {"User-Agent": UA_API.format(mailto=mailto) if mailto else UA_TOOL}
 
 
 # 키·토큰 파일: skill 폴더(scripts 의 위)의 token.txt. 사용자가 직접 값을 넣는다 (채팅창에 값을 적지 않게, 2026-09-27)
@@ -215,7 +218,7 @@ def make_ctx(args) -> Ctx:
     if getattr(args, "mailto", None):
         cfg["crossref_mailto"] = args.mailto
     ctx = Ctx(kb_root=kb_root, work=work, config=cfg, env=env)
-    ctx.session.headers.update({"User-Agent": UA_BROWSER, "Accept-Language": "en-US,en;q=0.9"})
+    ctx.session.headers.update({"User-Agent": UA_TOOL, "Accept-Language": "en-US,en;q=0.9"})
     # 간헐 SSL/연결 오류(KIST 망 TLS 재서명 장비) 재시도: 연결 3회, 읽기 2회, 백오프 2s·4s
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
@@ -231,7 +234,7 @@ def make_ctx(args) -> Ctx:
 
 # ------------------------------------------------------------------ 레지스트리 (DOI → paper_id, 메타)
 REG_FIELDS = ["paper_id", "doi", "title", "year", "journal", "journal_abbrev", "volume", "issue", "pages", "corresponding",
-              "authors", "abstract", "publisher", "is_oa", "oa_pdf_url", "pii", "landing_url", "status", "method", "note", "resolved_at", "updated_at"]
+              "authors", "abstract", "publisher", "is_oa", "oa_pdf_url", "pii", "landing_url", "status", "method", "note", "resolved_at", "updated_at", "doc_type"]
 
 
 def registry_path(ctx: Ctx) -> Path:
@@ -302,6 +305,53 @@ def read_dois(inputs: list[str]) -> list[str]:
         if d.lower() not in seen:
             seen.add(d.lower()); out.append(d)
     return out
+
+
+def norm_doc_type(s: str) -> str:
+    """문서 유형을 소문자로: WoS 'Review; Early Access'·Scopus 'Review'·OpenAlex 'review' → review. 그 밖은 첫 항목."""
+    parts = [p.strip() for p in (s or "").lower().split(";") if p.strip()]
+    if not parts:
+        return ""
+    return "review" if "review" in parts else parts[0]
+
+
+def read_doc_types(inputs: list[str]) -> dict:
+    """WoS·Scopus 내보내기 파일의 문서 유형(WoS DT, Scopus Document Type)을 DOI 별로 읽는다. 그런 열이 없으면 빈 dict."""
+    types: dict[str, str] = {}
+    for item in inputs or []:
+        p = Path(item)
+        if not p.exists() or p.suffix.lower() not in (".txt", ".tsv", ".csv", ".xlsx"):
+            continue
+        try:
+            if p.suffix.lower() == ".xlsx":
+                import openpyxl
+                ws = openpyxl.load_workbook(p, read_only=True, data_only=True).worksheets[0]
+                it = ws.iter_rows(values_only=True)
+                header = [str(c or "").strip() for c in next(it)]
+                rows = [dict(zip(header, [str(c or "") for c in r])) for r in it]
+            else:
+                text = p.read_text(encoding="utf-8-sig", errors="ignore")
+                if text.startswith("FN ") or "\nER" in text[:20000] and "\nDT " in text[:20000]:
+                    rec: dict[str, str] = {}                     # WoS 태그 형식(plain text): 'DT Article', 'DI 10.…', 'ER'
+                    for line in text.splitlines():
+                        tag = line[:2]
+                        if tag == "ER":
+                            if rec.get("DI") and rec.get("DT"):
+                                types[rec["DI"].lower()] = norm_doc_type(rec["DT"])
+                            rec = {}
+                        elif tag.strip() and line[2:3] == " ":
+                            rec.setdefault(tag, line[3:].strip())
+                    continue
+                first = text.split("\n", 1)[0]
+                rows = list(csv.DictReader(io.StringIO(text), delimiter="\t" if first.count("\t") > first.count(",") else ","))
+            for r in rows:
+                doi = (r.get("DI") or r.get("DOI") or "").strip()
+                dt = r.get("DT") or r.get("Document Type") or ""
+                if doi and dt:
+                    types[doi.lower()] = norm_doc_type(dt)
+        except Exception:
+            continue
+    return types
 
 
 def publisher_of(doi: str, crossref_publisher: str = "") -> str:
@@ -439,6 +489,8 @@ def make_paper_id(ctx: Ctx, year: str, abbrev: str, surname: str, doi: str) -> s
 def resolve_doi(ctx: Ctx, doi: str) -> dict:
     row = ctx.registry.get(doi.lower())
     if row and row.get("paper_id"):
+        if not row.get("doc_type"):   # 2026-09-27 이전 목록: 문서 유형만 채운다 (id 는 그대로)
+            row["doc_type"] = norm_doc_type(((openalex_work(ctx, doi) or {}).get("type")) or "") or "unknown"
         return row  # id 동결
     cr = crossref_work(ctx, doi)
     oa = openalex_work(ctx, doi)
@@ -465,6 +517,7 @@ def resolve_doi(ctx: Ctx, doi: str) -> dict:
         "pii": (cr.get("alternative-id") or [""])[0] if row is None else "",
         "landing_url": ((cr.get("resource") or {}).get("primary") or {}).get("URL") or f"https://doi.org/{doi}",
         "status": "resolved", "method": "", "note": "", "resolved_at": utc_now(), "updated_at": utc_now(),
+        "doc_type": norm_doc_type((oa or {}).get("type") or "") or "unknown",
     }
     ctx.registry[doi.lower()] = row
     return row
@@ -473,14 +526,18 @@ def resolve_doi(ctx: Ctx, doi: str) -> dict:
 def cmd_resolve(args) -> None:
     ctx = make_ctx(args)
     dois = read_dois(args.input)
+    types = read_doc_types(args.input)   # WoS·Scopus 문서 유형이 있으면 OpenAlex 보다 앞선다
     say(f"입력 DOI {len(dois)}건 (중복 제거)")
     n_new = 0
     for i, doi in enumerate(dois, 1):
         try:
             before = doi.lower() in ctx.registry
             row = resolve_doi(ctx, doi)
+            if types.get(doi.lower()):
+                row["doc_type"] = types[doi.lower()]
             n_new += 0 if before else 1
-            say(f"  [{i:3d}] {row['paper_id']:40s} {row['publisher']:9s} oa={row['is_oa']} abs={'Y' if row['abstract'] else '-'} {row['title'][:50]}")
+            rv = " [review]" if row.get("doc_type") == "review" else ""
+            say(f"  [{i:3d}] {row['paper_id']:40s} {row['publisher']:9s} oa={row['is_oa']} abs={'Y' if row['abstract'] else '-'}{rv} {row['title'][:50]}")
         except Exception as exc:
             say(f"  [{i:3d}] {doi} resolve 실패: {type(exc).__name__}: {str(exc)[:80]}")
         if not (doi.lower() in ctx.registry and ctx.registry[doi.lower()].get("resolved_at") and i % 1 == 0):
@@ -966,7 +1023,7 @@ def h_elsevier(ctx: Ctx, row: dict) -> Outcome:
     api_note = "ELSEVIER_API_KEY 없음"
     tried = bool(key)
     if key:
-        hdr = {"X-ELS-APIKey": key, "User-Agent": "sci_collect Elsevier API"}
+        hdr = {"X-ELS-APIKey": key, "User-Agent": UA_TOOL}
         ep = f"https://api.elsevier.com/content/article/doi/{quote(row['doi'], safe='')}"
         xml = ctx.session.get(ep, headers={**hdr, "Accept": "text/xml"}, timeout=60)
         if xml.status_code == 429:
@@ -1023,21 +1080,30 @@ def wiley_notice() -> None:
         f"토큰을 발급받으면 자동으로 받습니다 (기관 구독이 있으면 무료): {WILEY_TDM_URL} → {TOKEN_FILE} 의 WILEY_TDM_TOKEN")
 
 
+def fail_status(codes: list[int]) -> str:
+    """실패 응답 코드를 남긴다. 막힘 코드(403·429·503·202)가 있으면 그것을 적어 is_block_outcome 이 웹 경로로 넘기게 한다."""
+    block = next((c for c in codes if c in (403, 429, 503, 202)), None)
+    return f"status={block}" if block else ("status=" + "/".join(str(c) for c in codes) if codes else "")
+
+
 def h_springer(ctx: Ctx, row: dict) -> Outcome:
     out = Outcome(method="springer_content_pdf", page_url=f"https://link.springer.com/article/{row['doi']}")
+    codes: list[int] = []
     for url in (f"https://link.springer.com/content/pdf/{row['doi']}.pdf", f"https://link.springer.com/content/pdf/{quote(row['doi'], safe='/:')}.pdf"):
         r = ctx.session.get(url, timeout=120)
+        codes.append(r.status_code)
         if r.status_code == 200 and is_pdf(r.content):
             out.pdf_data = r.content
             break
     try:
         h = ctx.session.get(out.page_url, timeout=60)
+        codes.append(h.status_code)
         if h.status_code == 200:
             out.html_raw = h.text
     except Exception:
         pass
     if not out.pdf_data and not out.html_raw:
-        return Outcome(status="failed", note="springer pdf/html 모두 실패")
+        return Outcome(status="failed", note=f"springer pdf/html 모두 실패 {fail_status(codes)}")
     res = write_paper(ctx, row, out)
     if out.html_raw:
         res.si_files = save_si(ctx, row["paper_id"], http_fetch(ctx), find_si_links(out.html_raw, out.page_url))
@@ -1047,18 +1113,21 @@ def h_springer(ctx: Ctx, row: dict) -> Outcome:
 def h_mdpi(ctx: Ctx, row: dict) -> Outcome:
     paper = Paper(row["paper_id"], row["doi"], row["title"], row["year"], "", "", "mdpi", "sci_collect")
     out = Outcome(method="mdpi_direct_pdf", page_url=f"https://www.mdpi.com/{row['doi'].split('/',1)[1]}")
+    codes: list[int] = []
     for url in mdpi_pdf_candidates(paper):
         r = ctx.session.get(url, timeout=120)
+        codes.append(r.status_code)
         if r.status_code == 200 and is_pdf(r.content):
             out.pdf_data = r.content; break
     try:
         h = ctx.session.get(f"https://doi.org/{row['doi']}", timeout=60)
+        codes.append(h.status_code)
         if h.status_code == 200 and "html" in h.headers.get("content-type", ""):
             out.html_raw, out.page_url = h.text, h.url
     except Exception:
         pass
     if not out.pdf_data and not out.html_raw:
-        return Outcome(status="failed", note="mdpi pdf/html 실패")
+        return Outcome(status="failed", note=f"mdpi pdf/html 실패 {fail_status(codes)}")
     res = write_paper(ctx, row, out)
     if out.html_raw:
         res.si_files = save_si(ctx, row["paper_id"], http_fetch(ctx), find_si_links(out.html_raw, out.page_url))
@@ -1256,6 +1325,8 @@ def select_rows(ctx: Ctx, args, statuses: set[str] | None = None) -> list[dict]:
         want = set(args.ids); rows = [r for r in rows if r["paper_id"] in want or r["doi"] in want]
     if getattr(args, "publishers", None):
         want = set(args.publishers.split(",")); rows = [r for r in rows if r["publisher"] in want]
+    if getattr(args, "exclude_publishers", None):
+        drop = set(args.exclude_publishers.split(",")); rows = [r for r in rows if r["publisher"] not in drop]
     if statuses is not None:
         rows = [r for r in rows if r.get("status") in statuses]
     return rows
@@ -1264,12 +1335,15 @@ def select_rows(ctx: Ctx, args, statuses: set[str] | None = None) -> list[dict]:
 def cmd_collect(args) -> None:
     ctx = make_ctx(args)
     if args.input:
+        types = read_doc_types(args.input)
         for doi in read_dois(args.input):
             if doi.lower() not in ctx.registry:
                 try:
                     resolve_doi(ctx, doi); time.sleep(1)
                 except Exception as exc:
                     say(f"resolve 실패 {doi}: {exc}")
+            if types.get(doi.lower()) and doi.lower() in ctx.registry:
+                ctx.registry[doi.lower()]["doc_type"] = types[doi.lower()]
         save_registry(ctx)
     todo_status = None if args.force else {"resolved", "failed", "pdf_missing", ""}
     rows = select_rows(ctx, args, todo_status)
@@ -1396,6 +1470,7 @@ def cmd_assist(args) -> None:
     # 2026-09-25 규칙: 기본은 도구 창을 열지 않고 웹 경로 목록만 만든다 (평소 쓰는 Chrome 에서 받은 뒤 intake).
     # 도구 창은 Elsevier·Wiley 에서 확인 창이 반복되고 RSC 는 PDF 가 거부되었다 (2026-09-24 실측). --window 면 예전 동작(Elsevier·Wiley 제외).
     manual_pubs = set(groups) if not getattr(args, "window", False) else {"wiley", "elsevier"}
+    lst = None
     for pub in [p for p in groups if p in manual_pubs]:
         rs = groups.pop(pub)
         note = WEB_NOTE.get(pub, "자동으로 받지 못해 평소 쓰시는 Chrome 에서 받아야 합니다.")
@@ -1403,6 +1478,7 @@ def cmd_assist(args) -> None:
         say(f"!! {pub} {len(rs)}편: {note}")
         for r in rs[:10]:
             say(f"   {r['paper_id']}: {manual_url(r)}  →  {paper_dir(ctx, r['paper_id']) / 'pdf' / (r['paper_id'] + '.pdf')}")
+    if lst:
         say(f"   전체 목록: {lst}  (받은 뒤 intake 실행)")
     if not groups:
         summarize(ctx, header="assist 완료"); return
@@ -1624,7 +1700,7 @@ def cmd_doctor(args) -> None:
     else:
         info(f"root {kb_root} — 아직 목록 없음 (resolve 로 만든다)")
     try:
-        r = requests.get("https://api.crossref.org/works/10.1039/d4gc02672a", timeout=20, headers={"User-Agent": UA_API.format(mailto="doctor")})
+        r = requests.get("https://api.crossref.org/works/10.1039/d4gc02672a", timeout=20, headers={"User-Agent": UA_TOOL})
         (ok if r.status_code == 200 else warn)(f"Crossref 응답 {r.status_code}")
     except requests.exceptions.SSLError as exc:
         bad(f"SSL 오류 — 기관 망 인증서 문제. truststore 설치 확인: {str(exc)[:80]}")
@@ -1928,6 +2004,123 @@ def cmd_intake(args) -> None:
     summarize(ctx, header="intake 완료" if not args.dry_run else "intake 미리보기")
 
 
+REF_HEAD_RE = re.compile(r"^\s*(references(?: and notes)?|bibliography|literature cited|참고\s*문헌)\s*$", re.I | re.M)
+
+
+def clean_doi(d: str) -> str:
+    return unquote(d).rstrip(".)]}>,;").strip()
+
+
+# 자동 요청을 막는 사이트 (웹 경로 전용) — refs 가 이 사이트의 페이지는 열지 않는다
+WEB_ONLY_HOSTS = ("acs.org", "rsc.org", "science.org", "iop.org", "electrochem.org", "tandfonline.com", "pnas.org", "aip.org",
+                  "oup.com", "ieee.org", "chemrxiv.org", "sciencedirect.com", "elsevier.com", "wiley.com", "cell.com")
+
+
+def doi_from_link(ctx: Ctx, url: str) -> str:
+    """링크에서 원 논문 DOI 를 찾는다: 주소 안의 DOI → Nature·RSC 주소 규칙 → ScienceDirect pii(Crossref 조회)
+    → 자동 요청을 막지 않는 사이트만 페이지의 citation_doi. 못 찾으면 빈 문자열."""
+    u = unquote(url)
+    m = DOI_RE.search(u)
+    if m:
+        return clean_doi(m.group(0))
+    pu = urlparse(u)
+    host, path = pu.netloc.lower(), pu.path
+    m = re.match(r"/articles/([^/?#]+)", path)
+    if host.endswith("nature.com") and m:
+        return f"10.1038/{m.group(1)}"
+    m = re.search(r"/articlelanding/\d{4}/[a-z]+/([a-z0-9]+)", path, re.I)
+    if host.endswith("rsc.org") and m:
+        return f"10.1039/{m.group(1).upper()}"
+    m = re.search(r"/pii/(S?[0-9X]{15,17})", path, re.I)
+    if m:
+        try:
+            r = ctx.session.get("https://api.crossref.org/works", headers=ctx.api_headers(), timeout=40,
+                                params={"filter": f"alternative-id:{m.group(1).upper()}", "rows": 2})
+            items = r.json()["message"]["items"] if r.status_code == 200 else []
+            if len(items) == 1:
+                return items[0]["DOI"]
+        except Exception:
+            pass
+        return ""
+    if not host or any(host.endswith(h) for h in WEB_ONLY_HOSTS):
+        return ""
+    try:
+        r = ctx.session.get(url, timeout=60)
+        if r.status_code == 200:
+            for tag in re.findall(r"<meta\b[^>]*>", r.text, re.I):
+                if re.search(r"name=[\"'](citation_doi|dc\.identifier|prism\.doi)[\"']", tag, re.I):
+                    mm = DOI_RE.search(tag)
+                    if mm:
+                        return clean_doi(mm.group(0))
+    except Exception:
+        pass
+    return ""
+
+
+def cmd_refs(args) -> None:
+    """한 논문(PDF·링크·DOI·paper_id)의 참고문헌 DOI 목록을 만든다. Crossref 참고문헌(논문 순서)과 OpenAlex 인용 목록을 합치고,
+    둘 다 비었을 때만 PDF 참고문헌의 DOI 를 쓴다(줄바꿈에 잘린 DOI 가 섞이기 쉬워서). 출판사 페이지에는 요청하지 않는다.
+    결과는 _collect/refs_<원 논문>.txt — 이 파일로 resolve·collect 를 이어서 한다 (2026-09-27)."""
+    ctx = make_ctx(args)
+    src = args.source.strip().strip('"')
+    doi, pdf_path = "", None
+    reg_by_id = {r["paper_id"]: r for r in ctx.registry.values()}
+    p = Path(src)
+    if p.exists() and p.suffix.lower() == ".pdf":
+        pdf_path = p
+        m = DOI_RE.search(_pdf_texts(p)[1])      # 앞 두 쪽의 첫 DOI = 원 논문
+        doi = clean_doi(m.group(0)) if m else ""
+    elif src in reg_by_id:
+        doi = reg_by_id[src]["doi"]
+        cand = ctx.papers_root() / src / "pdf" / f"{src}.pdf"
+        pdf_path = cand if cand.exists() else None
+    elif src.lower().startswith("http"):
+        doi = doi_from_link(ctx, src)
+    else:
+        m = DOI_RE.search(unquote(src))
+        doi = clean_doi(m.group(0)) if m else ""
+    if not doi:
+        say("원 논문의 DOI 를 찾지 못했습니다. 자동 요청을 막는 사이트의 링크는 페이지를 열어 보지 않습니다. 논문 PDF 나 DOI 를 주세요.")
+        return
+    cr: dict = {}
+    found: list[tuple[str, str]] = []
+    try:
+        cr = crossref_work(ctx, doi)
+        found += [(clean_doi(r["DOI"]), "Crossref") for r in cr.get("reference") or [] if r.get("DOI")]
+    except Exception as exc:
+        say(f"Crossref 조회 실패: {type(exc).__name__}")
+    oa = openalex_work(ctx, doi)
+    ids = [w.rsplit("/", 1)[-1] for w in (oa or {}).get("referenced_works") or []]
+    for i in range(0, len(ids), 50):
+        try:
+            r = ctx.session.get("https://api.openalex.org/works", headers=ctx.api_headers(), timeout=60,
+                                params={"filter": "openalex:" + "|".join(ids[i:i + 50]), "select": "doi", "per-page": 50,
+                                        "mailto": ctx.config.get("crossref_mailto") or None})
+            found += [(clean_doi(w["doi"].split("doi.org/", 1)[-1]), "OpenAlex") for w in r.json().get("results", []) if w.get("doi")]
+        except Exception:
+            break
+        time.sleep(1)
+    if not found and pdf_path:
+        full = _pdf_texts(pdf_path)[2]
+        heads = list(REF_HEAD_RE.finditer(full))
+        found += [(clean_doi(d), "PDF") for d in DOI_RE.findall(full[heads[-1].end():] if heads else full)]
+    out, seen, by_src = [], {doi.lower()}, {"Crossref": 0, "OpenAlex": 0, "PDF": 0}
+    for d, s in found:
+        if d.lower() not in seen:
+            seen.add(d.lower()); out.append(d); by_src[s] += 1
+    total = max(int(cr.get("reference-count") or 0), len(cr.get("reference") or []), len(ids))
+    sel = out[: args.limit] if args.limit else out
+    dest = ctx.work / f"refs_{re.sub(r'[^A-Za-z0-9]+', '_', doi)[:60]}.txt"
+    dest.write_text("# sci-retr refs: 한 논문의 참고문헌 DOI 목록 (Crossref 순서, 뒤는 OpenAlex·PDF 추가분)\n" + "\n".join(sel) + "\n", encoding="utf-8")
+    say(f"원 논문: {strip_jats((cr.get('title') or [''])[0])[:90] or doi}")
+    say(f"참고문헌 {total}개 중 DOI {len(out)}개 확인 (Crossref {by_src['Crossref']}, OpenAlex 추가 {by_src['OpenAlex']}, PDF {by_src['PDF']})")
+    if total > len(out):
+        say(f"DOI 가 없는 참고문헌 약 {total - len(out)}개는 빠졌습니다 (책·학위논문·옛 논문 등).")
+    if args.limit:
+        say(f"앞에서 {len(sel)}개만 목록에 넣었습니다 (--limit {args.limit}).")
+    say(f"목록: {dest}  → resolve --input 으로 이어서 수집")
+
+
 def key_status(env_path: Path | None) -> dict:
     """키·토큰이 어디에 있는지만 돌려준다(논문 폴더 .env → token.txt → 환경변수, 수집 때 읽는 순서와 같다). 값은 돌려주지 않는다."""
     dot = read_kv(env_path) if env_path else {}
@@ -1969,13 +2162,16 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--env", default=None, help=".env 경로 (기본: <kb-root>/.env). 키·토큰은 skill 폴더의 token.txt 도 읽는다")
     common.add_argument("--mailto", default=None, help="Crossref/OpenAlex 예의용 이메일")
     p = sub.add_parser("resolve", parents=[common]); p.add_argument("--input", nargs="+", required=True, help="DOI 목록 파일(csv/xlsx/txt) 또는 DOI 문자열")
-    p = sub.add_parser("collect", parents=[common]); p.add_argument("--input", nargs="*", default=None); p.add_argument("--ids", nargs="*"); p.add_argument("--publishers", default=None); p.add_argument("--force", action="store_true")
-    p = sub.add_parser("assist", parents=[common]); p.add_argument("--ids", nargs="*"); p.add_argument("--publishers", default=None); p.add_argument("--force", action="store_true"); p.add_argument("--window", action="store_true", help="예전 도구 창 방식 (기본: 창 없이 웹 경로 목록만)")
+    p = sub.add_parser("collect", parents=[common]); p.add_argument("--input", nargs="*", default=None); p.add_argument("--ids", nargs="*"); p.add_argument("--publishers", default=None); p.add_argument("--exclude-publishers", default=None, help="뺄 출판사 (쉼표로, 예: elsevier,wiley)"); p.add_argument("--force", action="store_true")
+    p = sub.add_parser("assist", parents=[common]); p.add_argument("--ids", nargs="*"); p.add_argument("--publishers", default=None); p.add_argument("--exclude-publishers", default=None); p.add_argument("--force", action="store_true"); p.add_argument("--window", action="store_true", help="예전 도구 창 방식 (기본: 창 없이 웹 경로 목록만)")
     p = sub.add_parser("intake", parents=[common]); p.add_argument("--downloads", default=None, help="다운로드 폴더 (기본: 설정 downloads_dir → Chrome 설정 → Windows 다운로드 폴더 → ~/Downloads)"); p.add_argument("--hours", type=float, default=24, help="최근 몇 시간 안에 받은 파일만"); p.add_argument("--dry-run", action="store_true", help="옮기지 않고 판정만 보기")
     p = sub.add_parser("reextract", parents=[common]); p.add_argument("--ids", nargs="*"); p.add_argument("--publishers", default=None)
     p = sub.add_parser("mark", parents=[common]); p.add_argument("--ids", nargs="+", required=True, help="paper_id 또는 DOI"); p.add_argument("--status", choices=["out_of_scope", "resolved"], required=True); p.add_argument("--note", default="")
     sub.add_parser("status", parents=[common])
     sub.add_parser("doctor", parents=[common], help="처음 쓰기 전 환경 점검 (읽기만 함)")
+    p = sub.add_parser("refs", parents=[common], help="한 논문(PDF·링크·DOI·paper_id)의 참고문헌 DOI 목록 만들기 (수집은 하지 않음)")
+    p.add_argument("--source", required=True, help="논문 PDF 경로, 웹 링크, DOI, 또는 paper_id")
+    p.add_argument("--limit", type=int, default=0, help="앞에서 N개만 (0 = 모두)")
     p = sub.add_parser("token", help="키·토큰이 어디에 있는지 확인 (값은 보이지 않음). --create 로 token.txt 빈 양식 만들기")
     p.add_argument("--kb-root", default=None, help="논문 폴더 (그 폴더의 .env 도 본다)")
     p.add_argument("--env", default=None, help=".env 경로")
@@ -1985,7 +2181,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
-    {"resolve": cmd_resolve, "collect": cmd_collect, "assist": cmd_assist, "mark": cmd_mark, "reextract": cmd_reextract, "intake": cmd_intake, "status": cmd_status, "doctor": cmd_doctor, "token": cmd_token}[args.cmd](args)
+    {"resolve": cmd_resolve, "collect": cmd_collect, "assist": cmd_assist, "mark": cmd_mark, "reextract": cmd_reextract, "intake": cmd_intake, "status": cmd_status, "doctor": cmd_doctor, "token": cmd_token, "refs": cmd_refs}[args.cmd](args)
 
 
 if __name__ == "__main__":

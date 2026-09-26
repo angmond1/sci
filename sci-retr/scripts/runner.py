@@ -50,10 +50,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36; sci-retr"
-)
+USER_AGENT = "sci-retr/0.2.1 (+https://github.com/angmond1/sci)"   # 정직한 도구 이름 (브라우저 위장 금지, 2026-09-27)
 HEADERS = {
     "User-Agent": USER_AGENT,
     "Accept": "text/html,application/xhtml+xml,application/pdf;q=0.9,*/*;q=0.8",
@@ -1123,7 +1120,7 @@ def collect_ecs(paper: Paper, result: CollectionResult) -> None:
     # 일반 requests 로 직접 PDF 1회 (봇 확인 페이지면 즉시 사용자 묶음 — 우회·재시도 없음)
     candidates = [pdf_url, f"https://iopscience.iop.org/article/{quote(paper.doi, safe='/:')}/pdf"]
     for url in candidates:
-        response = request_get(url, headers={"Accept": "application/pdf,*/*", "User-Agent": "Mozilla/5.0"}, timeout=75)
+        response = request_get(url, headers={"Accept": "application/pdf,*/*", "User-Agent": USER_AGENT}, timeout=75)
         if response.status_code == 200 and is_pdf(response.content):
             result.attempt_method = "ecs_iopscience_direct_pdf"
             write_pdf_source(paper, response.content, result.attempt_method, result)
