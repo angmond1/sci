@@ -55,5 +55,5 @@ Web of Science, Scopus에서 수집하고자 하는 논문 리스트를 파일�
 | Springer, Nature, MDPI, Frontiers, PLOS, Beilstein, Copernicus, APS, Cambridge | - | 파이썬 | 2-15초 |
 | ACS, RSC, IOP, Science, Taylor & Francis, PNAS, AIP, Oxford, IEEE, ChemRxiv | - | 웹 다운로드 | 30-60초 |
 
-KIST 미구독 출판사는 초록만 저장.<br>
+기관 미구독 출판사는 초록만 저장.<br>
 Elsevier 기관 API key, Wiley 기관 TDM 토큰, ACS API key는 발급 거절당함.
