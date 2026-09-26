@@ -12,7 +12,7 @@
 ## 1. 설치 절차 (에이전트가 그대로 실행)
 
 ### Step 0 — 필요한 프로그램 (Step 2 의 설치 스크립트가 확인하고, 없으면 설치)
-먼저 한 줄 알리고 확인 질문 없이 진행한다: "설치에 필요한 프로그램을 확인하고, 없는 것은 바로 설치하겠습니다."
+먼저 한 줄 알리고 확인 질문 없이 진행한다: "설치에 필요한 프로그램을 확인하고, 없는 것은 바로 설치하겠습니다." 에이전트가 미리 확인할 필요는 없다. Step 2 스크립트가 아래 표의 확인을 똑같이 한다.
 
 | 항목 | 확인 | 없을 때 Windows | 없을 때 macOS / Linux |
 |---|---|---|---|
@@ -54,18 +54,19 @@
 ### Step 3 — "Claude in Chrome" 확장
 확장은 자동으로 설치할 수 없다. 설치 스크립트가 확장이 없으면 웹스토어 페이지를 열어 준다. 사용자에게 'Chrome에 추가' 를 누르고 Claude 계정으로 로그인해 달라고 한다. 주소: https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn . Claude 데스크탑 앱(Code 탭 포함)은 좌하단 이니셜 클릭 → "설정" → 좌측 탭 "Claude in Chrome 설정" → "Claude in Chrome 사용설정" 켜기(설정 첫 화면에는 안 보인다). 터미널의 Claude Code CLI 는 `claude --chrome` 으로 시작한다. 세션에서 `list_connected_browsers` 가 이 컴퓨터의 브라우저를 돌려주면 성공. 같은 계정으로 확장을 켠 다른 컴퓨터도 목록에 나오므로 이 컴퓨터 것(`onThisComputer`)만 쓴다.
 
-### Step 4 — Chrome 설정 두 가지 (사용자가 직접)
+### Step 4 — Chrome 설정 두 가지 (점검에서 [문제] 로 나올 때만, 사용자가 직접)
 > "Chrome 에서 두 가지를 바꿔 주세요. ① `chrome://settings/content/pdfDocuments` 에서 'PDF 다운로드' 선택 ② `chrome://settings/downloads` 에서 '다운로드 전에 각 파일의 저장 위치 확인' 끄기. 이래야 PDF 가 저장 창 없이 다운로드 폴더로 바로 들어갑니다."
 
-### Step 5 — 재시작 (반드시 안내)
-`~/.claude/skills/` 에 새 skill 폴더가 생기면 그 세션에서는 인식되지 않는다.
-> "설치 완료. Claude 를 재시작한 뒤 `sci-retr 점검해줘` 라고 해주세요."
+### Step 5 — 새 대화 안내 (반드시)
+새 skill 은 새 대화(세션)부터 인식된다. 설치 스크립트의 끝 안내와 같은 문구로 알린다.
+> "설치 완료. 새 대화를 열거나 Claude 를 다시 시작한 뒤, 논문 목록 파일(Web of Science·Scopus 내보내기 또는 DOI 목록)을 대화창에 끌어다 놓고 'sci-retr 스킬로 논문 수집해줘' 라고 해 주세요."
 
-### Step 6 — 점검 (재시작 뒤 첫 대화)
+### Step 6 — 점검 (사용자가 요청할 때)
+설치 스크립트가 이미 점검했으므로 따로 하지 않아도 된다. 사용자가 "sci-retr 점검해줘" 라고 하면 다음을 돌린다.
 `python ~/.claude/skills/sci-retr/scripts/sci_collect.py doctor --kb-root <논문 폴더>` 를 돌려(가상환경에 설치했으면 `python` 대신 `~/.sci-retr/venv/bin/python`) "문제 0" 을 확인한다. 논문 폴더를 아직 정하지 않았으면 `--kb-root` 에 임시 폴더(예: `%TEMP%\sci-retr-check`, macOS/Linux `/tmp/sci-retr-check`)를 준다. 논문 폴더는 수집할 때 정한다(SKILL.md 5.0). 문제가 있으면 출력의 안내대로 고친 뒤 다시 돌린다. 키·토큰(선택)은 `sci-retr/examples/.env.example` 을 논문 폴더의 `.env` 로 복사해 채우게 안내하되, 값은 채팅에 적지 않게 한다.
 
 ## 2. 실행
-사용자가 DOI 목록이나 "논문 받아줘" 라고 하면 `sci-retr` skill 지침(SKILL.md)을 따른다. 수집 전에 저장 폴더를 묻고 확인하며(5.0), 수집이 끝나면 30편을 넘을 때 색인 여부를 묻고 30편 이하면 생략을 알린다(5.7).
+사용자가 DOI 목록이나 "논문 받아줘" 라고 하면 `sci-retr` skill 지침(SKILL.md)을 따른다. 수집 전에 저장 폴더를 묻고 확인하며(5.0), 수집이 끝나면 30편 이상일 때 색인 여부를 묻고 30편 미만이면 이유와 함께 생략을 알린다(5.7).
 
 ## 3. 갱신
 `<root>` 에서 `git pull` 한 뒤 Step 2 의 설치 스크립트를 다시 실행한다. 설정과 `.env` 는 논문 폴더에 있으므로 영향이 없다.

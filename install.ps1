@@ -139,7 +139,7 @@ foreach ($skill in @("sci-retr", "sci-index")) {
 }
 
 # 3) 파이썬 패키지
-Write-Host "=== 3. 파이썬 패키지 설치: $py -m pip install ..."
+Write-Host "=== 3. 파이썬 패키지 설치: $py -m pip install ... (처음 설치면 1~2분 걸릴 수 있습니다)"
 cmd /c "$py -m pip install --quiet --disable-pip-version-check $Packages"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "권한 문제일 수 있어 사용자 폴더(--user)로 다시 설치합니다."
@@ -150,7 +150,10 @@ if ($LASTEXITCODE -ne 0) {
 # 4) 점검
 Write-Host "=== 4. 환경 점검"
 $checkRoot = Join-Path $env:TEMP "sci-retr-check"
-cmd /c "$py `"$Dest\sci-retr\scripts\sci_collect.py`" doctor --kb-root `"$checkRoot`""
+$doctorOut = @(cmd /c "$py `"$Dest\sci-retr\scripts\sci_collect.py`" doctor --kb-root `"$checkRoot`" 2>&1")
+$doctorOut | ForEach-Object { Write-Host $_ }
+Write-Host "(위 root 는 점검용 임시 폴더입니다. 논문을 저장할 폴더는 수집을 시작할 때 정합니다.)"
+$needChromeSettings = [bool]($doctorOut | Select-String -Pattern "\[문제\] Chrome\(" -Quiet)
 $needExt = $false
 if (-not $Codex) {
     $ext = Test-ClaudeExtension
@@ -166,8 +169,9 @@ if (-not $Codex) {
 Write-Host ""
 Write-Host "▼・ᴥ・▼  sci-retr 설치 완료"
 if ($installed.Count -gt 0) { Write-Host "새로 설치한 프로그램: $($installed -join ', ')" }
-Write-Host "$app 를 재시작한 뒤 이렇게 시작하세요:"
+Write-Host "이렇게 시작하세요:"
 $n = 1
 if ($needExt) { Write-Host "  $n) Claude in Chrome 확장 설치·로그인: $ExtUrl"; $n++ }
-Write-Host "  $n) Chrome 설정: chrome://settings/content/pdfDocuments 를 'PDF 다운로드' 로, chrome://settings/downloads 의 '저장 위치 확인' 은 끄기 (위 점검에서 [문제] 로 나온 것만)"; $n++
-Write-Host "  $n) 대화창에 '이 DOI 목록 논문 받아줘' 라고 말하면 sci-retr 이 시작됩니다."
+if ($needChromeSettings) { Write-Host "  $n) Chrome 설정: 위 점검에서 [문제] 로 나온 항목 고치기 (chrome://settings/content/pdfDocuments → 'PDF 다운로드', chrome://settings/downloads → '다운로드 전에 각 파일의 저장 위치 확인' 끄기)"; $n++ }
+Write-Host "  $n) $app 에서 새 대화를 열거나 $app 를 다시 시작하기 (새 skill 을 읽게)"; $n++
+Write-Host "  $n) 논문 목록 파일(Web of Science·Scopus 내보내기 또는 DOI 목록)을 대화창에 끌어다 놓고 'sci-retr 스킬로 논문 수집해줘'"

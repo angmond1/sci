@@ -98,7 +98,7 @@ for skill in sci-retr sci-index; do
   echo "설치: $DEST/$skill"
 done
 
-echo "=== 3. 파이썬 패키지 설치: $PY -m pip install ..."
+echo "=== 3. 파이썬 패키지 설치: $PY -m pip install ... (처음 설치면 1~2분 걸릴 수 있습니다)"
 PIP_LOG="${TMPDIR:-/tmp}/sci-retr-pip.log"
 # shellcheck disable=SC2086
 if ! "$PY" -m pip install --quiet --disable-pip-version-check $PACKAGES 2>"$PIP_LOG"; then
@@ -124,6 +124,9 @@ echo "=== 4. 환경 점검"
 CHECK_ROOT="${TMPDIR:-/tmp}/sci-retr-check"
 DOCTOR_OUT="$("$PY" "$DEST/sci-retr/scripts/sci_collect.py" doctor --kb-root "$CHECK_ROOT" 2>&1 || true)"
 echo "$DOCTOR_OUT"
+echo "(위 root 는 점검용 임시 폴더입니다. 논문을 저장할 폴더는 수집을 시작할 때 정합니다.)"
+NEED_CHROME_SET=0
+if echo "$DOCTOR_OUT" | grep -q "\[문제\] Chrome("; then NEED_CHROME_SET=1; fi
 NEED_EXT=0
 if [ "$CODEX" = 0 ] && echo "$DOCTOR_OUT" | grep -q "Claude in Chrome 확장 없음"; then
   NEED_EXT=1
@@ -138,9 +141,13 @@ fi
 echo ""
 echo "▼・ᴥ・▼  sci-retr 설치 완료"
 if [ -n "$INSTALLED" ]; then echo "새로 설치한 프로그램:$INSTALLED"; fi
-echo "$APP 를 재시작한 뒤 이렇게 시작하세요:"
+echo "이렇게 시작하세요:"
 N=1
 if [ "$NEED_EXT" = 1 ]; then echo "  $N) Claude in Chrome 확장 설치·로그인: $EXT_URL"; N=$((N + 1)); fi
-echo "  $N) Chrome 설정: chrome://settings/content/pdfDocuments 를 'PDF 다운로드' 로, chrome://settings/downloads 의 '저장 위치 확인' 은 끄기 (위 점검에서 [문제] 로 나온 것만)"
+if [ "$NEED_CHROME_SET" = 1 ]; then
+  echo "  $N) Chrome 설정: 위 점검에서 [문제] 로 나온 항목 고치기 (chrome://settings/content/pdfDocuments → 'PDF 다운로드', chrome://settings/downloads → '다운로드 전에 각 파일의 저장 위치 확인' 끄기)"
+  N=$((N + 1))
+fi
+echo "  $N) $APP 에서 새 대화를 열거나 $APP 를 다시 시작하기 (새 skill 을 읽게)"
 N=$((N + 1))
-echo "  $N) 대화창에 '이 DOI 목록 논문 받아줘' 라고 말하면 sci-retr 이 시작됩니다."
+echo "  $N) 논문 목록 파일(Web of Science·Scopus 내보내기 또는 DOI 목록)을 대화창에 끌어다 놓고 'sci-retr 스킬로 논문 수집해줘'"
