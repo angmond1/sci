@@ -27,7 +27,9 @@ https://github.com/angmond1/sci-retr 설치해줘
 
 1. **Python 3.11 이상**. 패키지는 설치 스크립트가 넣는다.
 2. **Google Chrome + "Claude in Chrome" 확장**: https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn . Claude 계정으로 로그인.
-3. **Chrome 설정 두 가지**: `chrome://settings/content/pdfDocuments` 를 "PDF 다운로드" 로, `chrome://settings/downloads` 의 "다운로드 전에 각 파일의 저장 위치 확인" 은 끈다.
+3. **Chrome 설정**
+   - `chrome://settings/content/pdfDocuments` 에서 "PDF 다운로드" 선택
+   - `chrome://settings/downloads` 에서 "다운로드 전에 각 파일의 저장 위치 확인" 선택 해제
 
 <br>
 
