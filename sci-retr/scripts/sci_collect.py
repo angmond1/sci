@@ -1262,7 +1262,7 @@ def apply_outcome(ctx: Ctx, row: dict, out: Outcome, phase: str) -> None:
                   "status": out.status, "method": out.method, "text_source": out.text_source, "chars": out.chars,
                   "pdf_bytes": out.pdf_bytes, "si_files": out.si_files, "note": out.note[:300]})
     mark = {"full": "OK ", "abstract_only": "ABS", "human_required": "USR", "failed": "FAIL", "pdf_missing": "NOPDF"}.get(out.status, "?")
-    say(f"[{row['publisher']:8s}] {mark} {row['paper_id'][:44]:44s} {out.method:36s} text={out.text_source or '-'} {out.chars:>7d}ch pdf={out.pdf_bytes // 1024:>6d}KB si={out.si_files} {out.note[:70]}")
+    say(f"[{row['publisher']:8s}] {mark} {row['paper_id'][:44]:44s} {out.method:36s} text={out.text_source or '-'} {out.chars:>7d}ch pdf={out.pdf_bytes // 1024:>6d}KB si={out.si_files} {out.note[:120]}")
     save_registry(ctx)
 
 

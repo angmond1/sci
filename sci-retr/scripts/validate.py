@@ -64,6 +64,19 @@ def _pdf_pages_and_first_page(pdf_path: Path) -> tuple[int | None, str]:
         return None, ""
 
 
+def _pdf_head_text(pdf_path: Path, n_pages: int = 2) -> str:
+    """앞 n 쪽의 텍스트. fitz 없거나 실패 시 ''."""
+    if fitz is None or not pdf_path.exists():
+        return ""
+    try:
+        doc = fitz.open(str(pdf_path))
+        text = "\n".join(doc[i].get_text("text") for i in range(min(n_pages, doc.page_count)))
+        doc.close()
+        return text
+    except Exception:
+        return ""
+
+
 def validate_collected_paper(
     paper_id: str,
     paper_dir: "str | Path",
@@ -120,16 +133,16 @@ def validate_collected_paper(
         issues.append(f"paywall_fallthrough_suspected:paywall={paywall_hits},body={body_hits}")
 
     # 5. DOI 매칭 (wrong-paper drift) — 보수적:
-    #    expected DOI 가 첫 페이지에 있으면 통과. 없고 다른 DOI 만 있으면 의심.
+    #    expected DOI 가 앞 두 쪽 어디에도 없고 다른 DOI 만 있으면 의심.
+    #    (옛 Science PDF 는 옛 형식 DOI `10.1126/science.1057823` 를 먼저 찍고 Crossref DOI 는 뒤에 나온다, 2026-09-27)
     if pdf_path.exists() and expected_doi:
-        _, first_page = _pdf_pages_and_first_page(pdf_path)
-        fp = first_page[:5000]
-        if expected_doi.lower() not in fp.lower():
-            m = DOI_RE.search(fp)
-            if m:
-                found = m.group(1).rstrip(".,;)")
-                if found.lower() != expected_doi.lower():
-                    issues.append(f"doi_mismatch_suspected:expected={expected_doi},found={found}")
+        # expected DOI 가 PDF 어디에든 있으면 같은 논문으로 본다 (옛 Science PDF 는 마지막 쪽에만 Crossref DOI 가 있다)
+        if expected_doi.lower() not in _pdf_head_text(pdf_path, 10**6).lower():
+            head = _pdf_head_text(pdf_path, 2)
+            others = sorted({m.group(1).rstrip(".,;)") for m in DOI_RE.finditer(head)}, key=str.lower)
+            others = [d for d in others if d.lower() != expected_doi.lower()]
+            if others:
+                issues.append(f"doi_mismatch_suspected:expected={expected_doi},found={others[0]}")
 
     # 6. replacement guard (이전 source.md 가 더 풍부했는지)
     backups = (

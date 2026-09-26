@@ -56,7 +56,7 @@
 - 스크립트 결과로 링크 주소를 통째로 받지 않는다. 확장이 쿼리 문자열이나 토큰이 든 값을 `[BLOCKED]` 로 가린다. 경로만(`?` 앞) 또는 글자만 받는다.
 - 창 크기가 바뀌면 좌표도 바뀐다(2026-09-25 에 818, 1022, 1074, 1148, 1316 px 로 바뀜). 좌표는 그 호출의 스크린샷 좌표계를 따른다.
 - 탭 닫기는 묶음 안에 넣지 않는다. 묶음 안에서 탭을 닫으면 뒤 동작이 깨진다. 닫은 뒤 탭 목록을 다시 읽는다.
-- 페이지가 아직 그려지는 중이면 스크립트가 `document.body` 없음 오류를 내거나 45초 시간 초과로 끝난다. 뜰 때까지 기다림과 스크린샷으로 확인한다.
+- 페이지가 아직 그려지는 중이면 스크립트가 `document.body` 없음 오류를 내거나 45초 시간 초과로 끝난다. 뜰 때까지 기다림과 스크린샷으로 확인한다. 페이지가 뜬 직후의 확대 캡처도 시간 초과가 나기 쉽다(2026-09-27 두 번). 2~3초 기다렸다 찍고, 직전 스크린샷으로 자리가 확인됐으면 확대 캡처 없이 누른다.
 
 ### 2.3 다운로드 폴더
 
@@ -121,9 +121,9 @@
 
 ### 3.6 Science
 
-- 주소 `https://www.science.org/doi/10.1126/science.{코드}`. 확인 창은 없다. 오른쪽 "RECOMMENDED" 추천 창이나 아래쪽 뉴스레터 안내가 뜨지만 버튼을 가리지 않았다. 가리면 X 를 누른다.
+- 주소 `https://www.science.org/doi/10.1126/science.{코드}`. 대개 확인 창 없이 뜨지만, 첫 접속에서 Cloudflare 의 "Just a moment…/Performing security verification" 화면에 20초 넘게 멈추기도 한다(2026-09-27). 그 화면에서는 스크린샷이 시간 초과로 실패하고 체크박스는 없었다. 15초쯤 기다렸다 새로고침하면 열린다. 체크박스가 보이면 사용자에게 눌러 달라고 한다. 오른쪽 "RECOMMENDED" 추천 창이나 아래쪽 뉴스레터 안내가 뜨지만 버튼을 가리지 않았다. 가리면 X 를 누른다.
 - SI 먼저: "Supplementary Materials" 절의 "DOWNLOAD"(`a[href*="suppl_file"]`, 크기 표시). 새 탭 없이 저장된다. PDF 만 받고, 동영상 묶음(Movies)과 데이터 파일(Data S1 등, zip·Excel)은 받지 않는다. "MDAR Reproducibility Checklist" PDF 는 보고 양식이라 받지 않는다. 링크 주소에 토큰이 들어 있어 스크립트 결과로 파일 이름을 통째로 받으면 가려지므로, 확장자와 `mdar` 여부만 받는다.
-- 본문: 빨간 PDF 아이콘(제목 아래 오른쪽, 내리면 상단 고정 막대)을 누르면 5초 안에 온라인 보기(`/doi/epdf/`)가 열린다. 오른쪽 위 둥근 청록색 다운로드 아이콘("Download PDF • 크기")을 누르면 2~3초 안에 저장된다. 대안은 도구 막대 "View Options" 의 "DOWNLOAD PDF".
+- 본문: 빨간 PDF 아이콘(제목 아래 오른쪽, 내리면 상단 고정 막대)을 누르면 5초 안에 온라인 보기(`/doi/epdf/`)가 열린다(아이콘 링크는 `/doi/reader/` 이고 열리면 `/doi/epdf/` 로 넘어간다. 찾을 때 둘 다 본다). 오른쪽 위 둥근 청록색 다운로드 아이콘("Download PDF • 크기")을 누르면 2~3초 안에 저장된다. 대안은 도구 막대 "View Options" 의 "DOWNLOAD PDF".
 - SI "DOWNLOAD", 빨간 아이콘, 온라인 보기의 다운로드 아이콘은 한 호출에서 이어서 누를 수 있다. 빨간 아이콘 뒤 5초 기다리고, 다운로드 아이콘 자리를 확대 캡처로 남긴 뒤 누른다. 2차 시험 3편이 모두 40~45초였다.
 - SI 가 현재판과 원본판(v1) 두 개로 보이면 현재판만 받는다.
 - 파일: `science.{코드}.pdf`. SI 는 `science.{코드}_sm.pdf`, `science.{코드}_sm.v2.pdf`, `{코드}-{저자}-sm.pdf`, `{코드}_fu_sm.pdf` 처럼 여러 가지다.
@@ -182,6 +182,14 @@
 - 주소는 `https://doi.org/{DOI}` 로 연다. Crossref 가 준 `thieme-connect.de/DOI/DOI?…` 주소는 404 다.
 - OneTrust 쿠키 창이 배경막으로 페이지 전체 클릭을 막는다. 쿠키 창은 누르지 않는다. 페이지 스크립트로 SI 링크와 본문 PDF 링크의 경로(`/products/ejournals/pdf/…`, `/media/…`)를 읽어 그 주소로 탭을 옮기면 저장된다(2.2 의 주소 이동 방식). 페이지를 옮기면 쿠키 창은 저절로 사라진다.
 - 파일: `{DOI 끝}.pdf` (예: `a-2309-6737.pdf`), SI 는 `…-si.pdf` 류.
+
+### 3.15 CCS Chemistry 와 그 밖의 Atypon 형 사이트 (2026-09-27, 1편)
+
+- `www.chinesechemsoc.org`(CCS Chemistry)는 설정 표에 없는 "그 외" 사이트다. 자동 요청은 403 으로 막히지만 사용자 Chrome 에서는 확인 창 없이 열린다. `https://doi.org/{DOI}` 로 연다.
+- Taylor & Francis·PNAS 와 같은 Atypon 구조다. 도구 막대의 "PDF" 는 온라인 보기(`/doi/epdf/`)라 쓰지 않고, 페이지 아래 작은 "PDF download"(`a[href*="/doi/pdf/"]`)를 누르면 바로 저장된다.
+- 그림마다 "Download PowerPoint" 링크가 있어 "download" 글자로 찾으면 12개가 섞여 나온다. `/doi/pdf/` 경로로 찾는다.
+- SI: "Supplemental material" 절의 링크(review 는 없기도 하다).
+- 처음 보는 사이트는 이 순서로 본다: ① `a[href*="/doi/pdf/"]` 또는 `citation_pdf_url` 메타 ② 글자가 "Download PDF"·"PDF download" 인 링크 ③ 그래도 없으면 사용자에게 버튼을 직접 눌러 달라고 한다.
 
 ## 4. 여러 탭 동시 진행 시험 (2026-09-25, 두 차례)
 
