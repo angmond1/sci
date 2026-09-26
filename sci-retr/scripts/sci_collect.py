@@ -1717,7 +1717,8 @@ def manual_url(row: dict) -> str:
         return lu if "wiley.com" in lu else f"https://onlinelibrary.wiley.com/doi/{row['doi']}"
     if row["publisher"] == "elsevier" and row.get("pii"):
         return f"https://www.sciencedirect.com/science/article/pii/{row['pii']}"
-    return row.get("landing_url") or f"https://doi.org/{row['doi']}"
+    # Crossref 가 준 landing 주소는 옛 주소일 수 있다 (Thieme `thieme-connect.de/DOI/DOI?…` 가 404, 2026-09-27) → doi.org 로 연다
+    return f"https://doi.org/{row['doi']}"
 
 
 MANUAL_FIELDS = ["paper_id", "publisher", "title", "url", "save_to", "reason"]
