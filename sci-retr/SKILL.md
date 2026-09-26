@@ -26,7 +26,7 @@ description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결
 3. **Elsevier API 는 OA 논문에만 쓴다.** OA 가 아닌 구독 논문에는 API 를 호출하지 않는다. 기관 토큰이 없어 첫 페이지만 오기 때문이다.
 4. **키·토큰은 파일로만.** 이 skill 폴더의 `token.txt`(또는 논문 폴더의 `.env`)에 사용자가 직접 넣는다. 사용자에게는 채팅창에 값을 적지 말라고 안내하고(유출 위험), Claude 도 값을 읽거나 출력하지 않는다. 있음/없음은 `token` 명령이나 `doctor` 로 본다. 스크립트나 지침에도 값을 적지 않는다.
 5. **사용자에게 묻는 것은 이것뿐.** 저장 폴더(5.0), 주제 확인(30편을 넘을 때, 5.2), review 인용 follow-up(5.8), 웹 경로로 받을 파일 목록(묶음당 한 번), 확인 창 클릭, 색인 여부(30편 이상일 때, 5.7). 키·토큰 발급 여부(Elsevier OA·Wiley 논문이 있고 키·토큰이 없을 때, 3.2.1)와 이 컴퓨터의 Chrome 이 둘 이상일 때의 선택(3.0)도 여기에 든다. 옵션 이름이나 내부 상태값은 말하지 않고 자연어로 설명한다.
-6. **미구독 출판사는 초록만 저장**하고 그 사실을 사용자에게 알린다.
+6. **미구독 출판사는 초록만 저장**하고 그 사실을 사용자에게 알린다. 단 Open Access 논문은 받는다(자동으로 한 번, 안 되면 웹 경로).
 7. **양과 간격.** 자동 경로는 설정 간격(3.3)을 지킨다. 웹 경로는 같은 출판사 안에서 한 편씩 받고, 한 편이 끝나면 기다리지 않고 바로 다음 논문으로 간다(2026-09-25 사용자 지시로 30초 간격 폐지). 한 편에 보통 30초~1분이 걸린다. 출판사당 한 번에 수십 편 이내로 나눈다. 수백 편 이상이 필요하면 도서관을 통해 출판사의 텍스트 마이닝 이용을 정식으로 요청하도록 안내한다. 차단 문구가 보이면 그 사이트는 즉시 멈추고 30분 뒤 다시 한다.
 8. **몇 편을 수집·읽을지 강제하지 않는다.** 사용자의 목록이 기준이고, follow-up 은 제안만 한다.
 9. **개인 연구 자료나 특정 논문의 수치를 지침에 넣지 않는다.** 예시는 "예시" 로 표시한다.
@@ -58,7 +58,7 @@ python scripts/sci_collect.py doctor --kb-root <root>
   - `chrome://settings/downloads` 의 "다운로드 전에 각 파일의 저장 위치 확인" 을 끈다. 켜져 있으면 파일마다 저장 창이 떠서 웹 경로가 멈춘다.
   - 다운로드 폴더는 바꾸지 않아도 된다. `intake` 가 Chrome 설정과 Windows 의 다운로드 폴더 위치(OneDrive 로 옮긴 경우 포함)를 읽어 찾는다. 다른 곳이면 `--downloads` 나 설정 `downloads_dir`.
   - 영어 Chrome 에서는 PDF 를 열 때 뜨는 "열기" 버튼이 "Open" 이다. 위치는 같다.
-- 명령의 `python` 은 이 skill 폴더의 `python.txt` 에 적힌 인터프리터다. 설치 스크립트가 패키지를 넣은 Python 을 기록해 둔다. 시작 전에 3.0 의 `doctor` 로 확인한다. `python.txt` 가 없는데 `ModuleNotFoundError` 가 나면 다른 인터프리터(`py -3.12`, `python3.12` 등)로 같은 명령을 다시 시도해 되는 것을 쓴다. macOS·Linux 에서 설치 스크립트가 가상환경을 만들었으면 `~/.sci-retr/venv/bin/python` 이다. 패키지만 빠르게 볼 때는 다음 한 줄.
+- 명령의 `python` 은 이 skill 폴더의 `python.txt` 에 적힌 인터프리터다. 설치 스크립트가 패키지를 넣은 Python 을 기록해 둔다. 이 지침의 모든 `python` 예시(아래 확인 한 줄 포함)에 해당한다. 시작 전에 3.0 의 `doctor` 로 확인한다. `python.txt` 가 없는데 `ModuleNotFoundError` 가 나면 다른 인터프리터(`py -3.12`, `python3.12` 등)로 같은 명령을 다시 시도해 되는 것을 쓴다. macOS·Linux 에서 설치 스크립트가 가상환경을 만들었으면 `~/.sci-retr/venv/bin/python` 이다. 패키지만 빠르게 볼 때는 다음 한 줄.
 
 ```bash
 python -c "import requests, pymupdf, bs4, lxml, truststore, openpyxl; print('ok')"
@@ -78,21 +78,22 @@ python -c "import requests, pymupdf, bs4, lxml, truststore, openpyxl; print('ok'
 resolve(5.1) 결과에 Elsevier OA 논문(접두 10.1016·10.1006, 출력 `oa=1`)이나 Wiley 논문(10.1002)이 있으면 키·토큰이 있는지 본다.
 
 ```bash
-python scripts/sci_collect.py token
+python scripts/sci_collect.py token --kb-root <root>
 ```
 
-- `token` 명령은 이 skill 폴더의 `token.txt` 경로와 키·토큰의 있음/없음만 보여 준다. 파일이 없으면 빈 양식을 만든다. Claude 는 이 파일을 열어 값을 읽지 않는다.
+- `token` 은 논문 폴더의 `.env`, 이 skill 폴더의 `token.txt`, 환경변수를 수집 때와 같은 순서로 보고 키·토큰이 어디에 있는지(없는지)만 보여 준다. 값은 보이지 않고 파일도 만들지 않는다. Claude 는 이 파일들을 열어 값을 읽지 않는다.
 - 해당 논문이 있는데 키·토큰이 없으면 5.2 의 편수 안내에 발급 페이지 링크를 붙여 묻는다. 있는 쪽은 묻지 않는다. Elsevier 는 OA 논문에만 키가 쓰이므로 OA 가 아닌 Elsevier 논문만 있으면 묻지 않는다.
+- 발급은 개인 계정으로 한다. 기관 단위 키·토큰은 발급이 거절되었다(2026-04, README).
 
 ```
 이 목록에 Elsevier Open Access 논문 N편, Wiley 논문 M편이 있습니다.
 키·토큰이 있으면 파이썬으로 빠르게 받고, 없으면 평소 쓰시는 Chrome 에서 한 편씩 받습니다.
-- Elsevier API key 발급 (무료, 몇 분): https://dev.elsevier.com/
-- Wiley TDM 토큰 발급 (기관 구독이 있으면 무료): https://onlinelibrary.wiley.com/library-info/resources/text-and-datamining
+- Elsevier API key: 개인 계정으로 무료, 몇 분이면 발급됩니다. https://dev.elsevier.com/
+- Wiley TDM 토큰: Wiley 개인 계정으로 발급합니다(기관 구독이 있으면 무료). https://onlinelibrary.wiley.com/library-info/resources/text-and-datamining
 발급받으시겠습니까?
 ```
 
-- 발급받겠다고 하면 다음처럼 안내하고 사용자가 알려 줄 때까지 기다린다. 알려 주면 `token` 명령으로 있음을 확인한 뒤 수집한다.
+- 발급받겠다고 하면 `token --create` 로 빈 양식을 만들고(이미 있으면 그대로 둔다) 그 경로를 넣어 안내한다. 사용자가 알려 줄 때까지 기다리되, 그동안 다른 논문의 수집은 이어 간다(5.2).
 
 ```
 키와 토큰은 유출될 위험이 있으니 채팅창에는 절대 적지 마세요.
@@ -100,6 +101,7 @@ python scripts/sci_collect.py token
 <token.txt 경로>
 ```
 
+- 알려 주면 `token` 으로 있음을 확인하고 해당 논문을 `collect --ids <paper_id …> --force` 로 받는다. 이미 웹 경로 대상으로 표시되어 있어도 다시 시도한다.
 - 없이 하라고 하면 해당 논문은 웹 경로로 받는다. 같은 대화에서는 다시 묻지 않는다.
 - 사용자가 채팅창에 값을 적으면 그 값은 쓰지 않는다. 채팅에 남았으니 새로 발급받아 파일에 넣도록 권한다.
 - Elsevier API 속도: 공식 한도는 키 하나당 초당 10회, 한 주 5만 회이다(https://dev.elsevier.com/api_key_settings.html, 2026-09-25 확인). 도구는 논문 한 편에 두 번(XML, PDF, 사이 1초) 요청하고 논문 사이 3초를 둔다. 한도를 넘으면 Elsevier 가 429 응답을 주고, 도구는 그 자리에서 멈춘 뒤 남은 논문을 다음 collect 로 미룬다.
@@ -113,7 +115,7 @@ python scripts/sci_collect.py token
 |---|---|---|
 | `intervals` | elsevier_api 3, wiley 5, springer 2, mdpi 2, nature 15, generic 5 (초) | 자동 경로에서 같은 출판사 논문 사이의 대기. 요청을 보내지 않은 논문 뒤에는 기다리지 않는다. acs·science·rsc·ecs·elsevier 값은 웹 전용 출판사를 목록에서 뺄 때만 쓰인다 |
 | `web_only_publishers` | acs, rsc, science, ecs, tandf, pnas, aip, oup, ieee, chemrxiv | 자동 요청을 보내지 않고 바로 웹 경로로 보낼 출판사(2026-09-26 여섯 곳 추가). 사이트 사정이 바뀌면 여기서 뺀다 |
-| `abstract_only_publishers` | thieme, world_scientific, csj, bentham, royal_society | 초록만 저장할 미구독 출판사 |
+| `abstract_only_publishers` | thieme, world_scientific, csj, bentham, royal_society | 초록만 저장할 미구독 출판사 (Open Access 논문은 예외: 한 번 자동 시도, 안 되면 웹 경로) |
 | `si_skip_exts` | mp4·avi·mov 등 동영상, mp3·wav, cif·fcf·hkl·mol·mol2·sdf·pdb·xyz·cdx, zip·rar·7z·tar·gz·tgz, xls·xlsx·xlsm·xlsb·csv·ods | 받지 않는 SI 형식. 링크 확장자로 거르고, 받은 뒤 파일 형식으로도 거른다(zip 형식이라도 안이 Word 문서면 받는다). intake 도 이 형식은 옮기지 않는다 |
 | `downloads_dir` | 없음 → Chrome 설정의 다운로드 폴더 → Windows 다운로드 폴더 → 사용자 Downloads 순으로 찾음 | intake 가 볼 다운로드 폴더 (`--downloads` 로도 가능). intake 와 doctor 가 어느 근거로 정했는지 출력한다 |
 | `crossref_mailto` | 빈 값 | Crossref·OpenAlex 예의용 이메일 (`--mailto` 로도 가능) |
@@ -139,7 +141,7 @@ python scripts/sci_collect.py token
 - 추천 경로를 함께 제시한다. 폴더 이름은 입력 파일의 제목들이나 사용자의 말에서 짧은 주제어로 정한다(영문 소문자와 밑줄, 예시: `epoxidation`).
   - Windows: `C:\sci\papers\<주제>` (기본 프로그램 폴더 `C:\sci` 안의 `papers`)
   - macOS·Linux: `~/sci/papers/<주제>`
-  - 프로그램 폴더 안의 `papers` 는 git 이 무시하므로 업데이트(`git pull`)해도 그대로다. skill 폴더(`~/.claude/skills/...`) 안은 쓰지 않는다.
+  - 기본 위치(`C:\sci`)에 설치했다면 이 폴더는 프로그램 폴더 안이고, 저장소가 `papers` 를 무시하므로 업데이트(`git pull`)해도 그대로다. 다른 곳에 설치했어도 추천 경로는 같다. skill 폴더(`~/.claude/skills/...`) 안은 쓰지 않는다.
 - 사용자가 요청에서 폴더를 이미 말했으면 그 경로를 한 줄로 확인만 한다.
 - 고른 폴더에 `collection_registry.csv` 가 이미 있으면 이어서 받는다고 알린다. 이미 받은 논문은 다시 받지 않는다.
 - 그 폴더에서 처음 수집하는 경우(`collection_registry.csv` 가 없음) `doctor --kb-root <폴더>` 를 한 번 돌려 문제 0 을 확인한다. 문제가 있으면 안내대로 고친 뒤 진행한다.
@@ -169,7 +171,8 @@ resolve 가 끝나면 한 메시지로 알린다.
 - 30편을 넘으면 레지스트리의 제목·초록 몇 개로 주제를 추정해 한 줄로 확인한다. 관련 논문만 받도록 5.3 사전 분류를 한다. 사용자가 이미 주제를 말했으면 묻지 않는다. 30편 이하면 입력 형식(WoS·Scopus export 포함)과 관계없이 주제를 묻지 않고 목록 그대로 받는다.
 - review 논문이 있으면(5.8) 편수와 관계없이 같은 메시지에 인용 논문 follow-up 질문을 묶는다.
 - Elsevier OA 논문이나 Wiley 논문이 있고 해당 키·토큰이 없으면 3.2.1 의 발급 질문을 같은 메시지에 묶는다.
-- 물을 것이 없으면(30편 이하, review 없음, 키·토큰 질문 없음) 답을 기다리지 않고 5.4 로 간다. 물을 것이 있으면 답을 받은 뒤 간다.
+- 물을 것이 없으면(30편 이하, review 없음, 키·토큰 질문 없음) 답을 기다리지 않고 5.4 로 간다.
+- 물을 것이 있어도 답과 관계없는 자동 수집은 먼저 한다. 키·토큰 질문이 있으면 그 출판사를 뺀 `collect --publishers <나머지 출판사>`, 없으면 `collect` 를 돌린 뒤 결과와 질문을 한 메시지로 보낸다. 웹 경로는 답을 받은 뒤 시작한다.
 
 ### 5.3 사전 분류 (sonnet 하위 에이전트, 큰 목록일 때만)
 
@@ -276,7 +279,7 @@ python scripts/sci_collect.py reextract --kb-root <root>
 ### 5.8 review 인용 follow-up (선택, Claude)
 
 - resolve 결과에서 제목·초록으로 review·perspective·roadmap 류를 알아본다. 있으면 5.2 의 안내 메시지에 "review 논문 N편의 인용 논문도 이어서 받을까요?" 를 묶어 한 번만 묻는다.
-- 동의하면 수집이 끝난 뒤 해당 review 의 `source.md` 참고문헌에서 DOI 를 뽑고(정규식 `10\.\d{4,9}/\S+`), 레지스트리에 없는 것만 골라 편수를 알린 뒤 5.1 부터 다시 돈다. 어떤 인용을 고를지는 사용자의 주제에 맞춰 Claude 가 판단하되, 수를 채우려고 고르지 않는다.
+- 동의하면 해당 review 를 받은 뒤(웹 경로 대상이면 웹 경로로 받은 뒤) `source.md` 참고문헌에서 DOI 를 뽑고(정규식 `10\.\d{4,9}/\S+`), 레지스트리에 없는 것만 골라 편수를 알린 뒤 5.1 부터 다시 돈다. 어떤 인용을 고를지는 사용자의 주제에 맞춰 Claude 가 판단하되, 수를 채우려고 고르지 않는다.
 
 ### 5.9 보고
 
@@ -338,7 +341,7 @@ python scripts/sci_collect.py reextract --kb-root <root>
 | Taylor & Francis, PNAS, AIP, Oxford, IEEE | 10.1080, 10.1073, 10.1063, 10.1093, 10.1109 | 없음, 바로 웹 경로 (설정 `web_only_publishers`, 2026-09-26 실측 403·202) | playbook 3.7~3.11. T&F·PNAS·ChemRxiv 는 페이지 아래 "Download PDF", AIP 는 도구 막대 "PDF"(새 탭), Oxford 는 상단 "PDF", IEEE 는 "PDF" → "열기". PNAS·Oxford 는 저장 전에 Cloudflare 확인 화면을 스스로 통과 | 30~60초 (한 편 처리 시간, 따로 기다리지 않음) | 상황이 바뀌면 설정에서 뺀다 |
 | 그 외 | | 논문 페이지 + PDF 후보 + SI. 사이트(호스트)별로 한 번 막히면 그 사이트의 나머지는 요청하지 않고 웹 경로. 막힌 논문 자체도 웹 경로 대상으로 표시. 페이지에 PDF 링크가 없고 본문이 짧으면 '구독 밖일 수 있음' 으로 표시 | 막힌 논문 | 5초 | |
 | 프리프린트 | 10.26434 (ChemRxiv), 10.48550 (arXiv), 10.1101 (bioRxiv) | ChemRxiv 는 자동 요청을 막아(403) 바로 웹 경로(설정 `web_only_publishers`). arXiv·bioRxiv 는 그 외와 같음 | playbook 3.12 (ChemRxiv "Download PDF") | 5초 | 접두어로 고정(Crossref 는 ChemRxiv 를 ACS 로 적음). 저널약어는 ChemRxiv·arXiv·bioRxiv |
-| 미구독 출판사 | 10.1055 (Thieme), 10.1142, 10.1246, 10.2174, 10.1098 | 초록만 저장 | 없음 | | 사용자에게 알림. 구독이 생기면 설정에서 뺀다 |
+| 미구독 출판사 | 10.1055 (Thieme), 10.1142, 10.1246, 10.2174, 10.1098 | 초록만 저장. Open Access 논문은 한 번 자동 시도 | Open Access 논문 중 자동으로 못 받은 것 | | 사용자에게 알림. 구독이 생기면 설정에서 뺀다 |
 
 - 웹 경로는 논문 사이에 따로 기다리지 않는다(2026-09-25 사용자 지시로 30초 간격 폐지). 페이지 열기, 누르기, 확인, 정리까지 한 편에 보통 30초~1분이 걸린다. 실측(2026-09-25, 여섯 출판사 18편)은 한 편 26~262초, 중앙값 60초였고 Wiley 가 가장 느렸다(references/publisher_matrix.md). 요령 문서대로 새 논문 18편을 받은 2차 시험은 16.7분, 한 편 중앙값 42.5초였다(references/web_download_playbook.md). 출판사당 한 번에 수십 편 이내로 나눈다.
 - 2026-09-24 사용자 Chrome 실측: Elsevier·RSC·Wiley·Science·IOP 는 확인 창 없이 열렸고 ACS 만 한 번 떴다. 날마다 달라질 수 있다.

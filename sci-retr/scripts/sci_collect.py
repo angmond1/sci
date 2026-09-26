@@ -443,7 +443,7 @@ def resolve_doi(ctx: Ctx, doi: str) -> dict:
     cr = crossref_work(ctx, doi)
     oa = openalex_work(ctx, doi)
     year = ""
-    for key in ("issued", "published-print", "published-online", "created"):
+    for key in ("published-print", "issued", "published-online", "created"):   # 인쇄 연도 우선 (WoS·Scopus·인용 관례, 2026-09-27)
         parts = (cr.get(key) or {}).get("date-parts") or [[None]]
         if parts and parts[0] and parts[0][0]:
             year = str(parts[0][0]); break
@@ -1151,10 +1151,23 @@ def h_browser_headless(ctx: Ctx, row: dict, kind: str) -> Outcome:
     return Outcome(status="failed", note=f"{kind} exhausted")
 
 
+_abs_oa_blocked: set[str] = set()   # 미구독 출판사 중 OA 논문 자동 시도가 막힌 곳 (이번 실행에서 다시 요청하지 않는다)
+
+
 def collect_one(ctx: Ctx, row: dict) -> Outcome:
     pub = row["publisher"]
     if pub in ctx.config.get("abstract_only_publishers", []):
-        return write_abstract_only(ctx, row, f"{ctx.config.get('abstract_only_reason')} ({pub})")
+        if row.get("is_oa") != "1":
+            return write_abstract_only(ctx, row, f"{ctx.config.get('abstract_only_reason')} ({pub})")
+        # 미구독 출판사라도 Open Access 논문은 받는다: 한 번 자동으로, 안 되면 웹 경로 (2026-09-27 첫 사용자 시뮬레이션에서 Thieme OA 가 초록만 저장됨)
+        if pub not in _abs_oa_blocked:
+            out = h_landing_generic(ctx, row, pub)
+            if out.status in ("full", "pdf_missing"):
+                return out
+            if is_block_outcome(out):
+                _abs_oa_blocked.add(pub)
+            return Outcome(status="human_required", note=f"{pub}: 미구독 출판사지만 Open Access → 자동으로 못 받아 웹 경로 ({out.note[:80]})")
+        return Outcome(status="human_required", requested=False, note=f"{pub}: 미구독 출판사지만 Open Access → 웹 경로 (앞 논문에서 자동 요청이 막혀 요청 생략)")
     if pub in ctx.config.get("web_only_publishers", []):
         return Outcome(status="human_required", requested=False, note=f"{pub}: 자동 요청을 막는 출판사 → 요청하지 않고 웹 경로")
     if pub == "elsevier":
@@ -1600,7 +1613,7 @@ def cmd_doctor(args) -> None:
     env = load_env(Path(args.env) if getattr(args, "env", None) else kb_root / ".env")
     for k, what in (("ELSEVIER_API_KEY", "Elsevier OA 논문 자동"), ("WILEY_TDM_TOKEN", "Wiley 자동")):
         info(f"{k} {'있음' if env.get(k) else '없음'} — {what}{'' if env.get(k) else ' 대신 웹 경로'}")
-    info(f"키·토큰 파일 {TOKEN_FILE} ({'있음' if TOKEN_FILE.exists() else '아직 없음 — token 명령이 만든다'})")
+    info(f"키·토큰 파일 {TOKEN_FILE} ({'있음' if TOKEN_FILE.exists() else '아직 없음 — token --create 로 만든다'})")
     used = next((p for p in (kb_root / "sci_collect.config.json", Path.home() / ".claude" / "sci" / "sci_collect.config.json") if p.exists()), None)
     info(f"설정 파일 {used or '없음 (기본값)'}")
     reg = kb_root / "collection_registry.csv"
@@ -1915,18 +1928,36 @@ def cmd_intake(args) -> None:
     summarize(ctx, header="intake 완료" if not args.dry_run else "intake 미리보기")
 
 
+def key_status(env_path: Path | None) -> dict:
+    """키·토큰이 어디에 있는지만 돌려준다(논문 폴더 .env → token.txt → 환경변수, 수집 때 읽는 순서와 같다). 값은 돌려주지 않는다."""
+    dot = read_kv(env_path) if env_path else {}
+    tok = read_kv(TOKEN_FILE)
+    out = {}
+    for k, alts in (("ELSEVIER_API_KEY", ("ELSEVIER_API_KEY",)), ("WILEY_TDM_TOKEN", ("WILEY_TDM_TOKEN", "TDM_API_TOKEN"))):
+        if any(dot.get(a) for a in alts):
+            out[k] = f"있음 ({env_path})"
+        elif any(tok.get(a) for a in alts):
+            out[k] = "있음 (token.txt)"
+        elif any(os.environ.get(a) for a in alts):
+            out[k] = "있음 (환경변수)"
+        else:
+            out[k] = "없음"
+    return out
+
+
 def cmd_token(args) -> None:
-    """키·토큰 파일(skill 폴더의 token.txt)이 없으면 빈 양식을 만들고, 경로와 있음/없음만 보여 준다. 값은 출력하지 않는다."""
-    if not TOKEN_FILE.exists():
+    """키·토큰이 어디에 있는지만 보여 준다(값은 출력하지 않음). --create 면 skill 폴더에 token.txt 빈 양식을 만든다(없을 때만)."""
+    if args.create and not TOKEN_FILE.exists():
         TOKEN_FILE.write_text(TOKEN_TEMPLATE, encoding="utf-8")
         if os.name != "nt":
             os.chmod(TOKEN_FILE, 0o600)
         say(f"키·토큰 파일을 만들었습니다: {TOKEN_FILE}")
     else:
-        say(f"키·토큰 파일: {TOKEN_FILE}")
-    kv = read_kv(TOKEN_FILE)
-    for k, what in (("ELSEVIER_API_KEY", "Elsevier API key"), ("WILEY_TDM_TOKEN", "Wiley TDM 토큰")):
-        say(f"  {what} ({k}): {'있음' if kv.get(k) else '없음'}")
+        say(f"키·토큰 파일: {TOKEN_FILE}{'' if TOKEN_FILE.exists() else ' (아직 없음 — token --create 로 만든다)'}")
+    env_path = Path(args.env) if args.env else (Path(args.kb_root) / ".env" if args.kb_root else None)
+    for k, st in key_status(env_path).items():
+        what = "Elsevier API key" if k == "ELSEVIER_API_KEY" else "Wiley TDM 토큰"
+        say(f"  {what} ({k}): {st}")
 
 
 # ------------------------------------------------------------------ CLI
@@ -1945,7 +1976,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("mark", parents=[common]); p.add_argument("--ids", nargs="+", required=True, help="paper_id 또는 DOI"); p.add_argument("--status", choices=["out_of_scope", "resolved"], required=True); p.add_argument("--note", default="")
     sub.add_parser("status", parents=[common])
     sub.add_parser("doctor", parents=[common], help="처음 쓰기 전 환경 점검 (읽기만 함)")
-    sub.add_parser("token", help="키·토큰 파일(token.txt) 만들기와 있음/없음 확인 (값은 보이지 않음)")
+    p = sub.add_parser("token", help="키·토큰이 어디에 있는지 확인 (값은 보이지 않음). --create 로 token.txt 빈 양식 만들기")
+    p.add_argument("--kb-root", default=None, help="논문 폴더 (그 폴더의 .env 도 본다)")
+    p.add_argument("--env", default=None, help=".env 경로")
+    p.add_argument("--create", action="store_true", help="skill 폴더에 token.txt 빈 양식을 만든다 (없을 때만)")
     return ap
 
 
