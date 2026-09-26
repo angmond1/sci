@@ -50,7 +50,7 @@
 출력 끝의 `▼・ᴥ・▼  sci-retr 설치 완료` 와 점검 결과를 읽고, `[문제]` 로 나온 것과 새로 설치한 프로그램을 사용자에게 알린다. 프로그램을 설치하지 않고 확인만 하려면 `-NoAutoInstall`(install.sh 는 `--no-auto-install`). 가상환경에 설치했으면 이후 모든 명령을 `~/.sci-retr/venv/bin/python` 으로 실행한다. `ModuleNotFoundError` 가 나면 다른 인터프리터(`py -3.12`, `python3.12` 등)로 같은 명령을 다시 시도한다.
 
 ### Step 3 — "Claude in Chrome" 확장
-확장은 자동으로 설치할 수 없다. 설치 스크립트가 확장이 없으면 웹스토어 페이지를 열어 준다. 사용자에게 'Chrome에 추가' 를 누르고 Claude 계정으로 로그인해 달라고 한다. 주소: https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn . Claude Desktop 은 설정 → "Claude in Chrome" 켜기, Claude Code 는 `claude --chrome`. 세션에서 `list_connected_browsers` 가 이 컴퓨터의 브라우저를 돌려주면 성공. 같은 계정으로 확장을 켠 다른 컴퓨터도 목록에 나오므로 이 컴퓨터 것(`onThisComputer`)만 쓴다.
+확장은 자동으로 설치할 수 없다. 설치 스크립트가 확장이 없으면 웹스토어 페이지를 열어 준다. 사용자에게 'Chrome에 추가' 를 누르고 Claude 계정으로 로그인해 달라고 한다. 주소: https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn . Claude Desktop 은 좌하단 이니셜 클릭 → "설정" → 좌측 탭 "Claude in Chrome 설정" → "Claude in Chrome 사용설정" 켜기(설정 첫 화면에는 안 보인다), Claude Code 는 `claude --chrome`. 세션에서 `list_connected_browsers` 가 이 컴퓨터의 브라우저를 돌려주면 성공. 같은 계정으로 확장을 켠 다른 컴퓨터도 목록에 나오므로 이 컴퓨터 것(`onThisComputer`)만 쓴다.
 
 ### Step 4 — Chrome 설정 두 가지 (사용자가 직접)
 > "Chrome 에서 두 가지를 바꿔 주세요. ① `chrome://settings/content/pdfDocuments` 에서 'PDF 다운로드' 선택 ② `chrome://settings/downloads` 에서 '다운로드 전에 각 파일의 저장 위치 확인' 끄기. 이래야 PDF 가 저장 창 없이 다운로드 폴더로 바로 들어갑니다."
