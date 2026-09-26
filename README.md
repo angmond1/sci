@@ -54,11 +54,11 @@ DOI 목록 → resolve(서지·출판사 판정) → collect(파이썬) → 웹 
 
 | 출판사 | 조건 | 수집 방법 | 간격 |
 |---|---|---|---|
-| Elsevier | API key 있음 + OA 논문 | 파이썬 API | 3초 |
+| Elsevier | API key 있음 + Open access 논문<br>[API key 발급 페이지](https://dev.elsevier.com/) | 파이썬 API | 3초 |
 | Elsevier | 유료 논문 또는 API key 없음 | 웹 다운로드 | 30~60초 |
-| Wiley | TDM 토큰 있음 | 파이썬 API | 5초 |
+| Wiley | TDM 토큰 있음<br>[TDM 토큰 발급 페이지](https://onlinelibrary.wiley.com/library-info/resources/text-and-datamining) | 파이썬 API | 5초 |
 | Wiley | TDM 토큰 없음 | 웹 다운로드 | 30~60초 |
 | Springer, Nature, MDPI, Frontiers, PLOS, Beilstein, Copernicus, APS, Cambridge | - | 파이썬 | 2~15초 |
 | ACS, RSC, IOP, Science, Taylor & Francis, PNAS, AIP, Oxford, IEEE, ChemRxiv | - | 웹 다운로드 | 30~60초 |
 
-표에 없는 출판사는 파이썬으로 먼저 시도하고, 막히면 그 사이트만 웹으로 넘어간다. 미구독 출판사는 초록만 저장한다.
+미구독 출판사는 초록만 저장
