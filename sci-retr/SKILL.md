@@ -279,7 +279,7 @@ python scripts/sci_collect.py reextract --kb-root <root>
 
 ### 5.8 review 인용 follow-up (선택, Claude)
 
-- resolve 출력에서 `[review]` 가 붙은 논문을 review 로 본다. 문서 유형은 WoS·Scopus 파일의 문서 유형 열(WoS `DT`, Scopus `Document Type`)이 있으면 그것, 없으면 OpenAlex 유형이다(레지스트리 `doc_type`). 제목만으로 추정하지 않는다. 있으면 5.2 의 안내 메시지에 "review 논문 N편의 인용 논문도 이어서 받을까요?" 를 묶어 한 번만 묻는다.
+- resolve 출력에서 `[review]` 가 붙은 논문을 review 로 본다. 문서 유형은 WoS·Scopus 파일의 문서 유형 열(WoS `DT`, Scopus `Document Type`)이 있으면 그것, 없으면 OpenAlex 유형이다(레지스트리 `doc_type`). 제목만으로 추정하지 않는다. 2026-09-27 이전에 등록한 목록은 `doc_type` 이 비어 있으니, 같은 목록으로 `resolve` 를 다시 돌리면 채워진다(id 는 그대로). 있으면 5.2 의 안내 메시지에 "review 논문 N편의 인용 논문도 이어서 받을까요?" 를 묶어 한 번만 묻는다.
 - 동의하면 review 마다 `refs --source <paper_id>` 로 참고문헌 DOI 목록을 만들고(5.10, review 를 받기 전에도 된다), 레지스트리에 없는 것만 골라 편수를 알린 뒤 5.1 부터 다시 돈다. 어떤 인용을 고를지는 사용자의 주제에 맞춰 Claude 가 판단하되, 수를 채우려고 고르지 않는다.
 
 ### 5.9 보고

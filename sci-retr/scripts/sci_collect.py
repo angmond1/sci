@@ -2085,9 +2085,14 @@ def cmd_refs(args) -> None:
         return
     cr: dict = {}
     found: list[tuple[str, str]] = []
+    ref_no: dict[str, int] = {}                 # DOI → 원 논문 참고문헌 번호 (Crossref 목록 순서, 1부터)
     try:
         cr = crossref_work(ctx, doi)
-        found += [(clean_doi(r["DOI"]), "Crossref") for r in cr.get("reference") or [] if r.get("DOI")]
+        for i, r in enumerate(cr.get("reference") or [], 1):
+            if r.get("DOI"):
+                d = clean_doi(r["DOI"])
+                found.append((d, "Crossref"))
+                ref_no.setdefault(d.lower(), i)
     except Exception as exc:
         say(f"Crossref 조회 실패: {type(exc).__name__}")
     oa = openalex_work(ctx, doi)
@@ -2118,7 +2123,9 @@ def cmd_refs(args) -> None:
     if total > len(out):
         say(f"DOI 가 없는 참고문헌 약 {total - len(out)}개는 빠졌습니다 (책·학위논문·옛 논문 등).")
     if args.limit:
-        say(f"앞에서 {len(sel)}개만 목록에 넣었습니다 (--limit {args.limit}).")
+        nos = [ref_no[d.lower()] for d in sel if d.lower() in ref_no]
+        where = f" — 원 논문의 참고문헌 번호 {', '.join(str(n) for n in nos)}" if nos else ""
+        say(f"앞에서 {len(sel)}개만 목록에 넣었습니다 (--limit {args.limit}){where}.")
     say(f"목록: {dest}  → resolve --input 으로 이어서 수집")
 
 
