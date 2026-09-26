@@ -32,7 +32,7 @@
 ### Step 1 — 폴더 위치 정하기 + 패키지 확보
 1. 먼저 묻는다: "sci-retr 을 어디에 둘까요? ① 기본 `C:\sci-retr`(macOS/Linux `~/sci-retr`) ② 다른 위치". 답이 없으면 기본.
 2. 패키지를 그 폴더에 확보한다.
-   - git 있으면 `git clone https://github.com/angmond1/sci-retr.git <root>`.
+   - git 있으면 `git clone https://github.com/angmond1/sci.git <root>`.
    - git 없으면 GitHub 페이지에서 `Code ▾ → Download ZIP` 을 받아 그 폴더에 푼다(collaborator 권한 필요).
    - 동료에게 받은 폴더면 그대로 쓴다.
 

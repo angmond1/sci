@@ -1,6 +1,6 @@
 # sci-retr on Codex — 설치·실행 지침 (Codex 에이전트용)
 
-> 이 문서는 Codex Desktop / Codex CLI 가 [sci-retr 패키지](https://github.com/angmond1/sci-retr)를 설치하고 사용할 때 읽는 지침이다. 사용자가 “sci-retr 설치해줘”라고 하면 1절부터 진행한다.
+> 이 문서는 Codex Desktop / Codex CLI 가 [sci-retr 패키지](https://github.com/angmond1/sci)를 설치하고 사용할 때 읽는 지침이다. 사용자가 “sci-retr 설치해줘”라고 하면 1절부터 진행한다.
 > 공용 skill 본문은 Claude 기준이다. 수집·색인 절차는 [sci-retr/SKILL.md](sci-retr/SKILL.md)와 [sci-index/SKILL.md](sci-index/SKILL.md)를 따르고, 도구·모델·경로 차이는 이 문서를 적용한다. [CLAUDE.md](CLAUDE.md)는 Claude 설치용이다.
 > 작성 기준: 2026-09-27, 패키지 `VERSION` 1.0.0. Codex 에서 확인한 범위와 Claude 쪽 시험 기록은 7절에 구분한다.
 
@@ -18,7 +18,7 @@
 
 1. 사용자가 준 패키지 폴더가 있으면 그대로 쓴다. 없으면 Windows `C:\sci-retr`, macOS/Linux `~/sci-retr` 를 기본으로 안내한다. 논문을 저장할 폴더는 이와 별도로 정한다.
 2. Python 3.11 이상을 확인한다. Windows 는 `py -0p` 와 `py -3 --version`, macOS/Linux 는 `python3 --version` 을 쓴다. 이미 동작하는 인터프리터가 있으면 재설치하지 않는다. 없으면 [Python 공식 배포처](https://www.python.org/downloads/)에서 설치한다.
-3. 패키지가 없으면 `git clone https://github.com/angmond1/sci-retr.git <패키지 폴더>` 로 받는다. git 이 없으면 GitHub 의 `Code → Download ZIP` 으로 받아 푼다. 동료에게 받은 폴더도 쓸 수 있다.
+3. 패키지가 없으면 `git clone https://github.com/angmond1/sci.git <패키지 폴더>` 로 받는다. git 이 없으면 GitHub 의 `Code → Download ZIP` 으로 받아 푼다. 동료에게 받은 폴더도 쓸 수 있다.
 4. 브라우저 제어용 chrome-devtools MCP 를 새로 설치할 때만 Node.js LTS·npm 이 추가로 필요하다. Python 수집·색인과 사용자의 직접 다운로드에는 MCP 가 필수가 아니다.
 
 ### 1.2 두 skill 설치

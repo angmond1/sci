@@ -26,7 +26,7 @@ LLM이 다루기 쉬운 markdown 파일로 자동 변환 및 색인화
 claude code (claude 데스크탑 앱에서 code), codex 대화창에
 
 ```
-https://github.com/angmond1/sci-retr 설치해줘
+https://github.com/angmond1/sci 설치해줘
 ```
 
 <br>
