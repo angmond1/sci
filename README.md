@@ -36,7 +36,7 @@ https://github.com/angmond1/sci-retr 설치해줘
 1. **KIST 사내 인터넷 망 또는 kvpn 접속**
 2. **claude 또는 chatgpt 유료 계정과 데스크탑 앱 (또는 CLI) 설치**
    * claude 설치 https://claude.com/download
-   * codex (chatgpt) Windows 버전 설치 https://openai.com/ko-KR/codex/
+   * codex (chatgpt) 설치 https://openai.com/ko-KR/codex/
 3. **Chrome 브라우저 + 확장 프로그램 Claude in Chrome 설치**
    * Chrome 브라우저 설치 https://www.google.com/chrome/
    * 확장 프로그램 Claude in Chrome 설치 https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn
