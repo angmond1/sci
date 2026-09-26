@@ -63,4 +63,4 @@ DOI 목록 → resolve(서지·출판사 판정) → collect(파이썬) → 웹 
 
 미구독 출판사는 초록만 저장
 
-Wiley 기관 TDM 토큰, ACS API key는 발급 거절당함.
+Elsevier 기관 API key, Wiley 기관 TDM 토큰, ACS API key는 발급 거절당함.
