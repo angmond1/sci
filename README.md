@@ -25,11 +25,9 @@ https://github.com/angmond1/sci-retr 설치해줘
 
 ## 준비물
 
-1. **교내 망**(KIST IP). 밖에서는 유료 논문을 받지 못한다.
-2. **Python 3.11 이상**. 패키지는 설치 스크립트가 넣는다.
-3. **Google Chrome + "Claude in Chrome" 확장**: https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn . Claude 계정으로 로그인.
-4. **Chrome 설정 두 가지**: `chrome://settings/content/pdfDocuments` 를 "PDF 다운로드" 로, `chrome://settings/downloads` 의 "다운로드 전에 각 파일의 저장 위치 확인" 은 끈다.
-5. (선택) Elsevier API 키, Wiley TDM 토큰. 없어도 된다. 있으면 그 두 출판사도 자동으로 받는다. `sci-retr/examples/.env.example` 참고.
+1. **Python 3.11 이상**. 패키지는 설치 스크립트가 넣는다.
+2. **Google Chrome + "Claude in Chrome" 확장**: https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn . Claude 계정으로 로그인.
+3. **Chrome 설정 두 가지**: `chrome://settings/content/pdfDocuments` 를 "PDF 다운로드" 로, `chrome://settings/downloads` 의 "다운로드 전에 각 파일의 저장 위치 확인" 은 끈다.
 
 <br>
 
