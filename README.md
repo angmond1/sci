@@ -61,6 +61,5 @@ DOI 목록 → resolve(서지·출판사 판정) → collect(파이썬) → 웹 
 | Springer, Nature, MDPI, Frontiers, PLOS, Beilstein, Copernicus, APS, Cambridge | - | 파이썬 | 2~15초 |
 | ACS, RSC, IOP, Science, Taylor & Francis, PNAS, AIP, Oxford, IEEE, ChemRxiv | - | 웹 다운로드 | 30~60초 |
 
-미구독 출판사는 초록만 저장
-
+미구독 출판사는 초록만 저장.<br>
 Elsevier 기관 API key, Wiley 기관 TDM 토큰, ACS API key는 발급 거절당함.
