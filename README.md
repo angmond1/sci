@@ -39,11 +39,8 @@ https://github.com/angmond1/sci-retr 설치해줘
 ## 사용법 예시
 
 Web of Science, Scopus에서 수집하고자 하는 논문 리스트를 파일로 저장하고,<br>
-파일을 claude code 또는 codex 대화창에 드래그한 뒤에,
-
-```
-sci-retr 스킬로 논문들 받아줘
-```
+파일을 claude code 또는 codex 대화창에 드래그한 뒤에,<br>
+"sci-retr 스킬로 논문들 받아줘"
 
 <br>
 
