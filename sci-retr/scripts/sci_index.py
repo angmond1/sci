@@ -199,7 +199,7 @@ def cmd_build(args) -> None:
     flagged = [c for c in checks if c["n_flags"]]
     print(f"index.csv: {len(rows)}행 — " + ", ".join(f"{k} {v}" for k, v in st.items()))
     print(f"index_check.csv: flag 있는 논문 {len(flagged)}편" + (" → " + "; ".join(f"{c['paper_id']}: {c['flags']}" for c in flagged[:12]) if flagged else ""))
-    print(f"요약_ko 채움 {sum(1 for r in rows if r['요약_ko'])}/{len(rows)} (비어 있으면 Claude 검수 패스 후 apply)")
+    print(f"요약_ko 채움 {sum(1 for r in rows if r['요약_ko'])}/{len(rows)} (비어 있으면 검수·요약 패스 후 apply)  ▼・ᴥ・▼")
 
 
 def cmd_apply(args) -> None:
@@ -228,7 +228,7 @@ def cmd_apply(args) -> None:
                 c["n_flags"] = str(len([x for x in c["flags"].split(";") if x.strip()]))
         with open(chk, "w", encoding="utf-8-sig", newline="") as f:
             w = csv.DictWriter(f, fieldnames=["paper_id", "flags", "n_flags"]); w.writeheader(); w.writerows(checks)
-    print(f"요약_ko 병합 {n}건 → {out}")
+    print(f"요약_ko 병합 {n}건 → {out}  ▼・ᴥ・▼")
 
 
 def main() -> None:
