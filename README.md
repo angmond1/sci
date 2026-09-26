@@ -1,5 +1,5 @@
 # sci-retr (Sci Retriever)
-<sub>SCI 논문 본문·SI 수집·색인 스킬</sub>
+SCI 논문 본문·SI 수집·색인 스킬
 
 <br>
 
