@@ -1,0 +1,26 @@
+# 자격증명 — 절대 커밋 금지
+.env
+.env.*
+*.env
+!*.env.example
+*token*
+*.key
+
+# 개인 설정
+sci_collect.config.json
+
+# 이전 판 보관 (로컬 전용)
+_history/
+
+# 파이썬
+__pycache__/
+*.pyc
+
+# 임시 작업 파일
+_tmp/
+
+# 마스코트 (보류 중, 확정 뒤 올림)
+sci-retr/assets/
+
+# 로컬 전용 메인테이너 노트
+CLAUDE.local.md
