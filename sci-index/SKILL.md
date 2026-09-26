@@ -61,7 +61,7 @@ python <sci-retr>/scripts/sci_index.py apply --kb-root <논문 폴더 root> --gi
 
 ### 5.1 build
 
-수집이 끝날 때마다 실행한다. 출력의 세 줄을 읽는다.
+사용자가 색인을 원할 때 실행한다. sci-retr 는 수집 뒤 30편을 넘으면 묻고, 30편 이하면 생략을 알린 뒤 요청을 기다린다(sci-retr 5.7). 출력의 세 줄을 읽는다.
 
 - 상태별 편수 (전문 / 초록만 / PDF 없음 / 미수집 …)
 - flag 가 있는 논문 목록 (index_check.csv)

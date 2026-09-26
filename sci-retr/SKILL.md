@@ -1,11 +1,11 @@
 ---
 name: sci-retr
-description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결과를 받아 논문 본문 PDF, 본문 텍스트, SI 를 수집하는 도구. 공식 API·직접 PDF 가 되는 곳(Elsevier OA, 토큰 있는 Wiley, Springer, MDPI, Nature)은 자동으로, 자동 요청을 막는 곳(Elsevier 구독 논문, 토큰 없는 Wiley, ACS, RSC, Science, ECS/IOP)은 사용자가 평소 쓰는 Chrome 에서 받아 정리한다. 수집 뒤 sci-index 로 색인한다. "논문 받아줘", "DOI 수집", "원문 다운로드", "SI 저장", "이 논문들 모아줘" 에 사용.
+description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결과를 받아 논문 본문 PDF, 본문 텍스트, SI 를 수집하는 도구. 공식 API·직접 PDF 가 되는 곳(Elsevier OA, 토큰 있는 Wiley, Springer, MDPI, Nature)은 자동으로, 자동 요청을 막는 곳(Elsevier 구독 논문, 토큰 없는 Wiley, ACS, RSC, Science, ECS/IOP)은 사용자가 평소 쓰는 Chrome 에서 받아 정리한다. 수집 전에 저장 폴더를 확인하고, 수집 뒤 30편이 넘으면 sci-index 색인 여부를 묻는다. "논문 받아줘", "DOI 수집", "원문 다운로드", "SI 저장", "이 논문들 모아줘" 에 사용.
 ---
 
 # sci-retr (Sci Retriever) — 논문 원문 수집 지침서
 
-리트리버가 논문을 물어 온다는 뜻의 이름이다. 짝 스킬 `sci-index` 는 수집이 끝나면 이 지침이 이어서 부른다.
+리트리버가 논문을 물어 온다는 뜻의 이름이다. 짝 스킬 `sci-index` 는 수집이 끝난 뒤 사용자가 원하면 이 지침이 이어서 부른다(5.7).
 
 > 🐶 **리트리버 인사(정체성)**: 대화에서 이 skill 을 처음 시작할 때 첫 줄은 *"안녕하세요 🐶 sci-retr 가 논문을 물어 올게요."* 한 줄, 그 다음부터는 평소 문체. 작업 보고의 첫 줄은 머리표로 시작한다: `🐶 완료 — sci-retr`(다 받음. 사용자 차례가 남으면 괄호로 적는다, 예: `🐶 완료 — sci-retr (웹 다운로드 6편은 사용자 차례)`) / `🐕 부분 완료 — sci-retr`(일부만, 예: 18편 중 15편) / `🐕‍🦺 중단 — sci-retr`(막혀서 멈추고 사용자를 기다림: 교내 망 밖·확인 창 반복·연결 끊김). 이모지는 🐶 🐕 🐕‍🦺 세 개만 쓰고, 대부분은 🐶 이다. 받은 파일·파일 이름·`index.csv`·`source.md`·오류 문구에는 넣지 않는다.
 
@@ -16,7 +16,7 @@ description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결
   - **자동 경로**: LLM 없이 도는 CLI `scripts/sci_collect.py` 가 공식 API(Elsevier OA 논문, Wiley TDM)와 직접 PDF(Springer, MDPI, Nature)로 받는다. Elsevier API 는 OA 논문에만 쓴다.
   - **웹 경로**: 자동 요청을 막는 출판사는 사용자가 평소 쓰는 Chrome 에서 받는다. Claude 가 Claude in Chrome 확장으로 논문 페이지를 열어 PDF·SI 를 받고, `intake` 명령이 다운로드 폴더의 파일을 논문 폴더로 정리한다.
 - Claude 가 하는 일: 수집 범위 판단(사전 분류), review 논문의 인용 follow-up 선별, 웹 경로 수집, 사용자와의 확인.
-- 짝이 되는 skill 은 `sci-index` 다. 수집이 끝나면 항상 색인을 다시 만든다.
+- 짝이 되는 skill 은 `sci-index` 다. 수집이 끝나면 편수에 따라 색인 여부를 묻거나 생략을 알린다(5.7).
 - 하위 에이전트가 필요한 LLM 작업(사전 분류, 색인 검수)은 sonnet 으로 돌린다.
 
 ## 2. 원칙
@@ -25,7 +25,7 @@ description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결
 2. **막히는 곳에는 자동 요청을 보내지 않는다.** ACS·RSC·Science·ECS/IOP, 토큰 없는 Wiley, OA 가 아닌 Elsevier 구독 논문은 자동 단계에서 요청하지 않고 바로 웹 경로로 넘긴다. 그 밖의 출판사도 확인 페이지나 403 이 한 번 나오면 나머지 논문은 요청 없이 웹 경로로 넘긴다(도구가 자동으로 처리).
 3. **Elsevier API 는 OA 논문에만 쓴다.** OA 가 아닌 구독 논문에는 API 를 호출하지 않는다. 기관 토큰이 없어 첫 페이지만 오기 때문이다.
 4. **자격증명은 `.env` 로만.** 스크립트나 지침에 값을 적지 않고, 채팅에 값을 출력하지 않는다.
-5. **사용자에게 묻는 것은 네 가지뿐.** 수집 범위 확인, review 인용 follow-up 여부, 웹 경로로 받을 파일 목록 확인(묶음당 한 번), 확인 창 클릭 요청. 옵션 이름이나 내부 상태값은 말하지 않고 자연어로 설명한다.
+5. **사용자에게 묻는 것은 여섯 가지뿐.** 저장 폴더 확인(5.0), 수집 범위 확인, review 인용 follow-up 여부, 웹 경로로 받을 파일 목록 확인(묶음당 한 번), 확인 창 클릭 요청, 색인 여부(30편을 넘을 때, 5.7). 옵션 이름이나 내부 상태값은 말하지 않고 자연어로 설명한다.
 6. **미구독 출판사는 초록만 저장**하고 그 사실을 사용자에게 알린다.
 7. **양과 간격.** 자동 경로는 설정 간격(3.3)을 지킨다. 웹 경로는 같은 출판사 안에서 한 편씩 받고, 한 편이 끝나면 기다리지 않고 바로 다음 논문으로 간다(2026-09-25 사용자 지시로 30초 간격 폐지). 한 편에 보통 30초~1분이 걸린다. 출판사당 한 번에 수십 편 이내로 나눈다. 수백 편 이상이 필요하면 도서관을 통해 출판사의 텍스트 마이닝 이용을 정식으로 요청하도록 안내한다. 차단 문구가 보이면 그 사이트는 즉시 멈추고 30분 뒤 다시 한다.
 8. **몇 편을 수집·읽을지 강제하지 않는다.** 사용자의 목록이 기준이고, follow-up 은 제안만 한다.
@@ -99,7 +99,7 @@ python -c "import requests, pymupdf, bs4, lxml, truststore, openpyxl; print('ok'
 
 ### 3.4 폴더 root
 
-사용자가 정한 논문 폴더 하나를 `--kb-root` 로 준다(예시: `D:/papers/my_topic`). 그 아래에 `papers/`, `collection_registry.csv`, `_collect/`(로그·목록)가 생긴다. 실험이나 임시 수집은 `_tmp/` 아래에 둔다.
+수집 전에 사용자에게 확인받은 논문 폴더 하나(5.0)를 `--kb-root` 로 준다(예시: `D:/papers/my_topic`). 그 아래에 `papers/`, `collection_registry.csv`, `_collect/`(로그·목록)가 생긴다. 실험이나 임시 수집은 `_tmp/` 아래에 둔다.
 
 ## 4. 입력
 
@@ -110,6 +110,23 @@ python -c "import requests, pymupdf, bs4, lxml, truststore, openpyxl; print('ok'
 ## 5. 절차
 
 모든 명령은 `python <이 skill 폴더>/scripts/sci_collect.py <명령> --kb-root <root> …` 형태다. 아래에서는 `scripts/sci_collect.py` 로 줄여 쓴다.
+
+### 5.0 저장 폴더 확인 (수집 전에 항상)
+
+- 논문을 저장할 폴더를 사용자에게 묻고 확인받은 뒤에 5.1 을 시작한다. resolve 가 그 폴더에 목록을 만들기 때문이다.
+- 추천 경로를 함께 제시한다. 폴더 이름은 입력 파일의 제목들이나 사용자의 말에서 짧은 주제어로 정한다(영문 소문자와 밑줄, 예시: `epoxidation`).
+  - Windows: D 드라이브가 있으면 `D:\papers\<주제>`, 없으면 `%USERPROFILE%\Documents\papers\<주제>`
+  - macOS·Linux: `~/papers/<주제>`
+  - 패키지 폴더와 skill 폴더 안은 쓰지 않는다.
+- 사용자가 요청에서 폴더를 이미 말했으면 그 경로를 한 줄로 확인만 한다.
+- 고른 폴더에 `collection_registry.csv` 가 이미 있으면 이어서 받는다고 알린다. 이미 받은 논문은 다시 받지 않는다.
+- 메시지 예시:
+
+```
+논문을 어느 폴더에 저장할까요?
+추천: D:\papers\epoxidation (없으면 새로 만듭니다)
+다른 곳을 원하시면 경로를 알려 주세요.
+```
 
 ### 5.1 메타 확정 (resolve)
 
@@ -221,9 +238,13 @@ python scripts/sci_collect.py reextract --kb-root <root>
 - 추출 규칙이 바뀐 뒤 기존 수집분에 적용할 때 쓴다. 예: 2026-09-24 PDF 텍스트 순서 수정, 2026-09-26 제어 문자(NUL) 제거, 출판사 새 페이지 구조 반영.
 - 이전 본문이 새 본문보다 훨씬 길면 `source_pre_<날짜>.md` 로 남겨 둔다.
 
-### 5.7 색인과 검수
+### 5.7 색인 (편수에 따라 묻거나 생략)
 
-수집이 끝나면 `sci-index` 지침대로 `sci_index.py build` 를 돌리고 sonnet 검수·요약 패스를 거친다.
+수집(웹 경로와 intake 까지)이 끝나면 이번에 받은 논문 편수(전문과 초록만의 합)로 정한다.
+
+- **30편을 넘으면 묻는다**: "수집한 논문 N편의 서지정보를 색인화 하겠습니까?" 동의하면 `sci-index` 지침대로 `sci_index.py build` 를 돌리고 sonnet 검수·요약 패스를 거친다.
+- **30편 이하면 색인하지 않고 알린다**: "논문 색인 과정은 생략하겠습니다. 색인을 원하시면 말씀해 주세요." 사용자가 원하면 위와 같이 색인한다.
+- 폴더에 `index.csv` 가 이미 있으면 편수와 관계없이 "새로 받은 N편을 기존 색인에 반영할까요?" 라고 묻는다.
 
 ### 5.8 review 인용 follow-up (선택, Claude)
 
@@ -235,7 +256,7 @@ python scripts/sci_collect.py reextract --kb-root <root>
 사용자에게 다음만 말한다.
 
 - 총 편수와 상태별 편수: 전문 / 초록만(미구독 출판사 이름) / 웹 경로로 받을 논문(출판사별) / 범위 밖
-- 다음 행동: 웹 경로로 받을 파일 목록과 자리 요청, 색인 완료 여부
+- 다음 행동: 웹 경로로 받을 파일 목록과 자리 요청, 색인 질문 또는 생략 안내(5.7)
 - 실패가 있으면 논문과 이유 한 줄씩
 
 ## 6. 출판사별 수집 방법 (2026-09-26 최종)
