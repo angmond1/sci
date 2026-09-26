@@ -2,7 +2,7 @@
 
 사용자가 평소 쓰는 Chrome 에서 Claude in Chrome 확장으로 논문 PDF·SI 를 받을 때 쓰는 요령이다. 2026-09-24 연습(6개 출판사 1편씩), 2026-09-25 1차 시험(6개 출판사 3편씩, 18편), 같은 날 이 문서대로 한 2차 시험(새 논문 18편), 여러 탭 시험 두 차례(4절), 2026-09-26 의 작은 창·재개 시험(5절)과 여섯 사이트(Taylor & Francis, PNAS, AIP, Oxford, IEEE, ChemRxiv) 1편씩 시험(3.7~3.12), 2026-09-27 첫 사용자 시뮬레이션(6개 출판사 1편씩, MDPI·Thieme 포함, 3.13~3.14)에서 얻었다. 여섯 사이트는 6편 12파일에 9분이 걸렸고, 시뮬레이션은 6편 9파일에 11.5분(한 편 약 2분, 요령이 없던 두 사이트와 죽은 주소·쿠키 창 때문)이 걸렸다. 웹 경로를 시작하기 전에 이 문서를 읽고, 첫 논문부터 이 순서대로 한다.
 
-정책은 SKILL.md 2절과 publisher_matrix.md 맨 앞 공통 정책이 우선한다. 확인 창과 쿠키 동의는 사용자가 누른다. 논문 사이에 따로 기다리지 않고, 한 편이 끝나면 바로 다음 논문으로 간다(2026-09-25 사용자 지시). SI 는 문서(PDF, Word)만 받는다. 동영상·음성, 결정 구조 파일(CIF 등), 압축 파일(zip 등), 스프레드시트(Excel, CSV 등)는 받지 않는다(같은 날 사용자 지시). 결정 구조와 대형 스프레드시트 데이터가 대개 zip 이나 Excel 로 온다. 링크 글자나 파일 이름에서 형식을 보고 PDF·Word 만 누른다.
+정책은 SKILL.md 2절과 publisher_matrix.md 맨 앞 공통 정책이 우선한다. 쿠키 동의는 사용자가 누른다. 논문 사이에 따로 기다리지 않고, 한 편이 끝나면 바로 다음 논문으로 간다(2026-09-25 사용자 지시). SI 는 문서(PDF, Word)만 받는다. 동영상·음성, 결정 구조 파일(CIF 등), 압축 파일(zip 등), 스프레드시트(Excel, CSV 등)는 받지 않는다(같은 날 사용자 지시). 결정 구조와 대형 스프레드시트 데이터가 대개 zip 이나 Excel 로 온다. 링크 글자나 파일 이름에서 형식을 보고 PDF·Word 만 누른다.
 
 ## 1. 시간
 
@@ -96,7 +96,7 @@
 
 ### 3.3 ACS
 
-- 주소 `https://pubs.acs.org/doi/{DOI}` 는 Silverchair 주소로 넘어간다. 4초 안에 뜬다. Cloudflare 확인 창이 뜨면 사용자가 누른다(2026-09-24 1회, 09-25 6편은 없음).
+- 주소 `https://pubs.acs.org/doi/{DOI}` 는 Silverchair 주소로 넘어간다. 4초 안에 뜬다. Cloudflare 확인 창은 2026-09-24 에 한 번 떴고, 09-25 6편에서는 없었다.
 - SI: 본문 속 "Figure S1", "Table S1" 링크도 SI 주소에 걸리므로 무시한다. 실제 파일은 aria-label "Download sifile1"(글자 "sifile1") 링크로, SI 미리보기 창 바로 아래에 있다. 미리보기 창이 늦게 커져 링크가 화면 밖으로 밀린다. 링크를 가운데로 스크롤하고 3초 뒤 한 번 더 스크롤한 다음 좌표를 읽는다. 미리보기 창의 Download 버튼은 쓰지 않는다.
 - 본문: 제목 아래 "Open PDF"(`a.article-pdf-button`). 가운데로 스크롤하면 자리가 일정해, SI 클릭과 같은 호출에서 이어서 누를 수 있다. 새 탭 없이 3~4초 안에 저장된다.
 - SI 링크 글자 끝에 형식이 붙는다(예: "sifile1- pdf file"). SI 가 여럿이면 pdf 만 받는다.
@@ -123,7 +123,7 @@
 
 ### 3.6 Science
 
-- 주소 `https://www.science.org/doi/10.1126/science.{코드}`. 대개 확인 창 없이 뜨지만, 첫 접속에서 Cloudflare 의 "Just a moment…/Performing security verification" 화면에 20초 넘게 멈추기도 한다(2026-09-27). 그 화면에서는 스크린샷이 시간 초과로 실패하고 체크박스는 없었다. 15초쯤 기다렸다 새로고침하면 열린다. 체크박스가 보이면 사용자에게 눌러 달라고 한다. 오른쪽 "RECOMMENDED" 추천 창이나 아래쪽 뉴스레터 안내가 뜨지만 버튼을 가리지 않았다. 가리면 X 를 누른다.
+- 주소 `https://www.science.org/doi/10.1126/science.{코드}`. 대개 확인 창 없이 뜨지만, 첫 접속에서 Cloudflare 의 "Just a moment…/Performing security verification" 화면에 20초 넘게 멈추기도 한다(2026-09-27). 그 화면에서는 스크린샷이 시간 초과로 실패하고 체크박스는 없었다. 15초쯤 기다렸다 새로고침하면 열린다. 오른쪽 "RECOMMENDED" 추천 창이나 아래쪽 뉴스레터 안내가 뜨지만 버튼을 가리지 않았다. 가리면 X 를 누른다.
 - SI 먼저: "Supplementary Materials" 절의 "DOWNLOAD"(`a[href*="suppl_file"]`, 크기 표시). 새 탭 없이 저장된다. PDF 만 받고, 동영상 묶음(Movies)과 데이터 파일(Data S1 등, zip·Excel)은 받지 않는다. "MDAR Reproducibility Checklist" PDF 는 보고 양식이라 받지 않는다. 링크 주소에 토큰이 들어 있어 스크립트 결과로 파일 이름을 통째로 받으면 가려지므로, 확장자와 `mdar` 여부만 받는다.
 - 본문: 빨간 PDF 아이콘(제목 아래 오른쪽, 내리면 상단 고정 막대)을 누르면 5초 안에 온라인 보기(`/doi/epdf/`)가 열린다(아이콘 링크는 `/doi/reader/` 이고 열리면 `/doi/epdf/` 로 넘어간다. 찾을 때 둘 다 본다). 오른쪽 위 둥근 청록색 다운로드 아이콘("Download PDF • 크기")을 누르면 2~3초 안에 저장된다. 대안은 도구 막대 "View Options" 의 "DOWNLOAD PDF".
 - SI "DOWNLOAD", 빨간 아이콘, 온라인 보기의 다운로드 아이콘은 한 호출에서 이어서 누를 수 있다. 빨간 아이콘 뒤 5초 기다리고, 다운로드 아이콘 자리를 확대 캡처로 남긴 뒤 누른다. 2차 시험 3편이 모두 40~45초였다.
@@ -141,7 +141,7 @@
 
 - 주소 `https://www.pnas.org/doi/{DOI}`. 확인 창 없이 뜬다.
 - SI 먼저: "Supporting Information" 절의 "DOWNLOAD"(`a[href*="/doi/suppl/"]`, 파일 `pnas.{번호}.sapp.pdf`). 가운데로 스크롤해 누르면 바로 저장된다. 데이터 파일(xlsx 등)은 받지 않는다.
-- 본문: 참고문헌 뒤 "Download PDF"(`a[href*="/doi/pdf/"]`, 글자 "Download PDF"). 누르면 같은 탭이 Cloudflare "Performing security verification… Verification successful" 화면을 거쳐 저장된다(약 15초). Claude 는 누르지 않는다. 그 화면이 남아 있어도 파일이 왔으면 다음 논문으로 간다. 제목 아래 빨간 PDF 아이콘은 온라인 보기(`/doi/epdf/`)라 쓰지 않는다.
+- 본문: 참고문헌 뒤 "Download PDF"(`a[href*="/doi/pdf/"]`, 글자 "Download PDF"). 누르면 같은 탭이 Cloudflare "Performing security verification… Verification successful" 화면을 거쳐 저장된다(약 15초). 그 화면이 남아 있어도 파일이 왔으면 다음 논문으로 간다. 제목 아래 빨간 PDF 아이콘은 온라인 보기(`/doi/epdf/`)라 쓰지 않는다.
 - 파일: `{저자}-et-al-{연도}-{제목 앞부분}.pdf`, `pnas.{번호}.sapp.pdf`.
 
 ### 3.9 AIP (2026-09-26, 1편)
@@ -155,7 +155,7 @@
 
 - 주소는 `https://doi.org/{DOI}` 로 연다(`academic.oup.com/{저널}/article/…`, Silverchair). 논문 주소를 직접 치면 저널 첫 화면으로 갈 때가 있어 DOI 로 연다. 확인 창 없이 뜬다.
 - SI 먼저: 끝부분 "Supplementary data" 절(`#supplementary-data`)의 목록(`.dataSuppLink`)에 파일이 하나씩 있다. 이번 논문은 그림 S1~S4, 표 S1 이 PDF 5개로 나뉘어 있었고 통합 파일은 없었다. 목록의 PDF·Word 를 모두 받는다. 목록이 늦게 채워지므로 비어 보이면 잠깐 기다린다. 본문 속 "Supplementary Fig. S1" 같은 인라인 링크도 같은 파일(`silverchair-cdn.com … Content_public`)이라 그것을 눌러도 된다. 누르면 바로 저장된다.
-- 본문: 상단 고정 막대의 "PDF"(`a[href*="article-pdf"]`, 왼쪽 위). 누르면 같은 탭이 Cloudflare 확인 화면을 거쳐 저장된다(약 15초). Claude 는 누르지 않는다.
+- 본문: 상단 고정 막대의 "PDF"(`a[href*="article-pdf"]`, 왼쪽 위). 누르면 같은 탭이 Cloudflare 확인 화면을 거쳐 저장된다(약 15초).
 - 파일: `{코드}.pdf`(예 `deag140.pdf`), `{코드}_supplementary_figure_s1.pdf`.
 
 ### 3.11 IEEE (2026-09-26, 1편)

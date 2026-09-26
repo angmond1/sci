@@ -152,7 +152,7 @@ Wiley·IEEE 의 “열기/Open”, Science 온라인 보기의 다운로드 아�
 - Chrome DevTools MCP 공식 설정에는 좌표 도구를 켜는 `--experimentalVision` 이 있다. 이 세션에는 `click_at` 이 노출되지 않았고 시험하지 않았다. 기본 설치 조건으로 추가하지 않으며, 사용할 때는 설치 버전·실제 도구 정의를 확인한다. [공식 설정](https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/configuration.md)
 - 사용할 화면 제어 도구가 없거나 버튼을 특정하지 못하면 사용자가 그 다운로드 버튼을 직접 누르게 안내한다. 저장된 파일은 `intake` 로 정리한다.
 
-어떤 도구를 써도 출판사 봇 확인 창은 에이전트가 누르지 않는다. `handle_dialog` 는 Chrome 의 모든 화면·저장 창을 처리하는 도구가 아니다. 화면 제어 기능이 있어도 **탭 하나로 한 편씩, 작업 탭은 화면 앞에** 둔다는 규칙은 유지한다.
+`handle_dialog` 는 Chrome 의 모든 화면·저장 창을 처리하는 도구가 아니다. 화면 제어 기능이 있어도 **탭 하나로 한 편씩, 작업 탭은 화면 앞에** 둔다는 규칙은 유지한다.
 
 ## 4. 경로·설정·자격증명
 
