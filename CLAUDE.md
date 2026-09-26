@@ -31,7 +31,7 @@
 - 교내 망(KIST IP)에서만 유료 논문이 열린다. 밖이면 KIST VPN 을 안내한다.
 
 ### Step 1 — 폴더 위치 정하기 + 패키지 확보
-1. 먼저 묻고 답을 기다린다: "프로그램 파일(수집 skill sci-retr, 색인 skill sci-index)을 어디에 둘까요? ① 기본 `C:\sci-retr`(macOS/Linux `~/sci-retr`) ② 다른 위치. 논문을 저장할 폴더는 수집할 때 따로 정합니다." 사용자가 기본이라고 하거나 원하는 곳이 따로 없다고 하면 기본 위치.
+1. 먼저 묻고 답을 기다린다: "프로그램 파일(수집 skill sci-retr, 색인 skill sci-index)을 어디에 둘까요? ① 기본 `C:\sci`(macOS/Linux `~/sci`) ② 다른 위치. 논문을 저장할 폴더는 수집할 때 따로 정합니다." 사용자가 기본이라고 하거나 원하는 곳이 따로 없다고 하면 기본 위치.
 2. 패키지를 그 폴더에 확보한다.
    - git 있으면 `git clone https://github.com/angmond1/sci.git <root>`.
    - git 없으면 GitHub 페이지에서 `Code ▾ → Download ZIP` 을 받아 그 폴더에 푼다. 공개 저장소라 로그인은 필요 없다.
@@ -63,10 +63,10 @@
 
 ### Step 6 — 점검 (사용자가 요청할 때)
 설치 스크립트가 이미 점검했으므로 따로 하지 않아도 된다. 사용자가 "sci-retr 점검해줘" 라고 하면 다음을 돌린다.
-`python ~/.claude/skills/sci-retr/scripts/sci_collect.py doctor --kb-root <논문 폴더>` 를 돌려(가상환경에 설치했으면 `python` 대신 `~/.sci-retr/venv/bin/python`) "문제 0" 을 확인한다. 논문 폴더를 아직 정하지 않았으면 `--kb-root` 에 임시 폴더(예: `%TEMP%\sci-retr-check`, macOS/Linux `/tmp/sci-retr-check`)를 준다. 논문 폴더는 수집할 때 정한다(SKILL.md 5.0). 문제가 있으면 출력의 안내대로 고친 뒤 다시 돌린다. 키·토큰(선택)은 `sci-retr/examples/.env.example` 을 논문 폴더의 `.env` 로 복사해 채우게 안내하되, 값은 채팅에 적지 않게 한다.
+`python ~/.claude/skills/sci-retr/scripts/sci_collect.py doctor --kb-root <논문 폴더>` 를 돌려(가상환경에 설치했으면 `python` 대신 `~/.sci-retr/venv/bin/python`) "문제 0" 을 확인한다. 논문 폴더를 아직 정하지 않았으면 `--kb-root` 에 임시 폴더(예: `%TEMP%\sci-retr-check`, macOS/Linux `/tmp/sci-retr-check`)를 준다. 논문 폴더는 수집할 때 정한다(SKILL.md 5.0). 문제가 있으면 출력의 안내대로 고친 뒤 다시 돌린다. 키·토큰(선택)은 수집 목록에 Elsevier OA·Wiley 논문이 있을 때 안내한다(SKILL.md 3.2.1). 값은 사용자가 skill 폴더의 `token.txt` 에 직접 넣고, 채팅창에는 절대 적지 않게 한다.
 
 ## 2. 실행
 사용자가 DOI 목록이나 "논문 받아줘" 라고 하면 `sci-retr` skill 지침(SKILL.md)을 따른다. 수집 전에 저장 폴더를 묻고 확인하며(5.0), 수집이 끝나면 30편 이상일 때 색인 여부를 묻고 30편 미만이면 이유와 함께 생략을 알린다(5.7).
 
 ## 3. 갱신
-`<root>` 에서 `git pull` 한 뒤 Step 2 의 설치 스크립트를 다시 실행한다. 설정과 `.env` 는 논문 폴더에 있으므로 영향이 없다.
+`<root>` 에서 `git pull` 한 뒤 Step 2 의 설치 스크립트를 다시 실행한다. 설정과 `.env` 는 논문 폴더에 있고, 설치 스크립트는 skill 폴더의 `token.txt` 를 남겨 두므로 영향이 없다. 논문은 기본으로 `<root>\papers\<주제>` 에 쌓이고 git 이 무시하므로 `git pull` 에도 그대로다. `<root>` 폴더를 지우고 다시 받지 않는다(논문이 함께 지워진다).

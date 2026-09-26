@@ -1,5 +1,7 @@
 # Credentials Setup — 환경변수 + .env 설정 가이드
 
+> **현행 (2026-09-27)**: sci_collect 의 키·토큰은 skill 폴더의 `token.txt` 에 둔다. `python scripts/sci_collect.py token` 이 빈 양식을 만들고 있음/없음만 보여 준다. 값은 사용자가 파일에 직접 넣고 채팅창에는 적지 않는다(SKILL.md 3.2.1). 아래의 `.env`·`--env-path` 설명은 옛 스크립트(runner.py 등)용이다. sci_collect 는 논문 폴더의 `.env` 도 함께 읽는다.
+
 이 skill은 publisher API token이 필요한 method (Wiley TDM, Elsevier API, Semantic Scholar 등) 를 사용한다. token은 사용자 본인이 직접 발급받아 환경변수 또는 `.env` 파일에 설정해야 한다.
 
 ⚠️ **이 skill의 scripts에는 어떤 token도 hardcode 되어 있지 않다**. 사용자별로 자기 계정 token을 발급받아 사용해야 한다.

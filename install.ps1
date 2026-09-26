@@ -127,15 +127,19 @@ foreach ($skill in @("sci-retr", "sci-index")) {
     $src = Join-Path $Root $skill
     if (-not (Test-Path (Join-Path $src "SKILL.md"))) { throw "skill 폴더가 없습니다: $src" }
     $to = Join-Path $Dest $skill
+    $tokenPath = Join-Path $to "token.txt"
+    $keepToken = $null
+    if (Test-Path $tokenPath) { $keepToken = [IO.File]::ReadAllBytes($tokenPath) }   # 다시 설치해도 키·토큰 파일은 남긴다
     if (Test-Path $to) {
         $item = Get-Item $to -Force
         if ($item.LinkType) { cmd /c rmdir "$to" | Out-Null }     # 링크(junction)면 링크만 지운다
         else { Remove-Item -Recurse -Force $to }
     }
     # _history·__pycache__ 는 빼고 복사
-    robocopy $src $to /E /XD _history __pycache__ /NFL /NDL /NJH /NJS /NC /NS /NP | Out-Null
+    robocopy $src $to /E /XD _history __pycache__ /XF token.txt python.txt /NFL /NDL /NJH /NJS /NC /NS /NP | Out-Null
     if ($LASTEXITCODE -ge 8) { throw "복사 실패: $skill (robocopy $LASTEXITCODE)" }
     Write-Host "설치: $to"
+    if ($keepToken) { [IO.File]::WriteAllBytes($tokenPath, $keepToken); Write-Host "  키·토큰 파일(token.txt)은 그대로 두었습니다." }
 }
 
 # 3) 파이썬 패키지

@@ -24,8 +24,8 @@ description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결
 1. **봇 탐지 우회 금지.** 출판사 확인 창(Cloudflare, Radware 등)은 사용자가 직접 누른다. Claude 도 누르지 않는다. 확인 통과 쿠키 복사, 자동화 브라우저 표시 숨김, User-Agent 위장, TLS 지문 흉내, 확인 응답 가로채기, 타 기관 IP 헤더는 쓰지 않는다. 차단되지 않는 가장 빠른 간격을 찾는 시험도 하지 않는다. 이유: 출판사 약관 위반이고, 같은 IP 대역을 쓰는 KIST 전체가 차단될 수 있다.
 2. **막히는 곳에는 자동 요청을 보내지 않는다.** ACS·RSC·Science·ECS/IOP, 토큰 없는 Wiley, OA 가 아닌 Elsevier 구독 논문은 자동 단계에서 요청하지 않고 바로 웹 경로로 넘긴다. 그 밖의 출판사도 확인 페이지나 403 이 한 번 나오면 나머지 논문은 요청 없이 웹 경로로 넘긴다(도구가 자동으로 처리).
 3. **Elsevier API 는 OA 논문에만 쓴다.** OA 가 아닌 구독 논문에는 API 를 호출하지 않는다. 기관 토큰이 없어 첫 페이지만 오기 때문이다.
-4. **자격증명은 `.env` 로만.** 스크립트나 지침에 값을 적지 않고, 채팅에 값을 출력하지 않는다.
-5. **사용자에게 묻는 것은 이것뿐.** 저장 폴더(5.0), 주제 확인(30편을 넘을 때, 5.2), review 인용 follow-up(5.8), 웹 경로로 받을 파일 목록(묶음당 한 번), 확인 창 클릭, 색인 여부(30편 이상일 때, 5.7). 처음 한 번의 키·토큰 안내(3.2.1)와 이 컴퓨터의 Chrome 이 둘 이상일 때의 선택(3.0)도 여기에 든다. 옵션 이름이나 내부 상태값은 말하지 않고 자연어로 설명한다.
+4. **키·토큰은 파일로만.** 이 skill 폴더의 `token.txt`(또는 논문 폴더의 `.env`)에 사용자가 직접 넣는다. 사용자에게는 채팅창에 값을 적지 말라고 안내하고(유출 위험), Claude 도 값을 읽거나 출력하지 않는다. 있음/없음은 `token` 명령이나 `doctor` 로 본다. 스크립트나 지침에도 값을 적지 않는다.
+5. **사용자에게 묻는 것은 이것뿐.** 저장 폴더(5.0), 주제 확인(30편을 넘을 때, 5.2), review 인용 follow-up(5.8), 웹 경로로 받을 파일 목록(묶음당 한 번), 확인 창 클릭, 색인 여부(30편 이상일 때, 5.7). 키·토큰 발급 여부(Elsevier OA·Wiley 논문이 있고 키·토큰이 없을 때, 3.2.1)와 이 컴퓨터의 Chrome 이 둘 이상일 때의 선택(3.0)도 여기에 든다. 옵션 이름이나 내부 상태값은 말하지 않고 자연어로 설명한다.
 6. **미구독 출판사는 초록만 저장**하고 그 사실을 사용자에게 알린다.
 7. **양과 간격.** 자동 경로는 설정 간격(3.3)을 지킨다. 웹 경로는 같은 출판사 안에서 한 편씩 받고, 한 편이 끝나면 기다리지 않고 바로 다음 논문으로 간다(2026-09-25 사용자 지시로 30초 간격 폐지). 한 편에 보통 30초~1분이 걸린다. 출판사당 한 번에 수십 편 이내로 나눈다. 수백 편 이상이 필요하면 도서관을 통해 출판사의 텍스트 마이닝 이용을 정식으로 요청하도록 안내한다. 차단 문구가 보이면 그 사이트는 즉시 멈추고 30분 뒤 다시 한다.
 8. **몇 편을 수집·읽을지 강제하지 않는다.** 사용자의 목록이 기준이고, follow-up 은 제안만 한다.
@@ -46,7 +46,7 @@ description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결
 python scripts/sci_collect.py doctor --kb-root <root>
 ```
 
-- 점검 항목: Python 버전, 패키지, Chrome 의 PDF 설정과 저장 위치 확인 설정, intake 가 볼 다운로드 폴더, `.env` 의 키 유무(값은 보이지 않음), 설정 파일, 목록 편수, 인터넷과 인증서.
+- 점검 항목: Python 버전, 패키지, Chrome 의 PDF 설정과 저장 위치 확인 설정, intake 가 볼 다운로드 폴더, 키·토큰 유무(`token.txt`·`.env`, 값은 보이지 않음), 설정 파일, 목록 편수, 인터넷과 인증서.
 - 확인하지 못하는 것: 확장 연결(Claude 가 대화에서 확인), 교내 망 여부(구독 논문 페이지가 열리는지로 확인).
 
 ### 3.1 소프트웨어
@@ -64,23 +64,45 @@ python scripts/sci_collect.py doctor --kb-root <root>
 python -c "import requests, pymupdf, bs4, lxml, truststore, openpyxl; print('ok')"
 ```
 
-### 3.2 자격증명 (`<root>/.env`, 선택)
+### 3.2 키·토큰 (선택, 이 skill 폴더의 `token.txt`)
 
 | 변수 | 있으면 | 없으면 |
 |---|---|---|
 | `ELSEVIER_API_KEY` | Elsevier OA 논문의 본문 XML 과 PDF 를 API 로 바로 빠르게 받는다. 논문 사이 3초. 구독 논문(OA 아님)에는 쓰지 않는다 | Elsevier 는 OA 논문까지 모두 웹 경로 |
 | `WILEY_TDM_TOKEN` | Wiley PDF 를 TDM API 로 자동으로 받는다 | Wiley 는 모두 웹 경로 (자동 요청을 보내지 않는다) |
 
-발급 방법은 `references/credentials_setup.md`. `--env <경로>` 로 다른 위치를 줄 수 있다.
+값은 이 skill 폴더의 `token.txt` 에 사용자가 직접 넣는다. 파일은 `token` 명령이 만든다(3.2.1). 논문 폴더의 `.env`(또는 `--env <경로>`)도 읽으며, 같은 키가 둘 다 있으면 `.env` 가 앞선다. 설치 스크립트는 다시 설치해도 `token.txt` 를 지우지 않는다. 발급 방법은 `references/credentials_setup.md`.
 
-#### 3.2.1 첫 사용 안내 (키·토큰이 없을 때 한 번만)
+#### 3.2.1 Elsevier·Wiley 논문이 있을 때 (키·토큰 발급 질문)
 
-처음 쓰는 사용자(`.env` 에 위 변수가 없을 때)에게 한 번만 안내하고 선택을 받는다. 확인은 `.env` 의 해당 줄만 Grep 하고, 값은 읽어도 출력하지 않는다.
+resolve(5.1) 결과에 Elsevier OA 논문(접두 10.1016·10.1006, 출력 `oa=1`)이나 Wiley 논문(10.1002)이 있으면 키·토큰이 있는지 본다.
 
-- Wiley: "Wiley 논문을 자동으로 받으려면 Text and Data Mining 토큰이 필요합니다. 기관 구독이 있으면 무료이고, 이 페이지에서 발급받아 `.env` 의 `WILEY_TDM_TOKEN` 에 넣으면 됩니다: https://onlinelibrary.wiley.com/library-info/resources/text-and-datamining . 토큰이 없으면 Wiley 논문은 평소 쓰시는 Chrome 에서 받아야 합니다."
-- Elsevier: "Elsevier 의 Open Access 논문은 API 키가 있으면 바로 빠르게 받을 수 있습니다. 키는 Elsevier 개발자 사이트에서 무료로 몇 분이면 발급됩니다: https://dev.elsevier.com/ . 받은 키는 `.env` 의 `ELSEVIER_API_KEY` 에 넣으면 됩니다. OA 가 아닌 구독 논문은 키가 있어도 API 로 받을 수 없어서 평소 쓰시는 Chrome 에서 받습니다."
+```bash
+python scripts/sci_collect.py token
+```
+
+- `token` 명령은 이 skill 폴더의 `token.txt` 경로와 키·토큰의 있음/없음만 보여 준다. 파일이 없으면 빈 양식을 만든다. Claude 는 이 파일을 열어 값을 읽지 않는다.
+- 해당 논문이 있는데 키·토큰이 없으면 5.2 의 편수 안내에 발급 페이지 링크를 붙여 묻는다. 있는 쪽은 묻지 않는다. Elsevier 는 OA 논문에만 키가 쓰이므로 OA 가 아닌 Elsevier 논문만 있으면 묻지 않는다.
+
+```
+이 목록에 Elsevier Open Access 논문 N편, Wiley 논문 M편이 있습니다.
+키·토큰이 있으면 파이썬으로 빠르게 받고, 없으면 평소 쓰시는 Chrome 에서 한 편씩 받습니다.
+- Elsevier API key 발급 (무료, 몇 분): https://dev.elsevier.com/
+- Wiley TDM 토큰 발급 (기관 구독이 있으면 무료): https://onlinelibrary.wiley.com/library-info/resources/text-and-datamining
+발급받으시겠습니까?
+```
+
+- 발급받겠다고 하면 다음처럼 안내하고 사용자가 알려 줄 때까지 기다린다. 알려 주면 `token` 명령으로 있음을 확인한 뒤 수집한다.
+
+```
+키와 토큰은 유출될 위험이 있으니 채팅창에는 절대 적지 마세요.
+아래 파일을 메모장 등으로 열어 ELSEVIER_API_KEY = 와 WILEY_TDM_TOKEN = 뒤에 각각 붙여 넣고 저장한 뒤 알려 주세요.
+<token.txt 경로>
+```
+
+- 없이 하라고 하면 해당 논문은 웹 경로로 받는다. 같은 대화에서는 다시 묻지 않는다.
+- 사용자가 채팅창에 값을 적으면 그 값은 쓰지 않는다. 채팅에 남았으니 새로 발급받아 파일에 넣도록 권한다.
 - Elsevier API 속도: 공식 한도는 키 하나당 초당 10회, 한 주 5만 회이다(https://dev.elsevier.com/api_key_settings.html, 2026-09-25 확인). 도구는 논문 한 편에 두 번(XML, PDF, 사이 1초) 요청하고 논문 사이 3초를 둔다. 한도를 넘으면 Elsevier 가 429 응답을 주고, 도구는 그 자리에서 멈춘 뒤 남은 논문을 다음 collect 로 미룬다.
-- 없이 진행하기로 하면 `.env` 에 빈 값과 주석 `# 없음 (날짜)` 을 적어 두고 다시 묻지 않는다. 나중에 값을 넣으면 자동 경로로 받는다.
 - Wiley 토큰은 구독 논문의 경우 기관 IP 대역에서만 유효하고, OA 논문은 어디서나 된다.
 
 ### 3.3 설정 (선택)
@@ -115,9 +137,9 @@ python -c "import requests, pymupdf, bs4, lxml, truststore, openpyxl; print('ok'
 
 - 논문을 저장할 폴더를 사용자에게 묻고 확인받은 뒤에 5.1 을 시작한다. resolve 가 그 폴더에 목록을 만들기 때문이다.
 - 추천 경로를 함께 제시한다. 폴더 이름은 입력 파일의 제목들이나 사용자의 말에서 짧은 주제어로 정한다(영문 소문자와 밑줄, 예시: `epoxidation`).
-  - Windows: D 드라이브가 있으면 `D:\papers\<주제>`, 없으면 `%USERPROFILE%\Documents\papers\<주제>`
-  - macOS·Linux: `~/papers/<주제>`
-  - 패키지 폴더와 skill 폴더 안은 쓰지 않는다.
+  - Windows: `C:\sci\papers\<주제>` (기본 프로그램 폴더 `C:\sci` 안의 `papers`)
+  - macOS·Linux: `~/sci/papers/<주제>`
+  - 프로그램 폴더 안의 `papers` 는 git 이 무시하므로 업데이트(`git pull`)해도 그대로다. skill 폴더(`~/.claude/skills/...`) 안은 쓰지 않는다.
 - 사용자가 요청에서 폴더를 이미 말했으면 그 경로를 한 줄로 확인만 한다.
 - 고른 폴더에 `collection_registry.csv` 가 이미 있으면 이어서 받는다고 알린다. 이미 받은 논문은 다시 받지 않는다.
 - 그 폴더에서 처음 수집하는 경우(`collection_registry.csv` 가 없음) `doctor --kb-root <폴더>` 를 한 번 돌려 문제 0 을 확인한다. 문제가 있으면 안내대로 고친 뒤 진행한다.
@@ -125,7 +147,7 @@ python -c "import requests, pymupdf, bs4, lxml, truststore, openpyxl; print('ok'
 
 ```
 논문을 어느 폴더에 저장할까요?
-추천: D:\papers\epoxidation (없으면 새로 만듭니다)
+추천: C:\sci\papers\epoxidation (없으면 새로 만듭니다)
 다른 곳을 원하시면 경로를 알려 주세요.
 ```
 
@@ -146,7 +168,8 @@ resolve 가 끝나면 한 메시지로 알린다.
 - 자동으로 받을 편수, 웹 경로(평소 쓰는 Chrome)로 받을 편수, 초록만 저장할 편수(미구독 출판사 이름)를 출판사별로 알린다(6절 표 기준).
 - 30편을 넘으면 레지스트리의 제목·초록 몇 개로 주제를 추정해 한 줄로 확인한다. 관련 논문만 받도록 5.3 사전 분류를 한다. 사용자가 이미 주제를 말했으면 묻지 않는다. 30편 이하면 입력 형식(WoS·Scopus export 포함)과 관계없이 주제를 묻지 않고 목록 그대로 받는다.
 - review 논문이 있으면(5.8) 편수와 관계없이 같은 메시지에 인용 논문 follow-up 질문을 묶는다.
-- 물을 것이 없으면(30편 이하, review 없음) 답을 기다리지 않고 5.4 로 간다. 물을 것이 있으면 답을 받은 뒤 간다.
+- Elsevier OA 논문이나 Wiley 논문이 있고 해당 키·토큰이 없으면 3.2.1 의 발급 질문을 같은 메시지에 묶는다.
+- 물을 것이 없으면(30편 이하, review 없음, 키·토큰 질문 없음) 답을 기다리지 않고 5.4 로 간다. 물을 것이 있으면 답을 받은 뒤 간다.
 
 ### 5.3 사전 분류 (sonnet 하위 에이전트, 큰 목록일 때만)
 

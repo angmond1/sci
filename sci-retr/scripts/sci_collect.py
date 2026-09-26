@@ -150,18 +150,40 @@ class Ctx:
         return {"User-Agent": UA_API.format(mailto=self.config.get("crossref_mailto") or "unknown")}
 
 
-def load_env(path: Path) -> dict:
-    env = {}
+# 키·토큰 파일: skill 폴더(scripts 의 위)의 token.txt. 사용자가 직접 값을 넣는다 (채팅창에 값을 적지 않게, 2026-09-27)
+TOKEN_FILE = Path(__file__).absolute().parent.parent / "token.txt"
+TOKEN_TEMPLATE = (
+    "# sci-retr 키·토큰 파일\n"
+    "# '=' 뒤에 값을 붙여 넣고 저장하세요. 값은 채팅창에 적지 마세요(유출 위험).\n"
+    "# Elsevier API key 발급: https://dev.elsevier.com/\n"
+    "# Wiley TDM 토큰 발급: https://onlinelibrary.wiley.com/library-info/resources/text-and-datamining\n"
+    "ELSEVIER_API_KEY = \n"
+    "WILEY_TDM_TOKEN = \n"
+)
+
+
+def read_kv(path: Path) -> dict:
+    """'KEY = 값' 줄을 읽는다. # 줄은 건너뛰고 값의 따옴표는 뗀다. 메모장이 다른 인코딩으로 저장해도 키(ASCII)는 읽힌다."""
+    out = {}
     if path.exists():
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in path.read_text(encoding="utf-8-sig", errors="replace").splitlines():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
-                env[k.strip()] = v.strip()
+                out[k.strip()] = v.strip().strip('"').strip("'")
+    return out
+
+
+def load_env(path: Path) -> dict:
+    """키·토큰: 논문 폴더 .env(또는 --env) → skill 폴더 token.txt → 환경변수 순. 빈 값은 없는 것으로 본다."""
+    env = {k: v for k, v in read_kv(path).items() if v}
+    for k, v in read_kv(TOKEN_FILE).items():
+        if v and not env.get(k):
+            env[k] = v
     for k in ("ELSEVIER_API_KEY", "WILEY_TDM_TOKEN", "TDM_API_TOKEN"):
-        if k in os.environ and k not in env:
+        if os.environ.get(k) and not env.get(k):
             env[k] = os.environ[k]
-    if "TDM_API_TOKEN" not in env and "WILEY_TDM_TOKEN" in env:
+    if not env.get("TDM_API_TOKEN") and env.get("WILEY_TDM_TOKEN"):
         env["TDM_API_TOKEN"] = env["WILEY_TDM_TOKEN"]
     return env
 
@@ -998,7 +1020,7 @@ def wiley_notice() -> None:
         return
     _wiley_notice_shown = True
     say("!! Wiley TDM 토큰이 없어 Wiley 논문은 자동으로 받을 수 없습니다. 평소 쓰시는 Chrome 에서 받은 뒤 intake 로 정리합니다. "
-        f"토큰을 발급받으면 자동으로 받습니다 (기관 구독이 있으면 무료): {WILEY_TDM_URL} → .env 의 WILEY_TDM_TOKEN")
+        f"토큰을 발급받으면 자동으로 받습니다 (기관 구독이 있으면 무료): {WILEY_TDM_URL} → {TOKEN_FILE} 의 WILEY_TDM_TOKEN")
 
 
 def h_springer(ctx: Ctx, row: dict) -> Outcome:
@@ -1578,6 +1600,7 @@ def cmd_doctor(args) -> None:
     env = load_env(Path(args.env) if getattr(args, "env", None) else kb_root / ".env")
     for k, what in (("ELSEVIER_API_KEY", "Elsevier OA 논문 자동"), ("WILEY_TDM_TOKEN", "Wiley 자동")):
         info(f"{k} {'있음' if env.get(k) else '없음'} — {what}{'' if env.get(k) else ' 대신 웹 경로'}")
+    info(f"키·토큰 파일 {TOKEN_FILE} ({'있음' if TOKEN_FILE.exists() else '아직 없음 — token 명령이 만든다'})")
     used = next((p for p in (kb_root / "sci_collect.config.json", Path.home() / ".claude" / "sci" / "sci_collect.config.json") if p.exists()), None)
     info(f"설정 파일 {used or '없음 (기본값)'}")
     reg = kb_root / "collection_registry.csv"
@@ -1892,13 +1915,27 @@ def cmd_intake(args) -> None:
     summarize(ctx, header="intake 완료" if not args.dry_run else "intake 미리보기")
 
 
+def cmd_token(args) -> None:
+    """키·토큰 파일(skill 폴더의 token.txt)이 없으면 빈 양식을 만들고, 경로와 있음/없음만 보여 준다. 값은 출력하지 않는다."""
+    if not TOKEN_FILE.exists():
+        TOKEN_FILE.write_text(TOKEN_TEMPLATE, encoding="utf-8")
+        if os.name != "nt":
+            os.chmod(TOKEN_FILE, 0o600)
+        say(f"키·토큰 파일을 만들었습니다: {TOKEN_FILE}")
+    else:
+        say(f"키·토큰 파일: {TOKEN_FILE}")
+    kv = read_kv(TOKEN_FILE)
+    for k, what in (("ELSEVIER_API_KEY", "Elsevier API key"), ("WILEY_TDM_TOKEN", "Wiley TDM 토큰")):
+        say(f"  {what} ({k}): {'있음' if kv.get(k) else '없음'}")
+
+
 # ------------------------------------------------------------------ CLI
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="sci_collect — 논문 원문 수집 CLI (LLM 없음)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--kb-root", required=True, help="논문 폴더 루트 (papers/ 가 이 아래 생성)")
-    common.add_argument("--env", default=None, help=".env 경로 (기본: <kb-root>/.env)")
+    common.add_argument("--env", default=None, help=".env 경로 (기본: <kb-root>/.env). 키·토큰은 skill 폴더의 token.txt 도 읽는다")
     common.add_argument("--mailto", default=None, help="Crossref/OpenAlex 예의용 이메일")
     p = sub.add_parser("resolve", parents=[common]); p.add_argument("--input", nargs="+", required=True, help="DOI 목록 파일(csv/xlsx/txt) 또는 DOI 문자열")
     p = sub.add_parser("collect", parents=[common]); p.add_argument("--input", nargs="*", default=None); p.add_argument("--ids", nargs="*"); p.add_argument("--publishers", default=None); p.add_argument("--force", action="store_true")
@@ -1908,12 +1945,13 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("mark", parents=[common]); p.add_argument("--ids", nargs="+", required=True, help="paper_id 또는 DOI"); p.add_argument("--status", choices=["out_of_scope", "resolved"], required=True); p.add_argument("--note", default="")
     sub.add_parser("status", parents=[common])
     sub.add_parser("doctor", parents=[common], help="처음 쓰기 전 환경 점검 (읽기만 함)")
+    sub.add_parser("token", help="키·토큰 파일(token.txt) 만들기와 있음/없음 확인 (값은 보이지 않음)")
     return ap
 
 
 def main() -> None:
     args = build_parser().parse_args()
-    {"resolve": cmd_resolve, "collect": cmd_collect, "assist": cmd_assist, "mark": cmd_mark, "reextract": cmd_reextract, "intake": cmd_intake, "status": cmd_status, "doctor": cmd_doctor}[args.cmd](args)
+    {"resolve": cmd_resolve, "collect": cmd_collect, "assist": cmd_assist, "mark": cmd_mark, "reextract": cmd_reextract, "intake": cmd_intake, "status": cmd_status, "doctor": cmd_doctor, "token": cmd_token}[args.cmd](args)
 
 
 if __name__ == "__main__":

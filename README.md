@@ -29,6 +29,8 @@ claude code (claude 데스크탑 앱에서 code), codex 대화창에
 https://github.com/angmond1/sci 설치해줘
 ```
 
+(에이전트는 저장소의 CLAUDE.md, CODEX.md 설치 절차를 따릅니다)
+
 <br>
 
 ## 준비물

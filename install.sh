@@ -92,10 +92,13 @@ mkdir -p "$DEST"
 for skill in sci-retr sci-index; do
   src="$ROOT/$skill"
   [ -f "$src/SKILL.md" ] || { echo "skill 폴더가 없습니다: $src" >&2; exit 1; }
+  KEEP=""
+  if [ -f "$DEST/$skill/token.txt" ]; then KEEP="$(mktemp)"; cp -p "$DEST/$skill/token.txt" "$KEEP"; fi   # 다시 설치해도 키·토큰 파일은 남긴다
   rm -rf "$DEST/$skill"
   mkdir -p "$DEST/$skill"
-  (cd "$src" && tar --exclude='_history' --exclude='__pycache__' -cf - .) | (cd "$DEST/$skill" && tar -xf -)
+  (cd "$src" && tar --exclude='_history' --exclude='__pycache__' --exclude='token.txt' --exclude='python.txt' -cf - .) | (cd "$DEST/$skill" && tar -xf -)
   echo "설치: $DEST/$skill"
+  if [ -n "$KEEP" ]; then cp -p "$KEEP" "$DEST/$skill/token.txt"; rm -f "$KEEP"; echo "  키·토큰 파일(token.txt)은 그대로 두었습니다."; fi
 done
 
 echo "=== 3. 파이썬 패키지 설치: $PY -m pip install ... (처음 설치면 1~2분 걸릴 수 있습니다)"
