@@ -1,6 +1,6 @@
 # SCI 논문 본문·SI 수집·색인 스킬 패키지
 SCI 논문 본문과 SI PDF 파일을 자동으로 수집하고,<br>
-LLM이 다루기 쉬운 md 파일로 변환 및 색인화
+LLM이 다루기 쉬운 markdown 파일로 변환 및 색인화
 
 <br>
 
@@ -8,8 +8,8 @@ LLM이 다루기 쉬운 md 파일로 변환 및 색인화
 
 | skill | 용도 | 기능 | 권장모델 |
 |-------|------|------|:--------:|
-| **sci-retr** | 수집 | 본문 SI PDF 다운로드 → 본문 text는 markdown 파일로 저장 | Opus |
-| **sci-index** | 색인 | 서지 정보(제목 저널 저자 연도 키워드 초록 등) 정리해서 csv 파일로 저장 | Sonnet |
+| **sci-retr** | 수집 | 본문 SI PDF 다운로드, 본문 text를 md 파일로 변환 | Opus |
+| **sci-index** | 색인 | 서지 정보(제목 저널 저자 연도 키워드 초록 등)를 csv 파일로 정리 | Sonnet |
 
 <br>
 
