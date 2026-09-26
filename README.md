@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="assets/sci-retriever-logo.jpg" alt="SCI Retriever" width="900">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/sci-retriever-logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/sci-retriever-logo.jpg">
+    <img src="assets/sci-retriever-logo.jpg" alt="SCI Retriever" width="900">
+  </picture>
 </p>
 
 # SCI 논문 본문·SI 수집·색인 스킬 패키지
