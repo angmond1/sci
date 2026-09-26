@@ -41,14 +41,6 @@ https://github.com/angmond1/sci-retr 설치해줘
 D:\papers\my_topic\dois.txt 논문들 받아줘
 ```
 
-흐름은 다음과 같다. 자동으로 받히는 출판사는 파이썬이 받고, 자동 요청을 막는 출판사는 Claude 가 사용자 Chrome 에서 한 편씩 받는다. 확인 창(Cloudflare 등)이 뜨면 사용자가 누른다. 끝나면 색인이 만들어진다.
-
-```
-DOI 목록 → resolve(서지·출판사 판정) → collect(파이썬) → 웹 다운로드(Chrome) + intake(정리) → sci-index
-```
-
-결과는 `<논문 폴더>/papers/{paper_id}/` (본문 PDF, SI, `source.md`, `source.json`) 와 `index.csv` 다.
-
 <br>
 
 ## 출판사별 수집 방법
