@@ -6,8 +6,8 @@
 
 | skill | 용도 | 기능 | 권장모델 |
 |-------|------|------|:--------:|
-| **sci-retr** | 논문 수집 | DOI 목록 → 출판사별로 파이썬 API·직접 다운로드 또는 평소 쓰는 Chrome 에서 받기 → 논문 폴더 정리 | Opus |
-| **sci-index** | 논문 색인 | 수집 폴더 → `index.csv` (서지·초록·키워드·원문상태·SI 유무) + 한 줄 요약 | Sonnet |
+| **sci-retr** | 수집 | 본문 SI PDF 다운로드 → 본문 text는 markdown 파일로 저장 | Opus |
+| **sci-index** | 색인 | 서지 정보(제목 저널 저자 연도 키워드 초록 등) 정리해서 csv 파일로 저장 | Sonnet |
 
 <br>
 
