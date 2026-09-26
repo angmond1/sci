@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/sci-retriever-logo.jpg" alt="SCI Retriever" width="900">
+</p>
+
 # SCI 논문 본문·SI 수집·색인 스킬 패키지
 SCI 논문 본문과 SI PDF 파일을 자동으로 수집하고,<br>
 LLM이 다루기 쉬운 markdown 파일로 변환 및 색인화
