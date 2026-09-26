@@ -57,3 +57,10 @@ Web of Science, Scopus에서 수집하고자 하는 논문 리스트를 파일�
 
 기관 미구독 출판사는 초록만 저장.<br>
 Elsevier 기관 API key, Wiley 기관 TDM 토큰, ACS API key는 발급 거절당함.
+
+<br>
+
+## 문의
+
+이동기 / 청정에너지연구센터 e-chemical 연구팀<br>
+dnklee@kist.re.kr
