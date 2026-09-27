@@ -38,15 +38,17 @@ python <sci-retr>/scripts/sci_index.py build --kb-root <논문 폴더 root>
 
 | 열 | 내용 | 출처 |
 |---|---|---|
+| 참고문헌 번호 | 참고문헌 수집(sci-retr 5.10)일 때만 맨 왼쪽 열. 원 논문의 참고문헌 목록 번호(`-` = 번호 모름). paper_id·파일 이름도 이 번호로 시작한다 | registry `ref_no` |
 | paper_id | 폴더 이름 | registry |
 | DOI | | registry |
+| 웹페이지 | 논문 페이지 주소 `https://doi.org/<DOI>` (DOI 가 없으면 레지스트리의 논문 주소). 엑셀에서 복사해 바로 연다(2026-09-27 사용자 지시) | DOI |
 | 제목 | 한 줄 | Crossref |
 | 저자 | 6명 이하 전원, 7명 이상은 앞 3명 + … + 뒤 3명, `;` 구분 | Crossref |
 | 교신저자 | 성. OpenAlex is_corresponding, 없으면 마지막 저자 | OpenAlex / Crossref |
 | 연도, 저널, 저널약어, 권, 호, 페이지 | 페이지가 없는 전자 논문은 논문 번호(article-number) | Crossref |
 | 초록 | 한 줄 | Crossref, 없으면 OpenAlex |
 | 키워드 | 본문에 Keywords 줄이 있을 때만. 한 줄에 하나씩 이어지는 형식(Elsevier PDF)도 모아 `; ` 로 잇는다 | source.md |
-| 원문상태 | 전문 / 전문(웹 본문, PDF 없음) / 초록만 / 전문(PDF 없음, 재시도 대상) / 미수집(사용자 확인 필요) / 범위밖-미수집 / 실패 / 미수집. '전문(웹 본문, PDF 없음)' 은 PDF 가 없는 웹 전용 글(Science Expert Voices 등)의 본문·참고문헌이 source.md 에만 있는 것 | registry |
+| 원문상태 | 전문 / 전문(웹 본문, PDF 없음) / 전문(웹 본문, PDF 받기 실패) / 초록만 / 전문(PDF 없음, 재시도 대상) / 미수집(사용자 확인 필요) / 범위밖-미수집 / 실패 / 미수집. '전문(웹 본문, PDF 없음)' 은 PDF 가 없는 웹 전용 글(Science Expert Voices 등)의 본문·참고문헌이 source.md 에만 있는 것, '전문(웹 본문, PDF 받기 실패)' 는 PDF 를 여러 번 못 받아 웹 본문을 저장한 것(웹페이지 열로 사용자가 확인) | registry |
 | 본문 단어수 | 전문·전문(웹 본문)일 때만 | source.md |
 | SI 유무 | `Y(개수)` 또는 `N`. `pdf/{paper_id}_SI*` 파일(pdf·docx 등) 개수로 판정 | 폴더 |
 | 수집일 | | source.json |

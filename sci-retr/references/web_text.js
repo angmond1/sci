@@ -1,5 +1,5 @@
 // sci-retr: save the web body of a web-only article (no PDF, e.g. Science Expert Voices). Usage: web_download_playbook.md 2.5.
-// Returns stats (chars, paras, refs, removed, heads). If heads has no related/recommended/news/metrics titles: window.sciretrSaveText('<paper_id>') -> <paper_id>.sciretr.html -> intake.
+// Returns stats (chars, paras, refs, removed, heads). If heads has no related/recommended/news/metrics titles: window.sciretrSaveText('<paper_id>'[, 'pdffail']) -> <paper_id>.sciretr.html -> intake.
 (() => {
   try {
     const JUNK = /related|recommend|similar|more-?from|you-?may|trending|most-?(read|viewed|cited|popular)|cited-?by|citing|metric|altmetric|advert|\bads?\b|promo|newsletter|subscri|sign-?up|social|share|cookie|breadcrumb|toolbar|sidebar|permission|reprint|viewer|lightbox|modal|popup|banner|jump-?to|table-?of-?contents|\btoc\b|citation-?tool|export|login|access-?widget|eletter/i;
@@ -36,7 +36,7 @@
       for (const e of c.querySelectorAll('*')) for (const a of [...e.attributes]) e.removeAttribute(a.name);   // strip attributes (the extractor must not drop body by class name)
       return { c, removed };
     };
-    const articleHtml = () => {
+    const articleHtml = (why) => {
       // body box: innermost article/main whose paragraph text is >= 90% of the best; body-only boxes (#bodymatter) only when there is no article/main
       const pick = (sel) => {
         const list = [...document.querySelectorAll(sel)];
@@ -55,15 +55,15 @@
       const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
       const titled = [...c.querySelectorAll('h1')].some((h) => norm(h.textContent) === norm(title));
       const html = '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(title) + '</title><meta name="citation_doi" content="' + esc(meta('citation_doi') || meta('dc.Identifier')) +
-        '"></head><body><article>' + (titled ? '' : '<h1>' + esc(title) + '</h1>') + c.innerHTML + '</article></body></html>';
+        '"><meta name="sciretr-why" content="' + (why === 'pdffail' ? 'pdffail' : 'webonly') + '"></head><body><article>' + (titled ? '' : '<h1>' + esc(title) + '</h1>') + c.innerHTML + '</article></body></html>';
       const heads = [...c.querySelectorAll('h2,h3')].map((h) => (h.textContent || '').trim().slice(0, 24)).filter(Boolean).slice(0, 14);
       const nref = refs ? refs.querySelectorAll('li, [role="doc-biblioentry"], [role="listitem"]').length : 0;
       return { html, chars: (c.textContent || '').replace(/\s+/g, ' ').trim().length, paras: c.querySelectorAll('p').length, refs: nref, removed: removed + extra, heads };
     };
     window.sciretrArticleStats = () => { const r = articleHtml(); return JSON.stringify({ chars: r.chars, paras: r.paras, refs: r.refs, removed: r.removed, heads: r.heads }); };
-    window.sciretrSaveText = (pid) => {
+    window.sciretrSaveText = (pid, why) => {   // why: 'webonly' (web-only article, default) | 'pdffail' (PDF failed after several tries)
       if (!pid || /[\\/:*?"<>|]/.test(pid)) return JSON.stringify({ ok: false, why: 'paper_id 를 준다' });
-      const r = articleHtml();
+      const r = articleHtml(why);
       if (r.chars < 500) return JSON.stringify({ ok: false, why: '본문이 짧다 — 구독 밖이거나 아직 안 읽힘', chars: r.chars });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([r.html], { type: 'text/html' }));

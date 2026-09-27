@@ -80,6 +80,8 @@ DEFAULT_CONFIG = {
     # 자동 요청을 막는 것이 확인된 출판사 (2026-09-24 실측) → 자동 단계에서 요청하지 않고 바로 웹 경로. 사정이 바뀌면 여기서 뺀다.
     # 2026-09-26 추가: tandf(Taylor & Francis)·pnas·aip·oup(Oxford)·ieee·chemrxiv 는 첫 요청부터 403/202 로 막힘 (섞인 목록 실측).
     "web_only_publishers": ["acs", "rsc", "science", "ecs", "tandf", "pnas", "aip", "oup", "ieee", "chemrxiv"],
+    # 웹 목록에서 먼저 받을 출판사: 확인 창이 잦은 곳을 앞에 두면 사용자가 누르는 동안 다른 출판사를 받는다 (2026-09-27 사용자 결정)
+    "web_first_publishers": ["rsc", "ecs", "science", "royal_society", "pnas", "oup", "acs"],
     # 받지 않는 SI 형식 (2026-09-25 사용자 지시: 동영상, 결정 구조 정보, 결정 구조·대형 스프레드시트 데이터가 담기는 zip·Excel 은 받지 않는다).
     # 링크 확장자로 거르고, 받은 뒤 content-type 과 파일 내용(zip 안이 Word 인지 Excel 인지)으로도 거른다.
     "si_skip_exts": ["mp4", "avi", "mov", "wmv", "mpg", "mpeg", "m4v", "webm", "mkv", "flv", "mp3", "wav",
@@ -236,7 +238,8 @@ def make_ctx(args) -> Ctx:
 
 # ------------------------------------------------------------------ 레지스트리 (DOI → paper_id, 메타)
 REG_FIELDS = ["paper_id", "doi", "title", "year", "journal", "journal_abbrev", "volume", "issue", "pages", "corresponding",
-              "authors", "abstract", "publisher", "is_oa", "oa_pdf_url", "pii", "landing_url", "status", "method", "note", "resolved_at", "updated_at", "doc_type"]
+              "authors", "abstract", "publisher", "is_oa", "oa_pdf_url", "pii", "landing_url", "status", "method", "note", "resolved_at", "updated_at", "doc_type",
+              "ref_no"]   # ref_no: 참고문헌 수집(refs)일 때 원 논문의 참고문헌 번호, 0 = 번호를 모름 (2026-09-27)
 
 
 def registry_path(ctx: Ctx) -> Path:
@@ -298,6 +301,8 @@ def read_dois(inputs: list[str]) -> list[str]:
                     raise SystemExit("xlsx 입력에는 openpyxl 필요: pip install openpyxl")
             else:
                 text = p.read_text(encoding="utf-8-sig", errors="ignore")
+                # '#' 로 시작하는 줄은 설명이다 (refs 목록 머리에 원 논문 DOI 가 있다 — 원 논문까지 목록에 넣은 일, 2026-09-27)
+                text = "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))
                 dois += DOI_RE.findall(text)
         else:
             if re.search(r"[\\/]|\.(txt|csv|tsv|xlsx|xls|md)$", item, re.I) and not DOI_RE.search(item):
@@ -310,6 +315,20 @@ def read_dois(inputs: list[str]) -> list[str]:
         if d.lower() not in seen:
             seen.add(d.lower()); out.append(d)
     return out
+
+
+REF_NO_LINE_RE = re.compile(r"^\s*(\d{1,4})\t(10\.\d{4,9}/\S+)", re.M)
+
+
+def read_ref_numbers(inputs: list[str]) -> dict:
+    """refs 목록(한 줄에 '번호<TAB>DOI')의 참고문헌 번호를 DOI 별로 읽는다. 0 은 번호를 모르는 참고문헌. 그런 줄이 없으면 빈 dict."""
+    nums: dict[str, int] = {}
+    for item in inputs or []:
+        p = Path(item)
+        if p.exists() and p.suffix.lower() in (".txt", ".tsv"):
+            for m in REF_NO_LINE_RE.finditer(p.read_text(encoding="utf-8-sig", errors="ignore")):
+                nums.setdefault(m.group(2).rstrip(".)]}").lower(), int(m.group(1)))
+    return nums
 
 
 def norm_doc_type(s: str) -> str:
@@ -401,8 +420,13 @@ def strip_jats(s: str) -> str:
     return re.sub(r"\s+", " ", htmlmod.unescape(re.sub(r"<[^>]+>", " ", s or ""))).strip()
 
 
+# 풀어 쓰기로 나뉘지 않는 글자 (2026-09-27 'Nørskov' 가 'Nrskov' 로 됨)
+FOLD_EXTRA = str.maketrans({"ø": "o", "Ø": "O", "æ": "ae", "Æ": "AE", "œ": "oe", "Œ": "OE", "ß": "ss", "ł": "l", "Ł": "L",
+                            "đ": "d", "Đ": "D", "ð": "d", "Ð": "D", "þ": "th", "Þ": "Th", "ı": "i"})
+
+
 def ascii_fold(s: str) -> str:
-    return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
+    return unicodedata.normalize("NFKD", s.translate(FOLD_EXTRA)).encode("ascii", "ignore").decode("ascii")
 
 
 ABBREV_WORDS = {
@@ -485,8 +509,9 @@ def authors_string(cr: dict) -> str:
     return "; ".join(names[:3]) + "; …; " + "; ".join(names[-3:])
 
 
-def make_paper_id(ctx: Ctx, year: str, abbrev: str, surname: str, doi: str) -> str:
-    base = f"{year or '0000'}_{abbrev}_{re.sub(r'[^A-Za-z0-9]+', '', ascii_fold(surname)) or 'Unknown'}"
+def make_paper_id(ctx: Ctx, year: str, abbrev: str, surname: str, doi: str, prefix: str = "") -> str:
+    """연도_저널약어_교신저자. 참고문헌 수집이면 앞에 원 논문 참고문헌 번호(prefix, 예 '07_')를 붙인다 — 폴더·파일 이름이 참고문헌 순서로 선다."""
+    base = f"{prefix}{year or '0000'}_{abbrev}_{re.sub(r'[^A-Za-z0-9]+', '', ascii_fold(surname)) or 'Unknown'}"
     taken = {row["paper_id"] for d, row in ctx.registry.items() if d != doi.lower()}
     existing_dirs = {p.name for p in ctx.papers_root().glob("*") if p.is_dir()} if ctx.papers_root().exists() else set()
     taken |= existing_dirs
@@ -497,9 +522,11 @@ def make_paper_id(ctx: Ctx, year: str, abbrev: str, surname: str, doi: str) -> s
     return pid
 
 
-def resolve_doi(ctx: Ctx, doi: str) -> dict:
+def resolve_doi(ctx: Ctx, doi: str, ref_no: int | None = None, width: int = 2) -> dict:
     row = ctx.registry.get(doi.lower())
     if row and row.get("paper_id"):
+        if ref_no is not None and not row.get("ref_no"):
+            row["ref_no"] = str(ref_no)   # 이미 있던 논문: 번호만 적고 이름(id)은 그대로 (id 동결)
         if not row.get("doc_type"):   # 2026-09-27 이전 목록: 문서 유형만 채운다 (id 는 그대로)
             row["doc_type"] = norm_doc_type(((openalex_work(ctx, doi) or {}).get("type")) or "") or "unknown"
         # 접두어 표가 바뀌었으면 아직 받지 않은 논문의 출판사만 고친다 (id 는 그대로, 2026-09-27 10.20964)
@@ -523,7 +550,7 @@ def resolve_doi(ctx: Ctx, doi: str) -> dict:
     oa_info = (oa or {}).get("open_access") or {}
     best = (oa or {}).get("best_oa_location") or {}
     row = {
-        "paper_id": make_paper_id(ctx, year, abbrev, surname, doi),
+        "paper_id": make_paper_id(ctx, year, abbrev, surname, doi, f"{ref_no:0{width}d}_" if ref_no is not None else ""),
         "doi": doi, "title": strip_jats((cr.get("title") or [""])[0]), "year": year,
         # 저널명이 없는 프리프린트는 OpenAlex 의 출처 이름(ChemRxiv 등), 없으면 서버 약어 (2026-09-27 색인 "저널 누락")
         "journal": (cr.get("container-title") or [""])[0] or ((((oa or {}).get("primary_location") or {}).get("source") or {}).get("display_name") or "")
@@ -536,6 +563,7 @@ def resolve_doi(ctx: Ctx, doi: str) -> dict:
         "landing_url": ((cr.get("resource") or {}).get("primary") or {}).get("URL") or f"https://doi.org/{doi}",
         "status": "resolved", "method": "", "note": "", "resolved_at": utc_now(), "updated_at": utc_now(),
         "doc_type": norm_doc_type((oa or {}).get("type") or "") or "unknown",
+        "ref_no": str(ref_no) if ref_no is not None else "",
     }
     ctx.registry[doi.lower()] = row
     return row
@@ -545,12 +573,16 @@ def cmd_resolve(args) -> None:
     ctx = make_ctx(args)
     dois = read_dois(args.input)
     types = read_doc_types(args.input)   # WoS·Scopus 문서 유형이 있으면 OpenAlex 보다 앞선다
-    say(f"입력 DOI {len(dois)}건 (중복 제거)")
-    n_new = 0
+    nums = read_ref_numbers(args.input)  # refs 목록이면 원 논문 참고문헌 번호 → 이름 앞에 (2026-09-27 사용자 지시)
+    width = max(2, len(str(max(nums.values())))) if nums else 2
+    say(f"입력 DOI {len(dois)}건 (중복 제거)" + (f" — 참고문헌 번호가 있는 목록: 이름 앞에 번호({'0' * width}_ = 번호 모름)" if nums else ""))
+    n_new, kept_name = 0, []
     for i, doi in enumerate(dois, 1):
         try:
             before = doi.lower() in ctx.registry
-            row = resolve_doi(ctx, doi)
+            row = resolve_doi(ctx, doi, nums.get(doi.lower()) if nums else None, width)
+            if nums and before and doi.lower() in nums and not re.match(r"\d+_", row["paper_id"]):
+                kept_name.append(row["paper_id"])
             if types.get(doi.lower()):
                 row["doc_type"] = types[doi.lower()]
             n_new += 0 if before else 1
@@ -563,6 +595,8 @@ def cmd_resolve(args) -> None:
         time.sleep(1.0)
     save_registry(ctx)
     say(f"registry 저장: {registry_path(ctx)} (신규 {n_new}건)")
+    if kept_name:
+        say(f"  이미 목록에 있던 {len(kept_name)}편은 이름을 바꾸지 않았습니다(번호는 색인의 '참고문헌 번호' 열에만). 참고문헌 수집을 새 폴더에서 하면 모든 이름 앞에 번호가 붙습니다.")
     mark_same_paper(ctx)
     plan_block(ctx)
 
@@ -764,7 +798,7 @@ def write_paper(ctx: Ctx, row: dict, out: Outcome) -> Outcome:
     html_text, container = "", ""
     if out.html_raw:
         (d / "html" / f"{pid}.html").write_text(out.html_raw, encoding="utf-8", errors="ignore")
-        if out.method == "web_text":
+        if out.method.startswith("web_text"):
             html_text, container = html_container_text(out.html_raw, "web_text", min_chars=0)
         else:
             html_text, container = html_container_text(out.html_raw, row["publisher"])
@@ -782,7 +816,7 @@ def write_paper(ctx: Ctx, row: dict, out: Outcome) -> Outcome:
           "authors": row["authors"], "corresponding": row["corresponding"], "abstract": row["abstract"], "publisher": row["publisher"],
           "collection_method": out.method, "text_source": source, "text_note": tnote, "html_container": container,
           "pdf_pages": n_pages, "pdf_path": str(d / "pdf" / f"{pid}.pdf") if out.pdf_bytes else "", "source_url": out.page_url,
-          "collected_at": utc_now(), "access_status": "web_text" if out.method == "web_text" else "fulltext"}
+          "collected_at": utc_now(), "access_status": "web_text" if out.method.startswith("web_text") else "fulltext"}
     fm = source_frontmatter(paper, {"title": row["title"], "journal": row["journal"], "authors": [a.strip() for a in row["authors"].split(";") if a.strip()],
                                     "abstract": row["abstract"], "year": row["year"]}, source, len(text), out.method)
     md = fm + f"- 수집 URL: {out.page_url}\n- 텍스트 소스: {source} ({tnote})\n- PDF: {'저장 (' + str(out.pdf_bytes // 1024) + ' KB)' if out.pdf_bytes else '없음'}\n\n## Full Text\n\n{text}\n"
@@ -794,8 +828,8 @@ def write_paper(ctx: Ctx, row: dict, out: Outcome) -> Outcome:
     v = validate_collected_paper(pid, d, row["doi"], row["publisher"])
     issues = [i for i in v["issues"] if not (i.startswith("elsevier_1page") and n_pages > 3)]
     out.chars, out.text_source = len(text), source
-    if out.method == "web_text":
-        # PDF 가 없는 웹 전용 글 — 사용자 Chrome 에서 본문·참고문헌만 추려 저장한 것 (2026-09-27 사용자 지시). 짧은 글이 많아 검증 경고는 적어만 둔다
+    if out.method.startswith("web_text"):
+        # PDF 가 없는 웹 전용 글 또는 PDF 받기에 여러 번 실패한 논문 — 사용자 Chrome 에서 본문·참고문헌만 추려 저장한 것 (2026-09-27 사용자 지시). 짧은 글이 많아 검증 경고는 적어만 둔다
         out.status = "web_text"
         if issues:
             out.note = (out.note + " warn: " + "; ".join(issues)).strip()
@@ -805,7 +839,7 @@ def write_paper(ctx: Ctx, row: dict, out: Outcome) -> Outcome:
         out.status, out.note = "full", (out.note + " warn: " + "; ".join(issues)).strip()
     else:
         out.status = "full"
-    if out.status == "full" and not out.pdf_bytes and out.method != "web_text":
+    if out.status == "full" and not out.pdf_bytes and not out.method.startswith("web_text"):
         out.status, out.note = "pdf_missing", (out.note + " PDF 미확보(텍스트만 저장) → 재시도 대상").strip()   # PDF 필수 정책
     with open(d / "source_origin.txt", "a", encoding="utf-8") as f:
         f.write(f"{utc_now()} sci_collect method={out.method} text={source} chars={len(text)} pdf={out.pdf_bytes} status={out.status} note={out.note[:200]}\n")
@@ -1823,10 +1857,20 @@ def report_block(ctx: Ctx) -> None:
         n_si_files += k
     say("=== 보고용 요약 (에이전트용 — 이 숫자를 그대로 보고에 옮긴다) ===")
     say(f"  전문 {len(full)}편: {pub_counts(full)}  (SI 있는 논문 {n_si_papers}편, SI 파일 {n_si_files}개)")
-    if webtext:
-        say(f"  웹 본문만 {len(webtext)}편 (PDF 없는 웹 전용 글, 본문·참고문헌 저장): {pub_counts(webtext)}")
+    pdffail = [r for r in webtext if r.get("method") == "web_text_pdffail"]
+    webonly = [r for r in webtext if r.get("method") != "web_text_pdffail"]
+    if webonly:
+        say(f"  웹 본문만 {len(webonly)}편 (PDF 없는 웹 전용 글, 본문·참고문헌 저장): {pub_counts(webonly)}")
+    if pdffail:
+        # 사용자가 논문 페이지에서 바로 확인할 수 있게 링크를 함께 알린다 (2026-09-27 사용자 지시)
+        say(f"  PDF 받기 실패 → 웹 본문 저장 {len(pdffail)}편 (보고에 논문 페이지 링크를 함께 알린다):")
+        for r in pdffail[:40]:
+            say(f"    {r['paper_id']}  https://doi.org/{r['doi']}")
     say(f"  초록만 {len(absonly)}편: {pub_counts(absonly)}")
     say(f"  Chrome 에서 받을 논문 {len(web)}편: {pub_counts(web)}" + (f"  (목록 {ctx.work / 'manual_download.csv'})" if web else ""))
+    if web:
+        pubs = sorted({r["publisher"] for r in web}, key=lambda x: web_order(ctx, x))
+        say(f"    받는 순서 (확인 창이 잦은 사이트 먼저, 목록도 이 순서): {' → '.join(pubs)}")
     si_rows = manual_si_rows(ctx)
     if si_rows:
         say(f"  SI 만 받을 행 {len(si_rows)}개 ({len({r['paper_id'] for r in si_rows})}편, 본문은 있음): 웹에서 SI 가 없으면 mark --ids <id> --si-none")
@@ -2009,10 +2053,18 @@ def update_manual_csv(ctx: Ctx, new_rows: list[dict]) -> Path:
                 if not saved(r) and r.get("paper_id") not in closed
                 and not (r.get("paper_id") in full and str(r.get("save_to", "")).endswith(f"{r.get('paper_id')}.pdf"))
                 and not (r.get("paper_id") in si_none and is_si_row(r))]
+        keep.sort(key=lambda r: (web_order(ctx, r.get("publisher") or ""), r.get("paper_id") or "", is_si_row(r)))   # 확인 창이 잦은 사이트 먼저
         with open(p, "w", encoding="utf-8-sig", newline="") as f:
             w = csv.DictWriter(f, fieldnames=MANUAL_FIELDS, extrasaction="ignore")
             w.writeheader(); w.writerows(keep)
     return p
+
+
+def web_order(ctx: Ctx, publisher: str) -> tuple:
+    """웹 목록 순서: 설정 web_first_publishers(확인 창이 잦은 곳) 먼저, 나머지는 이름 순."""
+    first = [x.lower() for x in ctx.config.get("web_first_publishers", DEFAULT_CONFIG["web_first_publishers"])]
+    pub = (publisher or "").lower()
+    return (first.index(pub) if pub in first else len(first), pub)
 
 
 def is_si_row(r: dict) -> bool:
@@ -2294,11 +2346,14 @@ def cmd_intake(args) -> None:
             action = "이미 전문(PDF) — 그대로 둠"
         else:
             dst = paper_dir(ctx, pid) / "html" / f"{pid}.html"
-            action = f"웹 본문 → html/{dst.name}, source.md (원문상태: 전문(웹 본문, PDF 없음))"
+            raw = f.read_text(encoding="utf-8", errors="replace")
+            # web_text.js 의 sciretrSaveText(id, 'pdffail'): PDF 받기에 여러 번 실패해 웹 본문을 저장한 것 (2026-09-27 사용자 지시)
+            pdffail = bool(re.search(r'<meta name="sciretr-why" content="pdffail"', raw))
+            action = f"웹 본문 → html/{dst.name}, source.md (원문상태: " + ("전문(웹 본문, PDF 받기 실패))" if pdffail else "전문(웹 본문, PDF 없음))")
             if not args.dry_run:
-                raw = f.read_text(encoding="utf-8", errors="replace")
                 shutil.move(str(f), str(dst))
-                res = write_paper(ctx, row, Outcome(method="web_text", html_raw=raw, page_url=row.get("landing_url") or f"https://doi.org/{row['doi']}"))
+                res = write_paper(ctx, row, Outcome(method="web_text_pdffail" if pdffail else "web_text", html_raw=raw,
+                                                    page_url=row.get("landing_url") or f"https://doi.org/{row['doi']}"))
                 apply_outcome(ctx, row, res, "intake")
         say(f"  {f.name[:60]:60s} | {pid[:32]:32s} | web  | 웹 본문 파일                             | {action}")
         results.append((f.name, {"status": "matched" if row else "unmatched", "paper_id": pid, "slot": "web", "reason": "웹 본문 파일"}, action))
@@ -2458,49 +2513,94 @@ def cmd_refs(args) -> None:
         say("원 논문의 DOI 를 찾지 못했습니다. 자동 요청을 막는 사이트의 링크는 페이지를 열어 보지 않습니다. 논문 PDF 나 DOI 를 주세요.")
         return
     cr: dict = {}
-    found: list[tuple[str, str]] = []
-    ref_no: dict[str, int] = {}                 # DOI → 원 논문 참고문헌 번호 (Crossref 목록 순서, 1부터)
+    numbered: dict[int, str] = {}               # 원 논문 참고문헌 번호(Crossref 목록 순서, 1부터) → DOI
+    nodoi: dict[int, dict] = {}                 # DOI 없는 참고문헌: 번호 → 맞춰 볼 재료 (OpenAlex 가 찾아 준 DOI 와 대조)
     try:
         cr = crossref_work(ctx, doi)
         for i, r in enumerate(cr.get("reference") or [], 1):
             if r.get("DOI"):
-                d = clean_doi(r["DOI"])
-                found.append((d, "Crossref"))
-                ref_no.setdefault(d.lower(), i)
+                numbered.setdefault(i, clean_doi(r["DOI"]))
+            else:
+                nodoi[i] = {"text": _alnum(" ".join(str(r.get(k) or "") for k in ("article-title", "unstructured", "volume-title", "journal-title"))),
+                            "year": str(r.get("year") or ""), "volume": str(r.get("volume") or ""), "page": str(r.get("first-page") or "")}
     except Exception as exc:
         say(f"Crossref 조회 실패: {type(exc).__name__}")
+    n_cr = len(numbered)
     oa = openalex_work(ctx, doi)
     ids = [w.rsplit("/", 1)[-1] for w in (oa or {}).get("referenced_works") or []]
+    have = {d.lower() for d in numbered.values()} | {doi.lower()}
+    extra, matched = [], 0
     for i in range(0, len(ids), 50):
         try:
             r = ctx.session.get("https://api.openalex.org/works", headers=ctx.api_headers(), timeout=60,
-                                params={"filter": "openalex:" + "|".join(ids[i:i + 50]), "select": "doi", "per-page": 50,
+                                params={"filter": "openalex:" + "|".join(ids[i:i + 50]), "select": "doi,title,publication_year,biblio", "per-page": 50,
                                         "mailto": ctx.config.get("crossref_mailto") or None})
-            found += [(clean_doi(w["doi"].split("doi.org/", 1)[-1]), "OpenAlex") for w in r.json().get("results", []) if w.get("doi")]
+            for w in r.json().get("results", []):
+                if not w.get("doi"):
+                    continue
+                d = clean_doi(w["doi"].split("doi.org/", 1)[-1])
+                if d.lower() in have:
+                    continue
+                have.add(d.lower())
+                # Crossref 의 DOI 없는 항목과 맞춰 번호를 찾는다: 제목(앞 40자)이 그 항목 글에 있거나, 연도·권·첫 쪽이 모두 같으면
+                tn = _alnum(w.get("title") or "")[:40]
+                bib = w.get("biblio") or {}
+                hit = next((n for n, x in nodoi.items() if (len(tn) >= 25 and tn in x["text"])
+                            or (x["year"] and x["volume"] and x["page"] and x["year"] == str(w.get("publication_year") or "")
+                                and x["volume"] == str(bib.get("volume") or "") and x["page"] == str(bib.get("first_page") or ""))), None)
+                if hit is not None:
+                    numbered[hit] = d; nodoi.pop(hit); matched += 1
+                else:
+                    extra.append(d)
         except Exception:
             break
         time.sleep(1)
-    if not found and pdf_path:
-        full = _pdf_texts(pdf_path)[2]
-        heads = list(REF_HEAD_RE.finditer(full))
-        found += [(clean_doi(d), "PDF") for d in DOI_RE.findall(full[heads[-1].end():] if heads else full)]
-    out, seen, by_src = [], {doi.lower()}, {"Crossref": 0, "OpenAlex": 0, "PDF": 0}
-    for d, s in found:
-        if d.lower() not in seen:
-            seen.add(d.lower()); out.append(d); by_src[s] += 1
-    total = max(int(cr.get("reference-count") or 0), len(cr.get("reference") or []), len(ids))
-    sel = out[: args.limit] if args.limit else out
+    from_pdf = 0
+    if not numbered and not extra and pdf_path:   # Crossref·OpenAlex 가 비었을 때만 PDF 참고문헌 (번호 줄이 보이면 그 번호)
+        for n, d in pdf_numbered_refs(_pdf_texts(pdf_path)[2]):
+            if d.lower() in have:
+                continue
+            have.add(d.lower()); from_pdf += 1
+            if n and n not in numbered:
+                numbered[n] = d
+            else:
+                extra.append(d)
+    rows = [(n, numbered[n]) for n in sorted(numbered)] + [(0, d) for d in extra]
+    sel = rows[: args.limit] if args.limit else rows
+    total = max(int(cr.get("reference-count") or 0), len(cr.get("reference") or []), len(ids), len(rows))
+    width = max(2, len(str(max((n for n, _ in rows), default=0))))
     dest = ctx.work / f"refs_{re.sub(r'[^A-Za-z0-9]+', '_', doi)[:60]}.txt"
-    dest.write_text("# sci-retr refs: 한 논문의 참고문헌 DOI 목록 (Crossref 순서, 뒤는 OpenAlex·PDF 추가분)\n" + "\n".join(sel) + "\n", encoding="utf-8")
+    head = [f"# sci-retr refs: 원 논문 {doi} 의 참고문헌 — 한 줄에 '번호<TAB>DOI'. 번호 = 원 논문 참고문헌 번호 ({'0' * width} = 번호를 모름).",
+            "# resolve 가 이 번호를 이름(paper_id)·파일 이름 앞에 붙이고, 색인 맨 왼쪽 '참고문헌 번호' 열에 적는다."]
+    if nodoi:
+        head.append("# DOI 가 없는 참고문헌 번호(책·학위논문 등, 수집하지 않음): " + ", ".join(str(n) for n in sorted(nodoi)))
+    dest.write_text("\n".join(head) + "\n" + "\n".join(f"{n:0{width}d}\t{d}" for n, d in sel) + "\n", encoding="utf-8")
     say(f"원 논문: {strip_jats((cr.get('title') or [''])[0])[:90] or doi}")
-    say(f"참고문헌 {total}개 중 DOI {len(out)}개 확인 (Crossref {by_src['Crossref']}, OpenAlex 추가 {by_src['OpenAlex']}, PDF {by_src['PDF']})")
-    if total > len(out):
-        say(f"DOI 가 없는 참고문헌 약 {total - len(out)}개는 빠졌습니다 (책·학위논문·옛 논문 등).")
+    say(f"참고문헌 {total}개 중 DOI {len(rows)}개 확인 — 번호 있음 {len(numbered)} (Crossref {n_cr}, OpenAlex 로 번호 맞춤 {matched}"
+        + (f", PDF {len(numbered) - n_cr - matched}" if from_pdf else "") + f"), 번호 모름 {len(extra)}")
+    if nodoi:
+        say(f"DOI 가 없는 참고문헌 {len(nodoi)}개는 빠졌습니다 (책·학위논문·옛 논문 등) — 번호: {', '.join(str(n) for n in sorted(nodoi)[:40])}{' …' if len(nodoi) > 40 else ''}")
     if args.limit:
-        nos = [ref_no[d.lower()] for d in sel if d.lower() in ref_no]
-        where = f" — 원 논문의 참고문헌 번호 {', '.join(str(n) for n in nos)}" if nos else ""
-        say(f"앞에서 {len(sel)}개만 목록에 넣었습니다 (--limit {args.limit}){where}.")
-    say(f"목록: {dest}  → resolve --input 으로 이어서 수집")
+        say(f"앞에서 {len(sel)}개만 목록에 넣었습니다 (--limit {args.limit}) — 원 논문의 참고문헌 번호 {', '.join(str(n) for n, _ in sel if n)}.")
+    say(f"목록: {dest}  → resolve --input 으로 이어서 수집 (이름 앞에 참고문헌 번호가 붙는다)")
+
+
+def pdf_numbered_refs(full: str) -> list[tuple[int, str]]:
+    """PDF 참고문헌 절에서 (번호, DOI). 줄 머리의 '12.'·'[12]'·'12)' 가 1부터 차례로 이어질 때만 번호로 믿는다(쪽 번호·연도와 섞이지 않게)."""
+    heads = list(REF_HEAD_RE.finditer(full))
+    sec = full[heads[-1].end():] if heads else full
+    out, cur, expect = [], 0, 1
+    for line in sec.splitlines():
+        m = re.match(r"\s*(?:\[(\d{1,3})\]|(\d{1,3})[.)])\s+\S", line)
+        if m:
+            n = int(m.group(1) or m.group(2))
+            if n == expect:
+                cur, expect = n, n + 1
+        for d in DOI_RE.findall(line):
+            out.append((cur, clean_doi(d)))
+    if sum(1 for n, _ in out if n) < len(out) / 2:
+        out = [(0, d) for _, d in out]   # 번호 줄을 못 찾았다 — 번호 없이
+    return out
 
 
 def key_status(env_path: Path | None) -> dict:

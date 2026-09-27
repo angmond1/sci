@@ -142,6 +142,7 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 - 구독 밖이라 초록만 보이면 쓰지 않는다. 글이 500자보다 짧으면 `sciretrSaveText` 가 ok false 를 준다. 그때는 `mark --status abstract_only --note "웹 확인: 구독 밖"`.
 - **새 탭에서 저장한다.** 그 탭에서 앞서 파일을 받았으면 `sciretrSaveText` 가 ok true 를 줘도 저장되지 않는다(Chrome 의 여러 파일 자동 다운로드 제한으로 보임, 2026-09-27 4조). 저장 뒤 다운로드 폴더에서 `<paper_id>.sciretr.html` 을 확인한다.
 - 문단은 `<p>` 와 `div[role=paragraph]`(Science) 를 함께 센다. Atypon 옆 패널(`core-collateral-*`: Information & Authors, Metrics & Citations, View Options, 참고문헌 사본, Figures·Tables·Media, Share), 말풍선(aria-hidden, `references-pop-up` 등), 옆 패널 제목(Information, Authors, View options 등 정확히 그 글자)은 뺀다. 본문 문단의 절반 넘게 담은 상자는 이름이나 소제목이 걸려도 지우지 않는다. 제목은 `citation_title` → `dc.Title` → `og:title` → 탭 제목(" | 사이트" 뺌) 순.
+- **PDF 받기 실패에도 쓴다**(2026-09-27 사용자 지시): 적어도 세 가지(기본 버튼 → 다른 길: PDF 경로 navigate·`sciretrGo`·온라인 보기 다운로드 → 페이지를 다시 열어 한 번 더)를 해도 PDF 가 안 받아지고 페이지에 전문(여러 문단의 본문)이 보이면 `sciretrSaveText('<paper_id>', 'pdffail')`. 파일 머리에 표시가 남아 intake 가 원문상태를 '전문(웹 본문, PDF 받기 실패)' 로 두고, 보고 블록이 논문 페이지 링크와 함께 알린다. 구독 밖(초록만 보임)이면 쓰지 않는다.
 - 실제 Science 페이지(2026-09-27, Expert Voices 1편): 첫 판은 `div[role=paragraph]` 를 문단으로 세지 않아 옆 패널(게재 정보·저작권·저자 소속·이메일)과 빈 'View options'·'References' 제목까지 저장했다. 고친 판은 제목과 본문 11문단(10,931자)만 저장했다. 이 글에는 참고문헌 목록이 없다.
 - 시험(2026-09-27, 흉내 페이지): 머리 메뉴, 본문 밖 추천 카드, 공유 막대, 본문 속 지표 상자, "Recommended" 절, "Latest News" 절, 뉴스레터 가입 상자, 꼬리말을 모두 뺐고 제목·초록·본문 4문단·참고문헌 2개는 남았다.
 

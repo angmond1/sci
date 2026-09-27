@@ -105,6 +105,9 @@ if [ "$APP" = "Claude" ]; then
   mkdir -p "$HOME/.claude/agents"
   cp "$ROOT/sci-tldr/agents/sci-tldr-writer.md" "$HOME/.claude/agents/sci-tldr-writer.md"
   echo "설치: $HOME/.claude/agents/sci-tldr-writer.md (한 줄 요약 전용 에이전트, 새 대화부터 인식)"
+  # 웹 다운로드 전용 에이전트: 웹 목록 전체를 하나가 끝까지 받는다 (도구 Chrome·Bash·Read, sonnet·추론 medium — SKILL 5.5)
+  cp "$ROOT/sci-retr/agents/sci-retr-web.md" "$HOME/.claude/agents/sci-retr-web.md"
+  echo "설치: $HOME/.claude/agents/sci-retr-web.md (웹 다운로드 전용 에이전트, 새 대화부터 인식)"
 fi
 
 echo "=== 3. 파이썬 패키지 설치: $PY -m pip install ... (처음 설치면 1~2분 걸릴 수 있습니다)"
@@ -165,3 +168,6 @@ fi
 echo "  $N) $APP 에서 새 대화를 열거나 $APP 를 다시 시작하기 (새 skill 을 읽게)"
 N=$((N + 1))
 echo "  $N) 논문 목록 파일(Web of Science·Scopus 내보내기 또는 DOI 목록)을 대화창에 끌어다 놓고 'sci-retr 스킬로 논문 수집해줘'"
+echo "  참고) 특정 주제의 논문 목록은 Web of Science 나 Scopus 에서 검색해 내보내기(Export)로 만들 수 있습니다."
+echo "        Web of Science: https://www.webofscience.com/wos/woscc/smart-search"
+echo "        Scopus: https://www.scopus.com/pages/home#basic"

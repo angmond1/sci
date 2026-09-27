@@ -4,8 +4,9 @@
 
     python sci_index.py build --kb-root <dir>              # index.csv + index_check.csv + README.md (편수와 관계없이 몇 초)
 
-index.csv 열 (2026-09-18 확정): paper_id, DOI, 제목, 저자(6명 이하 전원 / 7명 이상 앞3+뒤3), 교신저자, 연도, 저널, 저널약어, 권, 호, 페이지,
-  초록, 키워드(있을 때만), 원문상태, 본문 단어수, SI 유무, 수집일, 수집 URL, 파일경로
+index.csv 열 (2026-09-18 확정): paper_id, DOI, 웹페이지(https://doi.org/DOI, 2026-09-27), 제목, 저자(6명 이하 전원 / 7명 이상 앞3+뒤3), 교신저자,
+  연도, 저널, 저널약어, 권, 호, 페이지, 초록, 키워드(있을 때만), 원문상태, 본문 단어수, SI 유무, 수집일, 수집 URL, 파일경로
+  + 참고문헌 번호: 참고문헌 수집(refs → resolve)이면 맨 왼쪽 열. 원 논문의 참고문헌 목록 번호 (2026-09-27 사용자 지시)
   + 한줄요약: 사용자가 원할 때만 sci-tldr(sci_tldr.py)이 붙이는 열. build 는 있으면 그대로 두고, 옛 열 이름 요약_ko 는 한줄요약으로 옮긴다.
 재료: collection_registry.csv (resolve 메타) + papers/{id}/source.json + source.md + pdf/ 파일 실물. UTF-8 BOM (엑셀 한글 OK), 초록은 한 줄.
 검수(결정적): index_check.csv — DOI 형식/중복, 필수 항목 누락, 상태-단어수 정합, 파일 존재, 깨진 문자, 초록 길이, 연도 범위.
@@ -23,9 +24,10 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-COLUMNS = ["paper_id", "DOI", "제목", "저자", "교신저자", "연도", "저널", "저널약어", "권", "호", "페이지", "초록", "키워드",
+COLUMNS = ["paper_id", "DOI", "웹페이지", "제목", "저자", "교신저자", "연도", "저널", "저널약어", "권", "호", "페이지", "초록", "키워드",
            "원문상태", "본문 단어수", "SI 유무", "수집일", "수집 URL", "파일경로"]
 TLDR_COL = "한줄요약"          # sci-tldr 이 붙이는 열 (사용자가 원할 때만, 2026-09-27 사용자 결정)
+REF_COL = "참고문헌 번호"      # 참고문헌 수집일 때만 맨 왼쪽 열 (레지스트리 ref_no, 0 = 번호 모름 '-')
 OLD_TLDR_COLS = ("요약_ko",)   # 옛 열 이름 — 읽을 때 한줄요약으로 옮긴다
 
 
@@ -49,13 +51,14 @@ def read_index(path: Path) -> tuple[list[dict], bool]:
 
 
 def write_index(path: Path, rows: list[dict], with_tldr: bool) -> None:
-    cols = COLUMNS + ([TLDR_COL] if with_tldr else [])
+    cols = ([REF_COL] if any(r.get(REF_COL) for r in rows) else []) + COLUMNS + ([TLDR_COL] if with_tldr else [])
     with open(path, "w", encoding="utf-8-sig", newline="") as f:
         w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore"); w.writeheader(); w.writerows(rows)
 STATUS_KO = {"full": "전문", "abstract_only": "초록만", "human_required": "미수집(사용자 확인 필요)", "failed": "실패", "resolved": "미수집", "": "미수집",
              "pdf_missing": "전문(PDF 없음, 재시도 대상)", "out_of_scope": "범위밖-미수집",
              "fulltext": "전문", "preview": "초록만(미리보기)",   # 옛 수집기의 access_status (2026-09-27 옛 KB 시험)
-             "web_text": "전문(웹 본문, PDF 없음)"}   # PDF 없는 웹 전용 글의 본문·참고문헌 (2026-09-27)
+             "web_text": "전문(웹 본문, PDF 없음)",   # PDF 없는 웹 전용 글의 본문·참고문헌 (2026-09-27)
+             "web_text_pdffail": "전문(웹 본문, PDF 받기 실패)"}   # PDF 받기에 여러 번 실패해 웹 본문을 저장 (method 로 가림)
 DOI_RE = re.compile(r"10\.\d{4,9}/[^\s\"'<>,;]+")
 KEYWORD_RE = re.compile(r"(?im)^\s*(?:\*\*)?key\s*words?(?:\*\*)?\s*[:：][ \t]*(.*)$")
 BAD_CHARS = ("\x00", "�", "ﬁ", "ﬂ", "ﬀ", "ﬃ", "ﬄ", "Ã©", "Ã¶", "â€", "Â°", "â\x80")   # \x00: 2026-09-26 이전 추출본의 NUL, Ã©·Â°: 웹페이지 인코딩 깨짐(2026-09-27)
@@ -248,15 +251,19 @@ def build_rows(kb_root: Path) -> tuple[list[dict], list[dict]]:
             return default
         row = {
             "paper_id": pid, "DOI": fix_doi(pick("doi"), sj.get("source_entry", ""), sj.get("final_url", ""), sj.get("requested_url", ""), md[:3000]),
+            REF_COL: ("-" if str(r.get("ref_no")) == "0" else str(r.get("ref_no"))) if r.get("ref_no") not in (None, "") else "",
             "제목": one_line(pick("title")),
             "저자": pick("authors"), "교신저자": pick("corresponding"),
             "연도": pick("year"), "저널": pick("journal"), "저널약어": pick("journal_abbrev"),
             "권": pick("volume"), "호": pick("issue"), "페이지": pick("pages"),
             "초록": one_line(pick("abstract")), "키워드": find_keywords(md) if md else "",
-            "원문상태": STATUS_KO.get(status, status), "본문 단어수": words if status in ("full", "web_text") else "",
+            "원문상태": STATUS_KO["web_text_pdffail"] if status == "web_text" and r.get("method") == "web_text_pdffail" else STATUS_KO.get(status, status),
+            "본문 단어수": words if status in ("full", "web_text") else "",
             "SI 유무": f"Y({len(si)})" if si else "N", "수집일": (sj.get("collected_at") or r.get("updated_at") or "")[:10],
             "수집 URL": sj.get("source_url") or r.get("landing_url") or "", "파일경로": str(pdf) if pdf.exists() else (str(d / "source.md") if md else ""),
         }
+        # 논문 웹페이지: DOI 주소는 늘 그 논문 페이지로 간다 (수집 URL 은 API·PDF 주소일 때가 있다, 2026-09-27 사용자 지시)
+        row["웹페이지"] = f"https://doi.org/{row['DOI']}" if re.fullmatch(r"10\.\d{4,9}/\S+", row["DOI"] or "") else (r.get("landing_url") or "")
         if not row["저널"] and row["저널약어"] in PREPRINT_NAMES:
             row["저널"] = row["저널약어"]   # 프리프린트는 서버 이름이 저널명 (2026-09-27 ChemRxiv 4편 "저널 누락")
         abs_from_body = boiler = False
@@ -306,7 +313,7 @@ def build_rows(kb_root: Path) -> tuple[list[dict], list[dict]]:
 
 
 README_TEXT = """# 논문 색인 사용법 (에이전트용 5줄)
-1. `index.csv` 가 색인이다. 한 행이 논문 한 편이고 제목·저자·연도·저널·초록·키워드·원문상태·파일경로가 있다(사용자가 원했으면 한국어 한줄요약 열도 있다). 먼저 이 파일로 관련 논문을 고른다. 크면 제목·초록·키워드를 Grep 한다.
+1. `index.csv` 가 색인이다. 한 행이 논문 한 편이고 제목·저자·연도·저널·초록·키워드·원문상태·웹페이지(논문 페이지 주소)·파일경로가 있다(사용자가 원했으면 한국어 한줄요약 열, 참고문헌 수집이면 맨 왼쪽에 원 논문의 참고문헌 번호 열도 있다). 먼저 이 파일로 관련 논문을 고른다. 크면 제목·초록·키워드를 Grep 한다.
 2. 원문 텍스트는 `papers/{paper_id}/source.md` (본문), 원문 PDF 는 `papers/{paper_id}/pdf/{paper_id}.pdf`, SI 는 같은 폴더의 `{paper_id}_SI*` 파일(pdf·docx 등)이다.
 3. 키워드로 훑을 때는 `papers/*/source.md` 를 Grep 한다. 몇 편을 읽을지는 질문에 맞춰 판단한다 (강제 규칙 없음).
 4. 원문상태가 "초록만" 이면 구독 밖이라 초록만 있고, "전문(웹 본문, PDF 없음)" 은 PDF 가 없는 웹 전용 글이라 본문·참고문헌이 source.md 에만 있다. "미수집(사용자 확인 필요)" 는 사용자와 함께 `sci_collect.py assist` 로 받는다.

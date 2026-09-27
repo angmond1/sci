@@ -14,11 +14,13 @@ LLM이 다루기 쉬운 markdown 파일로 자동 변환 및 색인화
 
 ## 구성
 
-| skill | 용도 | 기능 | 권장모델 |
+| skill | 용도 | 기능 | 권장모델<br>Claude / Codex |
 |-------|------|------|:--------:|
-| **sci-retr** | 수집, 변환 | 본문·SI PDF 다운로드, 본문 text를 md 파일로 변환 | Opus |
-| **sci-index** | 색인 | 서지 정보(제목 저널 저자 연도 키워드 초록 등)를 csv 파일로 정리 | Sonnet |
-| **sci-tldr** | 한줄요약 (선택사항) | 한국어 한 줄 요약 생성, csv에 추가 | Sonnet |
+| **sci-retr** | 수집, 변환 | 본문·SI PDF 다운로드, 본문 text를 md 파일로 변환 | Opus / Sol |
+| **sci-index** | 색인 | 서지 정보(제목 저널 저자 연도 키워드 초록 등)를 csv 파일로 정리 | Sonnet / Luna |
+| **sci-tldr** | 한줄요약 (선택사항) | 한국어 한 줄 요약 생성, csv에 추가 | Sonnet / Luna |
+
+Codex는 GPT-6 기준이다. [공식 모델 안내](https://learn.chatgpt.com/docs/models#recommended-models)와 작업 특성을 바탕으로 수집·브라우저 판단에는 Sol, 색인 명령 실행·짧은 요약에는 Luna를 권장한다. 색인 생성·검수 자체는 LLM을 쓰지 않는다. Codex에서의 성능은 아직 실측하지 않았다.
 
 <br>
 
@@ -55,6 +57,7 @@ https://github.com/angmond1/sci 설치해줘
   "이 논문의 reference 논문들 모두 수집해줘. sci-retr 스킬 사용해."
 
 * Web of Science, Scopus에서 수집하고자 하는 논문 리스트를 파일로 저장하고,<br>
+  ([Web of Science 검색](https://www.webofscience.com/wos/woscc/smart-search) · [Scopus 검색](https://www.scopus.com/pages/home#basic))<br>
   claude code, codex 대화창에 리스트 파일을 주면서,<br>
   "sci-retr 스킬로 논문 수집해줘"
 

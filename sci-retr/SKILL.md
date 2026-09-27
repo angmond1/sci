@@ -1,6 +1,6 @@
 ---
 name: sci-retr
-description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결과를 받아 논문 본문 PDF, 본문 텍스트, SI 를 수집하는 도구. 공식 API·직접 PDF 가 되는 곳(Elsevier OA, 토큰 있는 Wiley, Springer, MDPI, Nature)은 자동으로, 자동 요청을 막는 곳(Elsevier 구독 논문, 토큰 없는 Wiley, ACS, RSC, Science, ECS/IOP)은 사용자가 평소 쓰는 Chrome 에서 받아 정리한다. 논문 PDF·링크를 주면 그 논문의 참고문헌도 모아 받는다. 수집 전에 저장 폴더를 확인하고, 수집 뒤에는 편수와 관계없이 sci-index 로 서지정보 색인을 바로 만든다(몇 초). 한국어 한 줄 요약은 사용자에게 물어 원할 때만 sci-tldr. "논문 받아줘", "DOI 수집", "원문 다운로드", "SI 저장", "이 논문들 모아줘", "이 논문의 reference 논문들 모두 수집해줘" 에 사용.
+description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결과를 받아 논문 본문 PDF, 본문 텍스트, SI 를 수집하는 도구. 공식 API·직접 PDF 가 되는 곳(Elsevier OA, 토큰 있는 Wiley, Springer, MDPI, Nature)은 자동으로, 자동 요청을 막는 곳(Elsevier 구독 논문, 토큰 없는 Wiley, ACS, RSC, Science, ECS/IOP)은 사용자가 평소 쓰는 Chrome 에서 받아 정리한다. 논문 PDF·링크를 주면 그 논문의 참고문헌도 모아 받는다. 수집 전에 저장 폴더를 확인하고, 수집 뒤에는 편수와 관계없이 sci-index 로 서지정보 색인을 바로 만든다(몇 초). 한국어 한 줄 요약은 사용자에게 물어 원할 때만 sci-tldr. "논문 받아줘", "DOI 수집", "원문 다운로드", "SI 저장", "이 논문들 모아줘", "이 논문의 reference 논문들 모두 수집해줘", "sci-retr 사용법", "논문 목록은 어떻게 만들어" 에 사용.
 ---
 
 # sci-retr (Sci Retriever) — 논문 원문 수집 지침서
@@ -115,6 +115,7 @@ python scripts/sci_collect.py token --kb-root <root>
 |---|---|---|
 | `intervals` | elsevier_api 3, wiley 5, springer 2, mdpi 2, nature 15, generic 5 (초) | 자동 경로에서 같은 출판사 논문 사이의 대기. 요청을 보내지 않은 논문 뒤에는 기다리지 않는다. acs·science·rsc·ecs·elsevier 값은 웹 전용 출판사를 목록에서 뺄 때만 쓰인다 |
 | `web_only_publishers` | acs, rsc, science, ecs, tandf, pnas, aip, oup, ieee, chemrxiv | 자동 요청을 보내지 않고 바로 웹 경로로 보낼 출판사(2026-09-26 여섯 곳 추가). 사이트 사정이 바뀌면 여기서 뺀다 |
+| `web_first_publishers` | rsc, ecs, science, royal_society, pnas, oup, acs | 웹 목록에서 먼저 받을 출판사(확인 창이 잦은 곳). 사용자가 확인 창을 누르는 동안 다른 출판사를 받는다(2026-09-27 사용자 결정) |
 | `abstract_only_publishers` | thieme, world_scientific, csj, bentham, royal_society | 초록만 저장할 미구독 출판사 (Open Access 논문은 예외: 한 번 자동 시도, 안 되면 웹 경로) |
 | `si_skip_exts` | mp4·avi·mov 등 동영상, mp3·wav, cif·fcf·hkl·mol·mol2·sdf·pdb·xyz·cdx, zip·rar·7z·tar·gz·tgz, xls·xlsx·xlsm·xlsb·csv·ods | 받지 않는 SI 형식. 링크 확장자로 먼저 거른다. 자동 경로는 받은 뒤 실제 형식이 PDF·Word(docx·doc)인 것만 저장하고 그 밖(그림·표·압축·동영상·PowerPoint)은 버린다(2026-09-27 허용 목록 방식). 같은 내용이 다른 주소로 두 번 오면 한 번만 저장한다. intake 도 이 형식은 옮기지 않는다 |
 | `downloads_dir` | 없음 → Chrome 설정의 다운로드 폴더 → Windows 다운로드 폴더 → 사용자 Downloads 순으로 찾음 | intake 가 볼 다운로드 폴더 (`--downloads` 로도 가능). intake 와 doctor 가 어느 근거로 정했는지 출력한다 |
@@ -131,6 +132,7 @@ python scripts/sci_collect.py token --kb-root <root>
 - 논문 한 편도 같은 절차다. 규모 판단에서 바로 수집으로 간다.
 - 논문 PDF·웹 링크를 주며 그 논문의 참고문헌을 받아 달라고 하면 `refs` 명령으로 DOI 목록을 만든 뒤 같은 절차를 한다(5.10).
 - WoS·Scopus export 판별: WoS 는 탭 구분 `savedrecs*.txt` 에 `DI`·`TI`·`AB` 열, Scopus 는 `DOI`·`Title`·`Abstract` 열이 있는 CSV.
+- 특정 주제의 논문 목록은 Web of Science 나 Scopus 에서 검색해 내보내기(Export)로 만든다. 연구 경력이 짧으면 두 서비스를 모를 수 있으니, **설치 직후와 사용법·궁금한 점을 물을 때** 이것을 알리고 두 검색 링크를 함께 준다(2026-09-27 사용자 지시, 문구는 8절): Web of Science https://www.webofscience.com/wos/woscc/smart-search , Scopus https://www.scopus.com/pages/home#basic
 
 ## 5. 절차
 
@@ -221,6 +223,9 @@ python scripts/sci_collect.py assist --kb-root <root>
 
 2. **받을 파일 확인**: 출판사별로 받을 논문과 파일(본문 PDF, SI)을 사용자에게 한 번에 알리고 확인을 받는다. 파일 다운로드는 확인 없이 하지 않는다. Chrome 설정 두 가지(3.1)는 이때 `doctor` 로 확인한다. 작업용 Chrome 창이 화면 뒤쪽에 열리면 앞으로 가져와 달라고 미리 안내한다. 예상 시간은 한 편에 1~2분으로 말한다(요령이 있는 사이트는 1분 안팎, 처음 다루는 사이트는 2분 이상).
 3. **받기**: Claude in Chrome 확장으로 사용자 Chrome 의 새 탭에서 논문 주소를 연다. 한 편씩 진행한다. 그 Chrome 창은 화면 앞에 두고 수집 중에는 건드리지 않는다. 다른 모니터나 다른 프로그램은 써도 되지만, 그 창이 다른 창에 완전히 덮이거나 최소화되면 스크린샷이 안 되고 클릭이 빗나간다.
+   - **웹 목록 전체를 전용 에이전트 `sci-retr-web` 하나에 맡긴다**(2026-09-27 사용자 결정). 프롬프트: `kb-root: <root>. skill 폴더: <이 skill 폴더>. 웹 목록을 끝까지 받아 줘.` 도구를 Chrome·Bash·Read 로 좁히고 모델 sonnet·추론 medium 으로 정의돼 있다(`agents/sci-retr-web.md`, 설치 스크립트가 `~/.claude/agents/` 로 복사, 새 대화부터 인식). 묶음마다 새 에이전트를 띄우지 않는다 — 지침과 스크립트를 한 번만 읽는다(묶음마다 다시 읽는 데 4~8분). 범용 에이전트는 쓰지 않는다(도구 설명 약 7만 토큰을 호출마다 싣고 대화의 추론 수준을 그대로 이어받는다). 에이전트가 없으면(설치 전 대화, Codex) 메인이 직접 받는다.
+   - 목록은 확인 창이 잦은 사이트가 앞에 온다(설정 `web_first_publishers`). 확인 창이 뜨면 에이전트는 그 사이트를 미루고 다른 출판사를 받으므로, 사용자가 누르는 동안 기다리는 시간이 없다.
+   - 메인은 에이전트가 도는 동안 다른 작업을 끼워 넣지 않는다. 에이전트가 `확인 창: …` 이나 `창 최소화` 를 보내면 사용자에게 그대로 전하고, 사용자가 눌렀다(앞으로 가져왔다)고 하면 SendMessage 로 에이전트에게 알린다. 에이전트가 끝나면 바로 색인(5.7)으로 간다.
    - 출판사별 요령(선택자, 기다릴 시간, 누르는 순서, 함정)은 `references/web_download_playbook.md` 를 먼저 읽고 첫 논문부터 그대로 한다. 링크 찾기는 `references/web_find.js`(요령 문서 2.2, 결과 형식 2.4)로 한다. 헤매는 호출을 줄이는 것이 시간을 가장 많이 줄인다.
    - 확인 창이 계속 다시 뜨면 반복해서 누르지 않고 그 사이트는 멈춘다.
    - 창이 최소화되면(`web_find.js` 결과 `min: 1`, 스크립트로 본 outerWidth 0) 스크린샷이 되더라도 클릭이 페이지에 닿지 않는다(2026-09-27). 사용자에게 창을 앞으로 가져와 달라고 하고, 그동안은 스크립트로 읽은 파일 경로(쿼리 없는 것)를 navigate 로 열어 받는다. navigate 로 연 뒤에는 다운로드 폴더에 파일이 보인 뒤에 탭을 옮긴다.
@@ -231,6 +236,7 @@ python scripts/sci_collect.py assist --kb-root <root>
 4. **정리**: 받은 뒤 `intake` 로 다운로드 폴더의 파일을 논문 폴더로 옮기고 반영한다(5.6.1). 출력에서 가리지 못한 파일이 있으면 무엇인지 확인한다. '여러 논문에 해당' 으로 남은 파일은 대개 같은 논문의 두 DOI 다. resolve 가 Angewandte 독일어판(ange)·국제판(anie) 쌍은 독일어판을 범위 밖으로 두고, 그 밖의 같은 제목은 알려 준다. 이미 받았다면 받은 탭을 알고 있으니 `papers/{id}/pdf/{id}.pdf`, `{id}_SI.pdf` 로 옮긴 뒤 status 를 돌린다.
    - 페이지가 구독 밖이면(Access through your institution, Purchase, Get access, 초록만 보임) 받지 말고 `mark --ids <paper_id> --status abstract_only --note "웹 확인: 구독 밖"` 으로 초록만 저장한다(웹 목록에서도 빠진다). 게재 전(accepted) 페이지는 `--note "웹 확인: 게재 전"` 으로 두고 게재 뒤 다시 받는다. status 가 이 사유를 함께 보인다.
    - 웹 목록의 SI 행(본문은 이미 있음)을 열어 보니 그 논문에 SI 가 없으면 `mark --ids <paper_id> --si-none --note "웹 확인: SI 없음"` 으로 그 행을 닫는다. 상태는 그대로다. 보고 블록의 'SI 만 받을 행' 줄이 남은 SI 행 수다(2026-09-27).
+   - **PDF 받기 실패**: 한 번 실패로 웹 본문으로 넘어가지 않는다. 적어도 세 가지를 해 본다 — ① 요령 문서의 기본 버튼 ② 다른 길(스크립트가 읽은 PDF 경로를 navigate, `sciretrGo`, 온라인 보기의 다운로드) ③ 논문 페이지를 다시 열어 한 번 더(목록 끝에서 돌아와도 된다). 그래도 안 되고 페이지에 전문이 보이면 새 탭에서 `references/web_text.js` → `sciretrSaveText('<paper_id>', 'pdffail')` 로 웹 본문을 저장한다(2026-09-27 사용자 지시). 원문상태는 '전문(웹 본문, PDF 받기 실패)' 이고, 보고 블록에 그 논문과 논문 페이지 링크가 나온다(5.9). 확인 창과 구독 밖은 실패가 아니다(위 규칙대로).
    - PDF 가 없는 웹 전용 글(Science Expert Voices 처럼 PDF 아이콘이 없고 본문이 웹에만 있는 글)은 초록만으로 두지 않고 웹 본문을 저장한다(2026-09-27 사용자 지시). `web_find.js` 가 본문 후보 없이 끝난 같은 탭에 `references/web_text.js` 를 넣어 글자 수·문단 수·참고문헌 수·남은 소제목(heads)을 보고(요령 문서 2.5), 소제목에 관련·추천 논문, 뉴스, 지표 같은 것이 없으면 `sciretrSaveText('<paper_id>')` 로 `<paper_id>.sciretr.html` 을 내려받는다. 본문과 참고문헌만 담기고 관련·추천 논문, 지표·인용 수, 광고, 공유, 뉴스레터, 메뉴, 머리말·꼬리말은 빠진다. intake 가 이 파일로 source.md 를 만들고 원문상태를 '전문(웹 본문, PDF 없음)' 으로 둔다. 구독 밖이라 초록만 보이는 페이지에는 쓰지 않는다(글이 짧으면 ok false).
 5. **간격과 양**: 같은 출판사 안에서는 한 편씩 받고, 한 편이 끝나면 기다리지 않고 바로 다음 논문으로 간다. 출판사당 한 번에 수십 편 이내로 나눈다. 탭은 하나만 쓰고, 그 탭을 화면 앞에 둔 채 순서대로 받는다(2026-09-26 사용자 확정). 여러 탭이나 여러 창을 번갈아 쓰는 방식은 쓰지 않는다. 시험 결과 시간 이득이 18편에 1~3분에 그쳤고, 뒤쪽 탭에서는 클릭이 빗나가고 연결이 끊겼으며, 확장은 탭을 앞으로 가져오거나 창을 옮길 수 없다(references/web_download_playbook.md 4절).
 6. **마무리**: 작업이 끝나면 연 탭을 모두 닫는다.
@@ -296,6 +302,7 @@ python scripts/sci_collect.py reextract --kb-root <root>
 - 총 편수와 상태별 편수: 전문 / 웹 본문만(PDF 없는 웹 전용 글, 있을 때) / 초록만(미구독 출판사 이름) / 웹 경로로 받을 논문(출판사별) / 범위 밖
 - 다음 행동: 웹 경로로 받을 파일 목록과 자리 요청, 색인 질문 또는 생략 안내(5.7)
 - 실패가 있으면 논문과 이유 한 줄씩
+- PDF 받기에 실패해 웹 본문을 저장한 논문이 있으면 "다음 논문은 PDF 다운로드가 실패해 웹 페이지 본문을 저장했습니다. 링크에서 직접 확인해 보세요." 와 함께 논문마다 링크를 적는다(보고 블록의 'PDF 받기 실패 → 웹 본문 저장' 줄 그대로, 2026-09-27 사용자 지시).
 
 ### 5.10 한 논문의 참고문헌 수집 (refs)
 
@@ -307,7 +314,10 @@ python scripts/sci_collect.py refs --kb-root <root> --source <PDF 경로 | 링�
 
 - 원 논문의 DOI 를 PDF 앞 두 쪽이나 링크에서 찾는다. 링크는 주소 안의 DOI → Nature·RSC 주소 규칙 → ScienceDirect `pii`(Crossref 조회) → 자동 요청을 막지 않는 사이트만 페이지의 DOI 정보 순으로 본다. 그래도 없으면(IEEE·AIP·Oxford·ChemRxiv 주소 등) PDF 나 DOI 를 달라고 한다.
 - Crossref 참고문헌(논문 순서)과 OpenAlex 인용 목록을 합쳐 `_collect/refs_<원 논문>.txt` 에 저장한다. 둘 다 비었을 때만 PDF 참고문헌에 적힌 DOI 를 쓴다. 출판사 페이지에는 요청하지 않는다.
-- DOI 가 없는 참고문헌(책, 학위논문, 옛 논문 등)은 빠진다. 몇 개가 빠졌는지 사용자에게 알린다. 원 논문 자체는 목록에 넣지 않는다.
+- **목록은 한 줄에 `번호<TAB>DOI` 이고, 번호는 원 논문의 참고문헌 번호다**(2026-09-27 사용자 지시). Crossref 목록 순서가 번호다. OpenAlex 가 더 찾아 준 DOI 는 Crossref 의 DOI 없는 항목과 제목(또는 연도·권·첫 쪽)으로 맞춰 번호를 찾고, 못 찾으면 `00`(번호 모름)이다. PDF 만 있을 때는 참고문헌 줄 머리의 번호(`12.`·`[12]`)가 1부터 이어질 때만 쓴다.
+- resolve 가 이 번호를 이름 앞에 붙인다: paper_id·폴더·PDF·SI 파일 이름이 `07_2021_ACS-Catal_Cheng`, `07_2021_ACS-Catal_Cheng.pdf` 처럼 참고문헌 번호로 시작한다(자릿수는 가장 큰 번호에 맞춤, 최소 두 자리). 색인(index.csv) 맨 왼쪽 열은 '참고문헌 번호' 다. 사용자가 원 논문의 참고문헌 목록과 바로 맞춰 볼 수 있다.
+- 참고문헌 수집은 원 논문마다 새 폴더에서 한다(5.0, 예: `<주제>\<원 논문>_refs`). 이미 목록에 있던 논문은 이름을 바꾸지 않는다(id 동결) — 번호는 색인 열에만 들어가고 resolve 가 알린다.
+- DOI 가 없는 참고문헌(책, 학위논문, 옛 논문 등)은 빠진다. 몇 개가 빠졌는지 그 번호와 함께 사용자에게 알린다(목록 머리와 출력에 번호가 적힌다). 원 논문 자체는 목록에 넣지 않는다.
 - `--limit N` 은 앞에서 N개만 넣는다(시험, 또는 사용자가 일부만 원할 때).
 - 그 파일로 5.1(resolve)부터 평소처럼 한다. 사용자가 "모두" 라고 했으면 편수와 관계없이 주제 확인·사전 분류를 하지 않는다.
 
@@ -401,7 +411,7 @@ python scripts/sci_collect.py refs --kb-root <root> --source <PDF 경로 | 링�
 |---|---|---|
 | resolved | 메타만 있음 | collect |
 | full | 본문 PDF + 텍스트 | 색인 |
-| web_text | PDF 없는 웹 전용 글, 웹 본문·참고문헌 텍스트만 (2026-09-27) | 색인 |
+| web_text | 웹 본문·참고문헌 텍스트만. PDF 없는 웹 전용 글(method web_text), 또는 PDF 받기에 여러 번 실패한 논문(method web_text_pdffail, 보고에 링크) (2026-09-27) | 색인. pdffail 은 사용자가 링크에서 확인 |
 | abstract_only | 미구독, 초록만 | 없음 (사용자에게 알림) |
 | human_required | 웹 경로 대상 | 5.5 웹 경로 → intake |
 | pdf_missing | 텍스트는 있으나 PDF 없음 | 5.5 웹 경로 → intake |
@@ -410,6 +420,7 @@ python scripts/sci_collect.py refs --kb-root <root> --source <PDF 경로 | 링�
 
 ## 8. 사용자 안내 문구 (템플릿)
 
+- 설치 직후·사용법이나 궁금한 점을 물을 때(2026-09-27 사용자 지시): "특정 주제의 논문 목록은 Web of Science 나 Scopus 에서 만들 수 있습니다. 검색한 뒤 원하는 논문을 골라 내보내기(Export)로 파일을 저장하고, 그 파일을 대화창에 주시면 됩니다. Web of Science: https://www.webofscience.com/wos/woscc/smart-search , Scopus: https://www.scopus.com/pages/home#basic"
 - 범위 확인 + follow-up: "목록이 N편입니다. 주제를 '…' 로 보고 관련 논문만 받겠습니다. 맞나요? review 논문 M편의 인용 논문도 이어서 받을까요?"
 - 자동·웹 안내: "A편은 자동으로 받습니다. B편(출판사 …)은 사이트가 자동 수집을 막아서 평소 쓰시는 Chrome 에서 받아야 합니다. 자리에 계실 때 말씀해 주세요."
 - Elsevier OA: "Elsevier 논문 중 Open Access 인 N편은 API 키로 바로 받았습니다. 나머지 M편은 구독 논문이라 평소 쓰시는 Chrome 에서 받아야 합니다." 키가 없으면 3.2.1 문구로 발급을 안내한다.
@@ -481,6 +492,7 @@ python scripts/sci_collect.py intake --kb-root D:/papers/my_topic
 
 - `references/publisher_matrix.md`: 맨 앞 ★ 절에 웹 경로 버튼 위치·파일 이름 규칙, 뒤에 출판사별 URL·방법·실측 이력. 공통 정책이 개별 절보다 우선한다.
 - `references/web_download_playbook.md`: 웹 경로 출판사별 요령과 교훈. 선택자, 기다릴 시간, 누르는 순서, 함정, 예상 시간.
+- `agents/sci-retr-web.md`: 웹 목록 전체를 받는 전용 에이전트 정의(5.5, Claude 만). 모델·추론 수준은 이 파일 머리(`model`, `effort`)에서 바꾼다.
 - `references/web_find.js`: 웹 경로에서 논문 페이지의 본문 PDF·SI 링크를 찾는 스크립트(요령 문서 2.4). 논문마다 다시 넣으므로 설명은 요령 문서에 두고 스크립트는 짧게 둔다. `references/web_text.js`: PDF 없는 웹 전용 글의 웹 본문 저장(요령 문서 2.5).
 - `references/safe_rate_policy.md`: 요청 간격의 현재 규칙과 근거(ScienceDirect 4월 일시 차단 기록, 규칙 변천).
 - `examples/sample_doi_input.csv`: 출판사별 실제 DOI 예시(2026-09-26 확인). 첫 실행 연습용.

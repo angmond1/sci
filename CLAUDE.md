@@ -7,7 +7,7 @@
 
 논문 수집 skill `sci-retr`, 색인 skill `sci-index`, 한국어 한 줄 요약 skill `sci-tldr`(사용자가 원할 때만) 세 개. DOI 목록을 받아 출판사별로 파이썬 API·직접 다운로드 또는 사용자의 Chrome("Claude in Chrome" 확장)으로 논문 PDF·SI 를 받아 폴더로 정리하고, `index.csv` 를 만든다. 자세한 것은 설치 뒤 `~/.claude/skills/sci-retr/SKILL.md`.
 
-권장 모델: 설치와 첫 수집은 Opus. 색인은 LLM 없이 스크립트로 끝난다. 한 줄 요약은 전용 에이전트 `sci-tldr-writer`(sonnet, 도구 Read·Write)가 쓴다.
+권장 모델: 설치와 첫 수집은 Opus. 색인은 LLM 없이 스크립트로 끝난다. 한 줄 요약은 전용 에이전트 `sci-tldr-writer`(sonnet, 도구 Read·Write)가 쓴다. 웹 다운로드는 전용 에이전트 `sci-retr-web`(sonnet·추론 medium, 도구 Chrome·Bash·Read) 하나가 목록 끝까지 받는다.
 
 ## 1. 설치 절차 (에이전트가 그대로 실행)
 
@@ -45,7 +45,7 @@
 
 스크립트가 하는 일은 네 단계다.
 1. 필요한 프로그램 확인과 설치: Python 3.11 이상, Google Chrome (Step 0 표).
-2. `sci-retr`, `sci-index`, `sci-tldr` 를 `~/.claude/skills/` 로 복사하고, 한 줄 요약 전용 에이전트 `sci-tldr/agents/sci-tldr-writer.md` 를 `~/.claude/agents/` 로 복사(Codex 설치 때는 하지 않음).
+2. `sci-retr`, `sci-index`, `sci-tldr` 를 `~/.claude/skills/` 로 복사하고, 한 줄 요약 전용 에이전트 `sci-tldr/agents/sci-tldr-writer.md` 와 웹 다운로드 전용 에이전트 `sci-retr/agents/sci-retr-web.md` 를 `~/.claude/agents/` 로 복사(Codex 설치 때는 하지 않음).
 3. 파이썬 패키지(requests, pymupdf, truststore, beautifulsoup4, lxml, openpyxl, playwright) 설치. 권한 문제면 `--user` 로 다시 한다. macOS/Linux 에서 시스템 Python 에 pip 이 없거나(Ubuntu 24.04 기본 상태) 설치를 막으면 `~/.sci-retr/venv` 가상환경에 설치한다.
 4. 환경 점검(`doctor`) 실행. Claude in Chrome 확장이 없으면 Chrome 웹스토어 페이지를 연다.
 
@@ -60,6 +60,7 @@
 ### Step 5 — 새 대화 안내 (반드시)
 새 skill 은 새 대화(세션)부터 인식된다. 설치 스크립트의 끝 안내와 같은 문구로 알린다.
 > "설치 완료. 새 대화를 열거나 Claude 를 다시 시작한 뒤, 논문 목록 파일(Web of Science·Scopus 내보내기 또는 DOI 목록)을 대화창에 끌어다 놓고 'sci-retr 스킬로 논문 수집해줘' 라고 해 주세요."
+> 이어서 알린다(2026-09-27 사용자 지시): "특정 주제의 논문 목록은 Web of Science 나 Scopus 에서 검색해 내보내기(Export)로 만들 수 있습니다. Web of Science: https://www.webofscience.com/wos/woscc/smart-search , Scopus: https://www.scopus.com/pages/home#basic"
 
 ### Step 6 — 점검 (사용자가 요청할 때)
 설치 스크립트가 이미 점검했으므로 따로 하지 않아도 된다. 사용자가 "sci-retr 점검해줘" 라고 하면 다음을 돌린다.

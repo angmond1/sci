@@ -148,6 +148,9 @@ if (-not $Codex) {
     New-Item -ItemType Directory -Force -Path $agents | Out-Null
     Copy-Item (Join-Path $Root "sci-tldr\agents\sci-tldr-writer.md") (Join-Path $agents "sci-tldr-writer.md") -Force
     Write-Host "설치: $(Join-Path $agents 'sci-tldr-writer.md') (한 줄 요약 전용 에이전트, 새 대화부터 인식)"
+    # 웹 다운로드 전용 에이전트: 웹 목록 전체를 하나가 끝까지 받는다 (도구 Chrome·Bash·Read, sonnet·추론 medium — SKILL 5.5)
+    Copy-Item (Join-Path $Root "sci-retr\agents\sci-retr-web.md") (Join-Path $agents "sci-retr-web.md") -Force
+    Write-Host "설치: $(Join-Path $agents 'sci-retr-web.md') (웹 다운로드 전용 에이전트, 새 대화부터 인식)"
 }
 
 # 3) 파이썬 패키지
@@ -195,3 +198,6 @@ if ($needExt) { Write-Host "  $n) Claude in Chrome 확장 설치·로그인: $Ex
 if ($needChromeSettings) { Write-Host "  $n) Chrome 설정: 위 점검에서 [문제] 로 나온 항목 고치기 (chrome://settings/content/pdfDocuments → 'PDF 다운로드', chrome://settings/downloads → '다운로드 전에 각 파일의 저장 위치 확인' 끄기)"; $n++ }
 Write-Host "  $n) $app 에서 새 대화를 열거나 $app 를 다시 시작하기 (새 skill 을 읽게)"; $n++
 Write-Host "  $n) 논문 목록 파일(Web of Science·Scopus 내보내기 또는 DOI 목록)을 대화창에 끌어다 놓고 'sci-retr 스킬로 논문 수집해줘'"
+Write-Host "  참고) 특정 주제의 논문 목록은 Web of Science 나 Scopus 에서 검색해 내보내기(Export)로 만들 수 있습니다."
+Write-Host "        Web of Science: https://www.webofscience.com/wos/woscc/smart-search"
+Write-Host "        Scopus: https://www.scopus.com/pages/home#basic"
