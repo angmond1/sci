@@ -7,7 +7,7 @@
 
 논문 수집 skill `sci-retr`, 색인 skill `sci-index`, 한국어 한 줄 요약 skill `sci-tldr`(사용자가 원할 때만) 세 개. DOI 목록을 받아 출판사별로 파이썬 API·직접 다운로드 또는 사용자의 Chrome("Claude in Chrome" 확장)으로 논문 PDF·SI 를 받아 폴더로 정리하고, `index.csv` 를 만든다. 자세한 것은 설치 뒤 `~/.claude/skills/sci-retr/SKILL.md`.
 
-권장 모델: 설치와 첫 수집은 Opus. 색인은 LLM 없이 스크립트로 끝난다. 한 줄 요약은 전용 에이전트 `sci-tldr-writer`(sonnet, 추론 low)가 쓴다.
+권장 모델: 설치와 첫 수집은 Opus. 색인은 LLM 없이 스크립트로 끝난다. 한 줄 요약은 전용 에이전트 `sci-tldr-writer`(sonnet, 도구 Read·Write)가 쓴다.
 
 ## 1. 설치 절차 (에이전트가 그대로 실행)
 

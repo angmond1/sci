@@ -101,7 +101,7 @@ for skill in sci-retr sci-index sci-tldr; do
   if [ -n "$KEEP" ]; then cp -p "$KEEP" "$DEST/$skill/token.txt"; rm -f "$KEEP"; echo "  키·토큰 파일(token.txt)은 그대로 두었습니다."; fi
 done
 if [ "$APP" = "Claude" ]; then
-  # 한 줄 요약 전용 에이전트 (도구 Read·Write, sonnet, 추론 low). ~/.claude/agents 는 하위 폴더까지 읽으므로 이 파일 하나만 맨 위에 둔다
+  # 한 줄 요약 전용 에이전트 (도구 Read·Write, sonnet). ~/.claude/agents 는 하위 폴더까지 읽으므로 이 파일 하나만 맨 위에 둔다
   mkdir -p "$HOME/.claude/agents"
   cp "$ROOT/sci-tldr/agents/sci-tldr-writer.md" "$HOME/.claude/agents/sci-tldr-writer.md"
   echo "설치: $HOME/.claude/agents/sci-tldr-writer.md (한 줄 요약 전용 에이전트, 새 대화부터 인식)"

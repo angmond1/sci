@@ -142,7 +142,7 @@ foreach ($skill in @("sci-retr", "sci-index", "sci-tldr")) {
     if ($keepToken) { [IO.File]::WriteAllBytes($tokenPath, $keepToken); Write-Host "  키·토큰 파일(token.txt)은 그대로 두었습니다." }
 }
 if (-not $Codex) {
-    # 한 줄 요약 전용 에이전트: 도구 Read·Write, sonnet, 추론 low — 범용 에이전트보다 토큰·시간이 훨씬 적다 (sci-tldr 지침 6절)
+    # 한 줄 요약 전용 에이전트: 도구 Read·Write, sonnet — 범용 에이전트보다 토큰·시간이 훨씬 적다 (sci-tldr 지침 6절)
     # ~/.claude/agents 는 하위 폴더까지 읽으므로 이 파일 하나만 맨 위에 둔다 (백업 폴더를 만들지 않는다)
     $agents = Join-Path $env:USERPROFILE ".claude\agents"
     New-Item -ItemType Directory -Force -Path $agents | Out-Null
