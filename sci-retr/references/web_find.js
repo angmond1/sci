@@ -16,7 +16,7 @@ await (async () => {
     const CROSS_OK = /ars\.els-cdn\.com|silverchair-cdn\.com|cfn-live-content-bucket-iop-org\.s3/i;
     const SKIP = /\.(zip|rar|7z|gz|tgz|xlsx?|xlsm|csv|txt|mp4|mpe?g|m4v|webm|wmv|avi|mov|mp3|wav|cif|pptx?|ppt)(\?|$)/i;   // PNAS 동영상 .mpg·데이터 .txt (2026-09-27)
     const SKIP_TEXT = /\.(zip|rar|7z|gz|tgz|xlsx?|xlsm|csv|txt|mp4|mpe?g|m4v|webm|wmv|avi|mov|mp3|wav|cif|pptx?|ppt)\b|^(zip|excel|video|audio)-document/i;
-    const SKIP_PATH = /\/vol\/\d+\/suppl\/|\/pb-assets\/|\/toc\/|\/loi\/|\/lookup\/doi\/|\/article-supplement\/\d+\/(?!pdf\/|docx?\/)[a-z0-9]+\//i;
+    const SKIP_PATH = /\/vol\/\d+\/suppl\/|\/pb-assets\/|\/toc\/|\/loi\/|\/lookup\/doi\/|\/issue\/|\/article-supplement\/\d+\/(?!pdf\/|docx?\/)[a-z0-9]+\//i;
     const SI_HREF = /mmc\d|suppl(?!ier)|sifile|_si_|-sup-|_sm\b|\/data(?=\/|$)|supporting|suppdata|si\.pdf|-si\b|downloadSupplement|\.sapp\b|supp\d|\/s\d{1,3}$/i;   // MDPI /s1 (긴 Elsevier PII 는 아님)
     const SI_TEXT = /supp(orting|lementa)|Supplementary|Download \w+ (file|document)|Multimedia component/i;
     const SI_ABBR = /\bSI\b/;   // 대문자만 (규소 Si 아님)
@@ -27,7 +27,7 @@ await (async () => {
     const ONLINE = /epdf|\/reader\//i;
     const NOISE = /powerpoint|full issue|download \(\d+\)|download all|with cover|wechat|pdf and supp/i;
     const P = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;   // 상단 고정 막대 여백 (ChemRxiv 108px)
-    const box = (el) => { const rs = el.getClientRects(); return rs.length > 1 ? rs[0] : el.getBoundingClientRect(); };   // 두 줄 링크는 첫 줄
+    const box = (el) => { const rs = [...el.getClientRects()].filter((r) => r.width >= 4 && r.height >= 4); return rs.length ? rs[0] : el.getBoundingClientRect(); };   // 두 줄 링크는 첫 줄, 폭 0 인 빈 줄은 뺀다(APS 그림 링크)
     const at = (b) => [Math.round(b.left + Math.min(b.width / 2, 40)), Math.round(b.top + b.height / 2)];
     const hitAt = (el, x, y) => { const h = document.elementFromPoint(x, y); return !!h && (h === el || el.contains(h)); };
     // 지금 화면 안에 있고 그 자리에서 이 요소가 눌리는가 (상단 고정 막대에 가려졌으면 hitAt 이 거짓이다)
