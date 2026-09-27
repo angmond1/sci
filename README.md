@@ -39,17 +39,22 @@ https://github.com/angmond1/sci 설치해줘
 ## 준비물
 
 1. **KIST 사내 인터넷 망 또는 kvpn 접속**
-2. **claude 또는 chatgpt 유료 계정과 데스크탑 앱 (또는 CLI) 설치**
-   * claude 설치 https://claude.com/download
+2. **chatgpt 또는 claude 유료 계정과 데스크탑 앱 (또는 CLI) 설치**
    * codex (chatgpt) 설치 https://openai.com/ko-KR/codex/
-3. **Chrome 브라우저 + 확장 프로그램 Claude in Chrome 설치**
+   * claude 설치 https://claude.com/download
+3. **Chrome 설정**
+   * `chrome://settings/content/pdfDocuments` 에서 "PDF 다운로드" 선택
+   * `chrome://settings/downloads` 에서 "다운로드 전에 각 파일의 저장 위치 확인" 선택 해제
+4. **codex에서 chrome-devtools-mcp 설치**
+   * codex app에서 좌하단 이니셜 클릭 → 설정 → 좌측 탭의 "플러그인" → "MCP" 선택 → 우상단의 MCP 서버 검색에 "chrome-devtools"
+5. **Chrome chatgpt 확장 프로그램 설치**
+   * https://chromewebstore.google.com/detail/chatgpt/hehggadaopoacecdllhhajmbjkdcmajg?pli=1
+   * codex app에서 좌하단 이니셜 클릭 → 설정 → 좌측 탭의 "컴퓨터 사용" → Google Chrome 사용
+6. **Claude 사용시 Chrome 브라우저 + 확장 프로그램 Claude in Chrome 설치 필요**
    * Chrome 브라우저 설치 https://www.google.com/chrome/
    * 확장 프로그램 Claude in Chrome 설치 https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn
 
    그러고 나서 Claude Desktop: 좌하단 이니셜 클릭 → "설정" 클릭 → 좌측 탭에서 "Claude in Chrome 설정" 클릭 → "Claude in Chrome 사용설정" 켜기.
-4. **Chrome 설정**
-   * `chrome://settings/content/pdfDocuments` 에서 "PDF 다운로드" 선택
-   * `chrome://settings/downloads` 에서 "다운로드 전에 각 파일의 저장 위치 확인" 선택 해제
 
 <br>
 
