@@ -14,13 +14,11 @@ LLM이 다루기 쉬운 markdown 파일로 자동 변환 및 색인화
 
 ## 구성
 
-| skill | 용도 | 기능 | 권장모델<br>Claude / Codex |
+| skill | 용도 | 기능 | 권장모델 |
 |-------|------|------|:--------:|
 | **sci-retr** | 수집, 변환 | 본문·SI PDF 다운로드, 본문 text를 md 파일로 변환 | Opus / Sol |
 | **sci-index** | 색인 | 서지 정보(제목 저널 저자 연도 키워드 초록 등)를 csv 파일로 정리 | Sonnet / Luna |
 | **sci-tldr** | 한줄요약 (선택사항) | 한국어 한 줄 요약 생성, csv에 추가 | Sonnet / Luna |
-
-Codex는 GPT-6 기준이다. [공식 모델 안내](https://learn.chatgpt.com/docs/models#recommended-models)와 작업 특성을 바탕으로 수집·브라우저 판단에는 Sol, 색인 명령 실행·짧은 요약에는 Luna를 권장한다. 색인 생성·검수 자체는 LLM을 쓰지 않는다. Codex에서의 성능은 아직 실측하지 않았다.
 
 <br>
 
