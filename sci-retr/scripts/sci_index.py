@@ -54,7 +54,8 @@ def write_index(path: Path, rows: list[dict], with_tldr: bool) -> None:
         w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore"); w.writeheader(); w.writerows(rows)
 STATUS_KO = {"full": "전문", "abstract_only": "초록만", "human_required": "미수집(사용자 확인 필요)", "failed": "실패", "resolved": "미수집", "": "미수집",
              "pdf_missing": "전문(PDF 없음, 재시도 대상)", "out_of_scope": "범위밖-미수집",
-             "fulltext": "전문", "preview": "초록만(미리보기)"}   # 옛 수집기의 access_status (2026-09-27 옛 KB 시험)
+             "fulltext": "전문", "preview": "초록만(미리보기)",   # 옛 수집기의 access_status (2026-09-27 옛 KB 시험)
+             "web_text": "전문(웹 본문, PDF 없음)"}   # PDF 없는 웹 전용 글의 본문·참고문헌 (2026-09-27)
 DOI_RE = re.compile(r"10\.\d{4,9}/[^\s\"'<>,;]+")
 KEYWORD_RE = re.compile(r"(?im)^\s*(?:\*\*)?key\s*words?(?:\*\*)?\s*[:：][ \t]*(.*)$")
 BAD_CHARS = ("\x00", "�", "ﬁ", "ﬂ", "ﬀ", "ﬃ", "ﬄ", "Ã©", "Ã¶", "â€", "Â°", "â\x80")   # \x00: 2026-09-26 이전 추출본의 NUL, Ã©·Â°: 웹페이지 인코딩 깨짐(2026-09-27)
@@ -252,7 +253,7 @@ def build_rows(kb_root: Path) -> tuple[list[dict], list[dict]]:
             "연도": pick("year"), "저널": pick("journal"), "저널약어": pick("journal_abbrev"),
             "권": pick("volume"), "호": pick("issue"), "페이지": pick("pages"),
             "초록": one_line(pick("abstract")), "키워드": find_keywords(md) if md else "",
-            "원문상태": STATUS_KO.get(status, status), "본문 단어수": words if status == "full" else "",
+            "원문상태": STATUS_KO.get(status, status), "본문 단어수": words if status in ("full", "web_text") else "",
             "SI 유무": f"Y({len(si)})" if si else "N", "수집일": (sj.get("collected_at") or r.get("updated_at") or "")[:10],
             "수집 URL": sj.get("source_url") or r.get("landing_url") or "", "파일경로": str(pdf) if pdf.exists() else (str(d / "source.md") if md else ""),
         }
@@ -261,7 +262,7 @@ def build_rows(kb_root: Path) -> tuple[list[dict], list[dict]]:
         abs_from_body = boiler = False
         if looks_boilerplate(row["초록"]):
             row["초록"], boiler = "", True   # 사이트 문구는 초록이 아니다 — 빼고 본문의 초록 절에서 채워 본다
-        if not row["초록"] and status == "full" and md:
+        if not row["초록"] and status in ("full", "web_text") and md:
             row["초록"] = abstract_from_body(md)
             abs_from_body = bool(row["초록"])
         rows.append(row)
@@ -290,7 +291,7 @@ def build_rows(kb_root: Path) -> tuple[list[dict], list[dict]]:
                 flags.append("PDF 없음")
         if row["초록"] and (len(row["초록"]) < 200 or len(row["초록"]) > 5000):
             flags.append(f"초록 길이 {len(row['초록'])}")
-        if not row["초록"] and status in ("full", "abstract_only"):
+        if not row["초록"] and status in ("full", "web_text", "abstract_only"):
             flags.append("초록 없음")
         if boiler:
             flags.append("초록 보일러플레이트(뺌)")
@@ -308,7 +309,7 @@ README_TEXT = """# 논문 색인 사용법 (에이전트용 5줄)
 1. `index.csv` 가 색인이다. 한 행이 논문 한 편이고 제목·저자·연도·저널·초록·키워드·원문상태·파일경로가 있다(사용자가 원했으면 한국어 한줄요약 열도 있다). 먼저 이 파일로 관련 논문을 고른다. 크면 제목·초록·키워드를 Grep 한다.
 2. 원문 텍스트는 `papers/{paper_id}/source.md` (본문), 원문 PDF 는 `papers/{paper_id}/pdf/{paper_id}.pdf`, SI 는 같은 폴더의 `{paper_id}_SI*` 파일(pdf·docx 등)이다.
 3. 키워드로 훑을 때는 `papers/*/source.md` 를 Grep 한다. 몇 편을 읽을지는 질문에 맞춰 판단한다 (강제 규칙 없음).
-4. 원문상태가 "초록만" 이면 구독 밖이라 초록만 있고, "미수집(사용자 확인 필요)" 는 사용자와 함께 `sci_collect.py assist` 로 받는다.
+4. 원문상태가 "초록만" 이면 구독 밖이라 초록만 있고, "전문(웹 본문, PDF 없음)" 은 PDF 가 없는 웹 전용 글이라 본문·참고문헌이 source.md 에만 있다. "미수집(사용자 확인 필요)" 는 사용자와 함께 `sci_collect.py assist` 로 받는다.
 5. 새 논문을 받으려면 DOI 를 `sci_collect.py resolve/collect` 에 넣고, 끝나면 `sci_index.py build` 로 색인을 다시 만든다.
 """
 

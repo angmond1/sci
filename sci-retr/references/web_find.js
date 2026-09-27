@@ -20,7 +20,8 @@
 //   본문 속 'Figure S1'·'Table S2' 참조 링크, 호·권 링크(/vol/…/suppl/), 사이트 자료(/pb-assets/), 묶음 버튼('PDF and Supporting…'),
 //   학회 초록집 호 이름(Oxford 'Supplement_1'), 'suppliers'·'/data-sharing-policy' 같은 바닥글, 규소 'Si'(대문자 SI 만 SI 로 본다),
 //   zip·7z·스프레드시트·동영상·PowerPoint(경로 끝이나, 형식이 쿼리에만 있는 링크는 글자의 파일 이름으로 — Atypon downloadSupplement, MDPI 'ZIP-Document').
-// 누르기: 한 호출(browser_batch)에 window.sciretrFocus(번호, x, y) 와 그 좌표 클릭을 함께 넣는다.
+// 누르기: 한 호출(browser_batch)에 `await window.sciretrFocus(번호, x, y)` 와 그 좌표 클릭을 함께 넣는다. sciretrFocus 는 async 라 await 를 붙인다(없으면 결과가 {}).
+//   요소를 보이게 한 뒤 자리가 멈출 때까지 1초 간격으로 확인하고(최대 3초) 좌표를 정한다 — 가운데로 옮긴 뒤 늦게 뜨는 그림·미리보기가 요소를 민다(2026-09-27 ACS SI 90 px, 두 번 빗나감).
 //   sciretrFocus 는 요소가 이미 보이면 그대로, 아니면 화면 가운데로 옮기고 실제 화면 좌표(x, y)와 hit(그 좌표에 그 요소가 있는지, elementFromPoint)를 준다.
 //   예상 좌표(x, y)를 함께 주면 그 자리에 이 요소가 없을 때 다음 클릭 한 번을 투명한 막으로 받아 버린다(guard 1, 8초 뒤 저절로 없어짐).
 //   그러면 엉뚱한 곳이 눌리지 않는다. guard 가 1 이면 돌려받은 x, y 로 다시 누른다. hit 가 false 면 다른 것에 덮인 것이니 그 좌표로 누르지 않는다.
@@ -28,6 +29,10 @@
 //   스크린샷 좌표계가 innerWidth 와 다르면 클릭 좌표에만 (스크린샷 폭 ÷ innerWidth) 를 곱하고, sciretrFocus 에는 이 스크립트의 좌표를 그대로 준다.
 // window.sciretrGo(번호) — 그 링크 주소로 탭을 옮긴다(링크를 누른 것과 같다. 주소는 출력하지 않는다). 틀·안내 창이 링크를 가리거나 "접힘" 인 파일 링크에 쓴다(T&F figshare 등).
 //   같은 탭에서 두 번째 다운로드부터는 Chrome 의 '여러 파일 다운로드' 확인에 걸릴 수 있다. 저장되지 않으면 그 링크는 누른다.
+// window.sciretrArticleStats() / window.sciretrSaveText(paper_id) — PDF 가 없는 웹 전용 글(Science Expert Voices 등)의 웹 본문 저장 (2026-09-27 사용자 지시).
+//   본문 상자(문단 글이 가장 많은 article·main 중 가장 안쪽)와 참고문헌만 추린다. 관련·추천 논문, 지표·인용 수, 광고, 공유, 뉴스레터, 메뉴, 머리말·꼬리말은 뺀다.
+//   먼저 sciretrArticleStats() 로 chars·paras·refs·heads(남은 소제목)를 보고, heads 에 추천·관련 글이 없으면 sciretrSaveText('<paper_id>') 로 <paper_id>.sciretr.html 을 내려받는다.
+//   intake 가 그 파일을 papers/<id>/html/ 로 옮기고 source.md 를 만든다(원문상태 '전문(웹 본문, PDF 없음)'). 글이 500자보다 짧으면(구독 밖) ok false.
 await (async () => {
   try {
     const t0 = Date.now();
@@ -42,10 +47,10 @@ await (async () => {
       return doi ? doi[0].split('/').pop().toLowerCase() : '';
     })();
     const CROSS_OK = /ars\.els-cdn\.com|silverchair-cdn\.com|cfn-live-content-bucket-iop-org\.s3/i;
-    const SKIP = /\.(zip|rar|7z|gz|tgz|xlsx?|xlsm|csv|mp4|avi|mov|mp3|wav|cif|pptx?|ppt)(\?|$)/i;
-    const SKIP_TEXT = /\.(zip|rar|7z|gz|tgz|xlsx?|xlsm|csv|mp4|avi|mov|mp3|wav|cif|pptx?|ppt)\b|^(zip|excel|video|audio)-document/i;
+    const SKIP = /\.(zip|rar|7z|gz|tgz|xlsx?|xlsm|csv|txt|mp4|mpe?g|m4v|webm|wmv|avi|mov|mp3|wav|cif|pptx?|ppt)(\?|$)/i;   // PNAS 동영상 .mpg·데이터 .txt (2026-09-27)
+    const SKIP_TEXT = /\.(zip|rar|7z|gz|tgz|xlsx?|xlsm|csv|txt|mp4|mpe?g|m4v|webm|wmv|avi|mov|mp3|wav|cif|pptx?|ppt)\b|^(zip|excel|video|audio)-document/i;
     const SKIP_PATH = /\/vol\/\d+\/suppl\/|\/pb-assets\/|\/toc\/|\/loi\/|\/lookup\/doi\/|\/article-supplement\/\d+\/(?!pdf\/|docx?\/)[a-z0-9]+\//i;
-    const SI_HREF = /mmc\d|suppl(?!ier)|sifile|_si_|-sup-|_sm\b|\/data(?=\/|$)|supporting|suppdata|si\.pdf|-si\b|downloadSupplement|\.sapp\b|supp\d|\/s\d+$/i;
+    const SI_HREF = /mmc\d|suppl(?!ier)|sifile|_si_|-sup-|_sm\b|\/data(?=\/|$)|supporting|suppdata|si\.pdf|-si\b|downloadSupplement|\.sapp\b|supp\d|\/s\d{1,3}$/i;   // MDPI '/s1' — 숫자만 긴 Elsevier PII 주소(/abs/pii/S0360…)는 SI 가 아니다 (2026-09-27)
     const SI_TEXT = /supp(orting|lementa)|Supplementary|Download \w+ (file|document)|Multimedia component/i;
     const SI_ABBR = /\bSI\b/;   // 대문자만 — 관련 논문 제목의 'Si'(규소)를 SI 로 잡지 않게 (2026-09-27 De Gruyter)
     const SI_HEAD = /^(appendix [a-z0-9]+\.? )?(supplementa|supporting)/i;
@@ -118,12 +123,19 @@ await (async () => {
       out = scan();
     }
     out.ms = Date.now() - t0;
-    window.sciretrFocus = (k, ex, ey) => {
+    window.sciretrFocus = async (k, ex, ey) => {
       if (!outerWidth) return JSON.stringify({ ok: false, why: '창 최소화 — 클릭이 닿지 않는다. 창을 앞으로 가져와 달라고 한다' });
       const el = document.querySelector('[data-sciretr="' + k + '"]');
       if (!el) return JSON.stringify({ ok: false, why: '번호 없음 — web_find 를 다시 돌린다' });
       let b = box(el);
       if (!shownNow(el, b)) { el.scrollIntoView({ block: 'center', behavior: 'instant' }); b = box(el); }
+      for (let i = 0; i < 3; i++) {   // 자리가 1초 동안 그대로면 멈춘 것 (확인 간격 1초, 최대 3초)
+        await new Promise((r) => setTimeout(r, 1000));
+        const nb = box(el);
+        if (Math.abs(nb.top - b.top) < 2 && Math.abs(nb.left - b.left) < 2) { b = nb; break; }
+        if (!shownNow(el, nb)) el.scrollIntoView({ block: 'center', behavior: 'instant' });
+        b = box(el);
+      }
       const [x, y] = at(b);
       const hit = hitAt(el, x, y);   // 막을 덮기 전에 잰다
       let guard = 0;
@@ -143,6 +155,65 @@ await (async () => {
       if (!el || !el.href) return JSON.stringify({ ok: false });
       location.href = el.href;
       return JSON.stringify({ ok: true, n: k });
+    };
+    // 웹 전용 글(PDF 없음, 예: Science Expert Voices): 본문·참고문헌만 추려 <paper_id>.sciretr.html 로 내려받는다 → intake 가 source.md 로 만든다
+    // (원문상태 '전문(웹 본문, PDF 없음)', 2026-09-27 사용자 지시). 관련·추천 논문, 지표, 광고, 공유, 뉴스레터, 메뉴는 뺀다.
+    // 구독 밖 페이지(초록만 보임)에는 쓰지 않는다 — 그때는 mark --status abstract_only.
+    const JUNK = /related|recommend|similar|more-?from|you-?may|trending|most-?(read|viewed|cited|popular)|cited-?by|citing|metric|altmetric|advert|\bads?\b|promo|newsletter|subscri|sign-?up|social|share|cookie|breadcrumb|toolbar|sidebar|permission|reprint|viewer|lightbox|modal|popup|banner|jump-?to|table-?of-?contents|\btoc\b|citation-?tool|export|login|access-?widget|eletter/i;
+    const JUNK_HEAD = /^(related|recommended|you (may|might) (also )?(like|be interested)|more (from|like this)|latest (news|articles)|trending|most (read|viewed|cited|popular)|cited by|eletters|metrics|see also|advertisement|stay connected|newsletter|sign up|share|similar articles)/i;
+    const REFS = '#bibliography, #references, section.references, section[id*="ref" i], div.references, ol.references, [role="doc-bibliography"]';
+    const ptext = (el) => [...el.querySelectorAll('p')].reduce((a, p) => a + (p.textContent || '').length, 0);
+    const cleanClone = (root) => {
+      const c = root.cloneNode(true);
+      c.querySelectorAll('script,style,noscript,svg,button,form,iframe,nav,aside,footer,header,input,select,textarea,img,video,audio,canvas,picture,source,link,meta').forEach((e) => e.remove());
+      let removed = 0;
+      for (const e of [...c.querySelectorAll('*')]) {
+        if (!c.contains(e)) continue;
+        const ident = [e.id, e.getAttribute('class'), e.getAttribute('aria-label'), e.getAttribute('data-type')].join(' ');
+        const head = ((e.querySelector('h1,h2,h3,h4') || {}).textContent || '').trim();
+        if (/ref|bibliograph/i.test(ident) || /^(references|bibliography|notes and references)/i.test(head)) continue;   // 참고문헌은 남긴다
+        const junkBox = JUNK.test(ident) && (e.textContent || '').length < 1500;   // 본문 전체를 감싼 큰 상자는 이름이 걸려도 두지 않고 지우지 않는다
+        const junkSec = /^(section|div)$/i.test(e.tagName) && head.length < 60 && JUNK_HEAD.test(head);
+        if (junkBox || junkSec) { e.remove(); removed += 1; }
+      }
+      for (const e of c.querySelectorAll('*')) for (const a of [...e.attributes]) e.removeAttribute(a.name);   // 속성은 모두 뺀다 (정리기가 이름으로 본문을 지우지 않게)
+      return { c, removed };
+    };
+    const articleHtml = () => {
+      // 본문 상자: 문단 글이 가장 많은 상자와 거의 같은(90% 이상) 것 중 가장 안쪽 (main 보다 article, 추천 카드 article 은 글이 적어 빠짐).
+      // 본문만 든 상자(#bodymatter 등)는 초록·참고문헌이 밖에 있어 article·main 이 없을 때만 쓴다.
+      const pick = (sel) => {
+        const list = [...document.querySelectorAll(sel)];
+        const best = Math.max(0, ...list.map(ptext));
+        const ok = list.filter((e) => best > 0 && ptext(e) >= best * 0.9);
+        return ok.find((e) => !ok.some((o) => o !== e && e.contains(o)));
+      };
+      const root = pick('article, main, [role="main"]') || pick('[property="articleBody"], #bodymatter, .article__body, .c-article-body') || document.body;
+      const { c, removed } = cleanClone(root);
+      const refs = document.querySelector(REFS);
+      let extra = 0;
+      if (refs && !root.contains(refs)) { const r = cleanClone(refs); c.appendChild(r.c); extra = r.removed; }   // 참고문헌이 본문 상자 밖에 있을 때
+      const meta = (n) => ((document.querySelector('meta[name="' + n + '"]') || {}).content || '');
+      const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+      const title = meta('citation_title') || document.title;
+      const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const titled = [...c.querySelectorAll('h1')].some((h) => norm(h.textContent) === norm(title));   // 본문 상자에 제목이 이미 있으면 다시 붙이지 않는다
+      const html = '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(title) + '</title><meta name="citation_doi" content="' + esc(meta('citation_doi') || meta('dc.Identifier')) +
+        '"></head><body><article>' + (titled ? '' : '<h1>' + esc(title) + '</h1>') + c.innerHTML + '</article></body></html>';
+      const heads = [...c.querySelectorAll('h2,h3')].map((h) => (h.textContent || '').trim().slice(0, 24)).filter(Boolean).slice(0, 14);   // 확인용: 남은 소제목
+      const nref = refs ? refs.querySelectorAll('li, [role="doc-biblioentry"], [role="listitem"]').length : 0;
+      return { html, chars: (c.textContent || '').replace(/\s+/g, ' ').trim().length, paras: c.querySelectorAll('p').length, refs: nref, removed: removed + extra, heads };
+    };
+    window.sciretrArticleStats = () => { const r = articleHtml(); return JSON.stringify({ chars: r.chars, paras: r.paras, refs: r.refs, removed: r.removed, heads: r.heads }); };   // 내려받기 전 확인용: 남은 소제목에 추천·관련 글이 없는지 본다
+    window.sciretrSaveText = (pid) => {
+      if (!pid || /[\\/:*?"<>|]/.test(pid)) return JSON.stringify({ ok: false, why: 'paper_id 를 준다' });
+      const r = articleHtml();
+      if (r.chars < 500) return JSON.stringify({ ok: false, why: '본문이 짧다 — 구독 밖이거나 아직 안 읽힘', chars: r.chars });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([r.html], { type: 'text/html' }));
+      a.download = pid + '.sciretr.html';
+      document.documentElement.appendChild(a); a.click(); a.remove();
+      return JSON.stringify({ ok: true, chars: r.chars, paras: r.paras, refs: r.refs, removed: r.removed });
     };
     return JSON.stringify(out);
   } catch (e) {

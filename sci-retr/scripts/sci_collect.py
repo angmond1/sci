@@ -647,12 +647,14 @@ CONTAINER_SELECTORS = {
     "wiley": [".article__body", "section.article-section__content", "article", "main"],
     "acs": [".article-body", ".widget-ArticleFulltext", ".article_content", "article", "main"],   # 2026 Silverchair 이전 후
     "generic": ["article", "main", "[role=main]", "#content"],
+    "web_text": ["article"],   # web_find.js 가 본문·참고문헌만 추려 <article> 하나에 담아 준다 (짧은 글도 그대로 쓴다)
 }
 FURNITURE_CLASS_RE = re.compile(r"(cited|citation|related|recommend|share|metrics|cookie|banner|toolbar|sidebar|breadcrumb|footer|nav|menu|advert|newsletter|social)", re.I)
 
 
-def html_container_text(raw_html: str, publisher: str) -> tuple[str, str]:
-    """본문 컨테이너만 DOM 추출 → furniture 요소 제거 → runner.strip_html_text (줄 단위 furniture 제거 포함)."""
+def html_container_text(raw_html: str, publisher: str, min_chars: int = 1500) -> tuple[str, str]:
+    """본문 컨테이너만 DOM 추출 → furniture 요소 제거 → runner.strip_html_text (줄 단위 furniture 제거 포함).
+    min_chars: 컨테이너로 인정할 최소 글자 수. 웹 본문 파일(publisher='web_text')은 이미 추려진 것이라 0."""
     try:
         from bs4 import BeautifulSoup
     except ImportError:
@@ -668,7 +670,7 @@ def html_container_text(raw_html: str, publisher: str) -> tuple[str, str]:
             found = soup.select_one(sel)
         except Exception:
             found = None
-        if found and len(found.get_text(" ", strip=True)) > 1500:
+        if found and len(found.get_text(" ", strip=True)) > min_chars:
             node, used = found, sel
             break
     if node is None:  # 밀도 fallback: 텍스트 가장 긴 div/section
@@ -684,6 +686,9 @@ def html_container_text(raw_html: str, publisher: str) -> tuple[str, str]:
         ident = " ".join([el.get("id") or "", " ".join(el.get("class") or [])])
         if FURNITURE_CLASS_RE.search(ident) and len(el.get_text(" ", strip=True)) < 4000:
             el.decompose()
+    if publisher == "web_text":   # 출판사 페이지는 그대로 둔다(안쪽 article 이 추천 카드일 수 있다)
+        for inner in node.find_all("article"):
+            inner.name = "section"   # strip_html_text 는 첫 </article> 에서 끊는다 — 안쪽 article(그림 상자 등)이 본문을 자르지 않게
     text = strip_html_text(str(node))
     return text, used
 
@@ -728,7 +733,7 @@ def choose_text(html_text: str, pdf_txt: str, xml_text: str, paper: Paper) -> tu
 
 @dataclass
 class Outcome:
-    status: str = "failed"           # full | abstract_only | human_required | pdf_missing | failed  (registry 에는 resolved / out_of_scope 도 있음)
+    status: str = "failed"           # full | web_text | abstract_only | human_required | pdf_missing | failed  (registry 에는 resolved / out_of_scope 도 있음)
     method: str = ""
     text_source: str = ""
     chars: int = 0
@@ -759,7 +764,10 @@ def write_paper(ctx: Ctx, row: dict, out: Outcome) -> Outcome:
     html_text, container = "", ""
     if out.html_raw:
         (d / "html" / f"{pid}.html").write_text(out.html_raw, encoding="utf-8", errors="ignore")
-        html_text, container = html_container_text(out.html_raw, row["publisher"])
+        if out.method == "web_text":
+            html_text, container = html_container_text(out.html_raw, "web_text", min_chars=0)
+        else:
+            html_text, container = html_container_text(out.html_raw, row["publisher"])
     xml_text = ""
     if out.xml_raw:
         (d / "xml" / f"{pid}.xml").write_bytes(out.xml_raw)
@@ -774,7 +782,7 @@ def write_paper(ctx: Ctx, row: dict, out: Outcome) -> Outcome:
           "authors": row["authors"], "corresponding": row["corresponding"], "abstract": row["abstract"], "publisher": row["publisher"],
           "collection_method": out.method, "text_source": source, "text_note": tnote, "html_container": container,
           "pdf_pages": n_pages, "pdf_path": str(d / "pdf" / f"{pid}.pdf") if out.pdf_bytes else "", "source_url": out.page_url,
-          "collected_at": utc_now(), "access_status": "fulltext"}
+          "collected_at": utc_now(), "access_status": "web_text" if out.method == "web_text" else "fulltext"}
     fm = source_frontmatter(paper, {"title": row["title"], "journal": row["journal"], "authors": [a.strip() for a in row["authors"].split(";") if a.strip()],
                                     "abstract": row["abstract"], "year": row["year"]}, source, len(text), out.method)
     md = fm + f"- 수집 URL: {out.page_url}\n- 텍스트 소스: {source} ({tnote})\n- PDF: {'저장 (' + str(out.pdf_bytes // 1024) + ' KB)' if out.pdf_bytes else '없음'}\n\n## Full Text\n\n{text}\n"
@@ -786,13 +794,18 @@ def write_paper(ctx: Ctx, row: dict, out: Outcome) -> Outcome:
     v = validate_collected_paper(pid, d, row["doi"], row["publisher"])
     issues = [i for i in v["issues"] if not (i.startswith("elsevier_1page") and n_pages > 3)]
     out.chars, out.text_source = len(text), source
-    if issues and not out.pdf_bytes:
+    if out.method == "web_text":
+        # PDF 가 없는 웹 전용 글 — 사용자 Chrome 에서 본문·참고문헌만 추려 저장한 것 (2026-09-27 사용자 지시). 짧은 글이 많아 검증 경고는 적어만 둔다
+        out.status = "web_text"
+        if issues:
+            out.note = (out.note + " warn: " + "; ".join(issues)).strip()
+    elif issues and not out.pdf_bytes:
         out.status, out.note = "failed", (out.note + " validate: " + "; ".join(issues)).strip()
     elif issues:
         out.status, out.note = "full", (out.note + " warn: " + "; ".join(issues)).strip()
     else:
         out.status = "full"
-    if out.status == "full" and not out.pdf_bytes:
+    if out.status == "full" and not out.pdf_bytes and out.method != "web_text":
         out.status, out.note = "pdf_missing", (out.note + " PDF 미확보(텍스트만 저장) → 재시도 대상").strip()   # PDF 필수 정책
     with open(d / "source_origin.txt", "a", encoding="utf-8") as f:
         f.write(f"{utc_now()} sci_collect method={out.method} text={source} chars={len(text)} pdf={out.pdf_bytes} status={out.status} note={out.note[:200]}\n")
@@ -1352,7 +1365,7 @@ def apply_outcome(ctx: Ctx, row: dict, out: Outcome, phase: str) -> None:
     log_row(ctx, {"at": utc_now(), "paper_id": row["paper_id"], "doi": row["doi"], "publisher": row["publisher"], "phase": phase,
                   "status": out.status, "method": out.method, "text_source": out.text_source, "chars": out.chars,
                   "pdf_bytes": out.pdf_bytes, "si_files": out.si_files, "note": out.note[:300]})
-    mark = {"full": "OK ", "abstract_only": "ABS", "human_required": "USR", "failed": "FAIL", "pdf_missing": "NOPDF"}.get(out.status, "?")
+    mark = {"full": "OK ", "abstract_only": "ABS", "human_required": "USR", "failed": "FAIL", "pdf_missing": "NOPDF", "web_text": "WEB"}.get(out.status, "?")
     say(f"[{row['publisher']:8s}] {mark} {row['paper_id'][:44]:44s} {out.method:36s} text={out.text_source or '-'} {out.chars:>7d}ch pdf={out.pdf_bytes // 1024:>6d}KB si={out.si_files} {out.note[:120]}")
     save_registry(ctx)
 
@@ -1674,7 +1687,7 @@ def ingest_manual_pdfs(ctx: Ctx) -> int:
 def cmd_reextract(args) -> None:
     """저장된 원본(pdf/html/xml)만으로 source.md·source.json 을 다시 만든다. 추출 규칙을 고친 뒤 기존 수집분에 적용할 때 쓴다 (요청 없음)."""
     ctx = make_ctx(args)
-    rows = select_rows(ctx, args, {"full", "pdf_missing"})
+    rows = select_rows(ctx, args, {"full", "pdf_missing", "web_text"})
     n = 0
     for row in rows:
         pid = row["paper_id"]
@@ -1783,6 +1796,7 @@ def report_block(ctx: Ctx) -> None:
     """collect·intake·status 뒤: 상태별 편수(출판사별), SI 수, 실패 사유, 색인·한 줄 요약 안내, 머리표. SKILL.md 5.9 보고는 이 블록을 옮겨 적는다."""
     rows = [r for r in ctx.registry.values() if r.get("status") != "out_of_scope"]
     full = [r for r in rows if r.get("status") == "full"]
+    webtext = [r for r in rows if r.get("status") == "web_text"]
     absonly = [r for r in rows if r.get("status") == "abstract_only"]
     web = [r for r in rows if r.get("status") in ("human_required", "pdf_missing")]
     failed = [r for r in rows if r.get("status") == "failed"]
@@ -1795,12 +1809,14 @@ def report_block(ctx: Ctx) -> None:
         n_si_files += k
     say("=== 보고용 요약 (에이전트용 — 이 숫자를 그대로 보고에 옮긴다) ===")
     say(f"  전문 {len(full)}편: {pub_counts(full)}  (SI 있는 논문 {n_si_papers}편, SI 파일 {n_si_files}개)")
+    if webtext:
+        say(f"  웹 본문만 {len(webtext)}편 (PDF 없는 웹 전용 글, 본문·참고문헌 저장): {pub_counts(webtext)}")
     say(f"  초록만 {len(absonly)}편: {pub_counts(absonly)}")
     say(f"  Chrome 에서 받을 논문 {len(web)}편: {pub_counts(web)}" + (f"  (목록 {ctx.work / 'manual_download.csv'})" if web else ""))
     if todo:
         say(f"  아직 시도 안 함 {len(todo)}편: {pub_counts(todo)}  → collect")
     say(f"  실패 {len(failed)}편" + (": " + "; ".join(f"{r['paper_id']} — {(r.get('note') or '')[:60]}" for r in failed[:8]) if failed else ""))
-    n = len(full) + len(absonly)
+    n = len(full) + len(webtext) + len(absonly)
     # 2026-09-27 사용자 결정: 색인(서지정보·검수)은 편수와 관계없이 항상 바로(몇 초, LLM 없음), 한국어 한 줄 요약은 물어서 원할 때만
     if web or todo:
         say("  색인: 받을 논문이 남아 있음 → 다 받은 뒤(intake) sci_index.py build")
@@ -1964,7 +1980,7 @@ def update_manual_csv(ctx: Ctx, new_rows: list[dict]) -> Path:
             rows[r["save_to"]] = r
         # 이미 받아 정리한 행은 뺀다 (2026-09-26 중단·재개 시험): 저장 자리에 파일이 있거나, 본문 행인데 그 논문이 이미 전문이면 목록에서 제외.
         # 범위 밖·초록만으로 정한 논문은 SI 행까지 모두 뺀다 (2026-09-27: 초록만으로 표시한 논문이 목록에 남아 있었다)
-        full = {r["paper_id"] for r in ctx.registry.values() if r.get("status") == "full"}
+        full = {r["paper_id"] for r in ctx.registry.values() if r.get("status") in ("full", "web_text")}
         closed = {r["paper_id"] for r in ctx.registry.values() if r.get("status") in ("out_of_scope", "abstract_only")}
         def saved(r: dict) -> bool:
             # 저장 자리와 이름(확장자 빼고)이 같은 파일이 있으면 받은 것 — SI 가 예상과 다른 형식으로 왔거나 확장자를 잘못 짐작한 행
@@ -2036,7 +2052,9 @@ SI_NAME_RE = re.compile(r"(mmc\d+|_suppl|_si_\d+|-sup-\d+|suppmat|suppdata|supp\
 # IEEE SI 는 논문 제목 이름으로 저장되고(본문에 " (1)" 이 붙음) 첫 줄이 "Supplementary File" 이다 (2026-09-27 본문 후보 2개로 멈춤)
 SI_TEXT_PHRASES = ("supportinginformation", "supplementarymaterial", "supplementaryinformation", "electronicsupplementary", "supplementarydata",
                    "thepdffileincludes", "siappendix", "supplementarynote", "supplementaryfile", "supplementalmaterial", "supplementalinformation")
-INTAKE_EXTS = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".csv", ".zip", ".cif", ".txt", ".pptx", ".mp4", ".mov", ".avi"}
+INTAKE_EXTS = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".csv", ".zip", ".cif", ".txt", ".pptx", ".mp4", ".mov", ".avi", ".html"}
+# web_find.js 의 sciretrSaveText 가 저장하는 웹 본문 파일: <paper_id>.sciretr.html (같은 이름이 있으면 Chrome 이 ' (1)' 을 붙인다)
+WEBTEXT_RE = re.compile(r"^(.+?)\.sciretr(?: \(\d+\))?\.html$", re.I)
 
 
 def _alnum(s: str) -> str:
@@ -2200,19 +2218,53 @@ def cmd_intake(args) -> None:
     skip = si_skip_set(ctx)
     skipped = [p for p in files if p.suffix.lower().lstrip(".") in skip]
     files = [p for p in files if p not in skipped]
-    say(f"다운로드 폴더 {ddir} ({how}) — 최근 {args.hours}시간 안의 파일 {len(files)}개 확인{' (미리보기, 옮기지 않음)' if args.dry_run else ''}")
+    say(f"다운로드 폴더 {ddir} ({how}) — 최근 {args.hours}시간 안의 파일 {len([p for p in files if p.suffix.lower() != '.html' or WEBTEXT_RE.match(p.name)])}개 확인{' (미리보기, 옮기지 않음)' if args.dry_run else ''}")
     if skipped:
         say(f"  받지 않는 SI 형식(동영상, 결정 구조, 압축, 스프레드시트 등) {len(skipped)}개는 옮기지 않고 그대로 둠: " + ", ".join(p.name for p in skipped[:5]))
     moved_main, results = 0, []
     planned: dict[str, list[tuple[str, str]]] = {}   # 이번 실행에서 정한 SI (이름, sha1) — 미리보기에서도 실제와 같은 이름·중복 판정 (2026-09-27)
+    by_id = {r["paper_id"]: r for r in ctx.registry.values()}
+    webtexts = [f for f in files if WEBTEXT_RE.match(f.name)]
+    files = [f for f in files if f not in webtexts and f.suffix.lower() != ".html"]   # 다른 html 은 논문 파일이 아니다
+    for f in webtexts:   # 웹 전용 글의 본문 (PDF 없음) → source.md, 원문상태 web_text (2026-09-27 사용자 지시)
+        pid = WEBTEXT_RE.match(f.name).group(1)
+        row = by_id.get(pid)
+        if not row:
+            action = "목록에 없는 paper_id — 그대로 둠"
+        elif row.get("status") == "full":
+            action = "이미 전문(PDF) — 그대로 둠"
+        else:
+            dst = paper_dir(ctx, pid) / "html" / f"{pid}.html"
+            action = f"웹 본문 → html/{dst.name}, source.md (원문상태: 전문(웹 본문, PDF 없음))"
+            if not args.dry_run:
+                raw = f.read_text(encoding="utf-8", errors="replace")
+                shutil.move(str(f), str(dst))
+                res = write_paper(ctx, row, Outcome(method="web_text", html_raw=raw, page_url=row.get("landing_url") or f"https://doi.org/{row['doi']}"))
+                apply_outcome(ctx, row, res, "intake")
+        say(f"  {f.name[:60]:60s} | {pid[:32]:32s} | web  | 웹 본문 파일                             | {action}")
+        results.append((f.name, {"status": "matched" if row else "unmatched", "paper_id": pid, "slot": "web", "reason": "웹 본문 파일"}, action))
     matches = [(f, match_download(ctx, f)) for f in files]
     main_cands: dict[str, int] = {}
+    dup_main: dict[str, str] = {}   # 같은 본문이 두 번 받아진 파일 → 옮기지 않음 (값: 대신 옮길 파일 이름)
+    by_pid: dict[str, list[Path]] = {}
     for f, m in matches:
         if m["status"] == "matched" and m["slot"] == "main":
-            main_cands[m["paper_id"]] = main_cands.get(m["paper_id"], 0) + 1
+            by_pid.setdefault(m["paper_id"], []).append(f)
+    for pid, fs in by_pid.items():
+        if len(fs) > 1:
+            # 한 논문의 본문 후보가 여럿이어도 글자(숫자 뺌: 받은 시각·IP 가 찍힌 줄)가 같으면 같은 본문이다 (2026-09-27 IOP 확인 창 통과 뒤 같은 PDF 두 번)
+            import hashlib
+            sigs = {hashlib.sha1(re.sub(r"[^a-z]", "", (_pdf_texts(f)[2] or f.name).lower()).encode()).hexdigest() for f in fs}
+            if len(sigs) == 1:
+                for f in fs[1:]:
+                    dup_main[str(f)] = fs[0].name
+                fs = fs[:1]
+        main_cands[pid] = len(fs)
     for f, m in matches:
         action = "그대로 둠"
-        if m["status"] == "matched":
+        if str(f) in dup_main:
+            action = f"같은 본문 중복 — 그대로 둠 ({dup_main[str(f)][:30]} 를 옮김)"
+        elif m["status"] == "matched":
             pid, row = m["paper_id"], m["row"]
             pdir = paper_dir(ctx, pid) / "pdf"
             if m["slot"] == "main":

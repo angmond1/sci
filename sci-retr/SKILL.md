@@ -225,11 +225,12 @@ python scripts/sci_collect.py assist --kb-root <root>
    - 확인 창이 계속 다시 뜨면 반복해서 누르지 않고 그 사이트는 멈춘다.
    - 창이 최소화되면(`web_find.js` 결과 `min: 1`, 스크립트로 본 outerWidth 0) 스크린샷이 되더라도 클릭이 페이지에 닿지 않는다(2026-09-27). 사용자에게 창을 앞으로 가져와 달라고 하고, 그동안은 스크립트로 읽은 파일 경로(쿼리 없는 것)를 navigate 로 열어 받는다. navigate 로 연 뒤에는 다운로드 폴더에 파일이 보인 뒤에 탭을 옮긴다.
    - SI 는 문서(PDF, Word)만 받는다. 동영상·음성, 결정 구조 파일(CIF 등), 압축 파일(zip 등), 스프레드시트(Excel, CSV 등)는 받지 않는다(2026-09-25 사용자 지시). 결정 구조와 대형 스프레드시트 데이터는 대개 zip 이나 Excel 로 온다. 링크 글자나 파일 이름으로 형식을 보고 누른다. 도구의 자동 경로도 설정 `si_skip_exts` 로 같은 형식을 거른다. Silverchair 사이트(AIP·ACS·RSC·Oxford)는 형식이 주소의 `/article-supplement/{번호}/{형식}/` 칸에 있다. `web_find.js` 가 pdf·docx·doc 가 아닌 것을 빼고 형식 칸을 보여 준다(2026-09-27 AIP zip 을 경로 끝만 보고 받음).
-   - 6절 표의 버튼으로 본문 PDF 와 SI 를 받는다. 누를 때는 한 호출에 `sciretrFocus(N, x, y)`(x, y 는 `web_find.js` 가 준 좌표)와 그 좌표 클릭을 넣는다. 예상 자리에 그 요소가 없으면 sciretrFocus 가 클릭을 막고(guard 1) 실제 좌표를 돌려주므로 그 좌표로 다시 누른다. 화면 가운데를 가정하거나 스크린샷을 보고 좌표를 정하지 않는다(2026-09-27 세 번 빗나감, 요령 문서 2.2). 페이지 배치가 바뀌어 클릭이 추천 논문 링크에 떨어진 적도 있다.
+   - 6절 표의 버튼으로 본문 PDF 와 SI 를 받는다. 누를 때는 한 호출에 `await sciretrFocus(N, x, y)`(x, y 는 `web_find.js` 가 준 좌표, async 라 await 를 붙인다)와 그 좌표 클릭을 넣는다. sciretrFocus 는 요소 자리가 멈출 때까지 1초 간격으로 기다린 뒤(최대 3초) 좌표를 정한다. 예상 자리에 그 요소가 없으면 sciretrFocus 가 클릭을 막고(guard 1) 실제 좌표를 돌려주므로 그 좌표로 다시 누른다. 화면 가운데를 가정하거나 스크린샷을 보고 좌표를 정하지 않는다(2026-09-27 세 번 빗나감, 요령 문서 2.2). 페이지 배치가 바뀌어 클릭이 추천 논문 링크에 떨어진 적도 있다.
    - 쿠키 동의 창은 누르지 않는다(사용자 결정). 쿠키 창이 페이지 클릭을 막으면 스크립트로 읽은 PDF·SI 링크 주소로 탭을 옮겨 받고, 그래도 안 되면 사용자에게 버튼을 직접 눌러 달라고 한다(요령 문서 2.2·3.14). 뉴스레터·추천 논문 안내 창은 닫기(X)만 누른다. 다른 논문을 여러 편 받는 버튼("Download (6) PDFs" 등)은 누르지 않는다.
    - PDF 를 받으며 열린 보조 탭(확인 단계 탭 등)은 닫는다.
 4. **정리**: 받은 뒤 `intake` 로 다운로드 폴더의 파일을 논문 폴더로 옮기고 반영한다(5.6.1). 출력에서 가리지 못한 파일이 있으면 무엇인지 확인한다. '여러 논문에 해당' 으로 남은 파일은 대개 같은 논문의 두 DOI 다. resolve 가 Angewandte 독일어판(ange)·국제판(anie) 쌍은 독일어판을 범위 밖으로 두고, 그 밖의 같은 제목은 알려 준다. 이미 받았다면 받은 탭을 알고 있으니 `papers/{id}/pdf/{id}.pdf`, `{id}_SI.pdf` 로 옮긴 뒤 status 를 돌린다.
    - 페이지가 구독 밖이면(Access through your institution, Purchase, Get access, 초록만 보임) 받지 말고 `mark --ids <paper_id> --status abstract_only --note "웹 확인: 구독 밖"` 으로 초록만 저장한다(웹 목록에서도 빠진다). 게재 전(accepted) 페이지는 `--note "웹 확인: 게재 전"` 으로 두고 게재 뒤 다시 받는다. status 가 이 사유를 함께 보인다.
+   - PDF 가 없는 웹 전용 글(Science Expert Voices 처럼 PDF 아이콘이 없고 본문이 웹에만 있는 글)은 초록만으로 두지 않고 웹 본문을 저장한다(2026-09-27 사용자 지시). `web_find.js` 를 돌린 같은 탭에서 `sciretrArticleStats()` 로 글자 수·문단 수·참고문헌 수·남은 소제목(heads)을 보고, 소제목에 관련·추천 논문, 뉴스, 지표 같은 것이 없으면 `sciretrSaveText('<paper_id>')` 로 `<paper_id>.sciretr.html` 을 내려받는다. 본문과 참고문헌만 담기고 관련·추천 논문, 지표·인용 수, 광고, 공유, 뉴스레터, 메뉴, 머리말·꼬리말은 빠진다. intake 가 이 파일로 source.md 를 만들고 원문상태를 '전문(웹 본문, PDF 없음)' 으로 둔다. 구독 밖이라 초록만 보이는 페이지에는 쓰지 않는다(글이 짧으면 ok false).
 5. **간격과 양**: 같은 출판사 안에서는 한 편씩 받고, 한 편이 끝나면 기다리지 않고 바로 다음 논문으로 간다. 출판사당 한 번에 수십 편 이내로 나눈다. 탭은 하나만 쓰고, 그 탭을 화면 앞에 둔 채 순서대로 받는다(2026-09-26 사용자 확정). 여러 탭이나 여러 창을 번갈아 쓰는 방식은 쓰지 않는다. 시험 결과 시간 이득이 18편에 1~3분에 그쳤고, 뒤쪽 탭에서는 클릭이 빗나가고 연결이 끊겼으며, 확장은 탭을 앞으로 가져오거나 창을 옮길 수 없다(references/web_download_playbook.md 4절).
 6. **마무리**: 작업이 끝나면 연 탭을 모두 닫는다.
 7. **중단 뒤 재개**: 탭이 닫혔거나 세션이 끊겼으면 `intake` → `status` → `assist` 순으로 돌린다. 받아 둔 파일이 정리되고 남은 논문만 목록에 남는다. 확장이 새로 만드는 Chrome 창은 뒤에 열리므로 사용자에게 앞으로 가져와 달라고 한 뒤 이어서 받는다(references/web_download_playbook.md 5절).
@@ -257,6 +258,8 @@ python scripts/sci_collect.py intake --kb-root <root>
 - SI 구분: 파일 이름 규칙(mmc, _suppl, _si_, -sup-, -sm, PNAS `.sapp` 등), 첫 쪽 맨 앞의 Supporting/Supplementary/Supplemental 문구(IEEE SI 는 논문 제목 이름으로 저장되고 첫 줄이 "Supplementary File" 이다), 첫 쪽이 SI 쪽 번호 "S1 " 로 시작하는 파일. ACS 본문 PDF 는 첫 쪽 중간에 "Supporting Information" 안내가 있어 맨 앞만 본다.
 - 이미 본문 PDF 가 있거나 같은 SI 가 있으면 옮기지 않는다. 가리지 못한 파일도 그대로 둔다. 파일을 지우지 않는다.
 - 한 논문에 본문 후보가 둘 이상이면(SI 가 본문처럼 보인 것) 옮기지 않고 "본문 후보 N개" 로 알린다. 미리보기(`--dry-run`)에도 같게 나온다. SI 쪽을 `papers/{id}/pdf/{id}_SI.pdf` 로 직접 옮긴 뒤 다시 intake 한다(2026-09-27 PNAS `.sapp.pdf` 는 이제 SI 로 가린다).
+- 같은 본문 PDF 가 두 번 받아졌으면(확인 창을 통과한 뒤 같은 PDF 가 한 번 더 저장됨, 2026-09-27 IOP) 글자가 같은 것을 알아보고 하나만 옮긴다. 나머지는 '같은 본문 중복' 으로 그대로 둔다.
+- 웹 본문 파일(`<paper_id>.sciretr.html`, 5.5 의 웹 전용 글)은 이름의 paper_id 로 가려 `papers/{id}/html/{id}.html` 로 옮기고 source.md 를 만든다(원문상태 '전문(웹 본문, PDF 없음)'). 이미 본문 PDF 가 있는 논문이면 그대로 둔다. 그 밖의 .html 파일은 보지 않는다.
 - 목록의 어떤 논문과도 근거가 없는 파일은 사용자 개인 파일일 수 있어 이름을 출력하지 않는다.
 - 다운로드 폴더는 설정 `downloads_dir`, Chrome 설정의 다운로드 폴더, Windows 의 다운로드 폴더, `~/Downloads` 순으로 찾고 어느 근거인지 출력한다. 기본은 최근 24시간 안에 받은 파일만 본다(`--hours`). 다른 폴더는 `--downloads`. `--dry-run` 이면 옮기지 않고 판정만 보여 준다.
 - 판정 기록: `_collect/intake_log.csv`.
@@ -289,7 +292,7 @@ python scripts/sci_collect.py reextract --kb-root <root>
 
 사용자에게 다음만 말한다. 숫자는 `=== 보고용 요약 ===` 블록의 것을 그대로 쓴다(다시 세지 않는다).
 
-- 총 편수와 상태별 편수: 전문 / 초록만(미구독 출판사 이름) / 웹 경로로 받을 논문(출판사별) / 범위 밖
+- 총 편수와 상태별 편수: 전문 / 웹 본문만(PDF 없는 웹 전용 글, 있을 때) / 초록만(미구독 출판사 이름) / 웹 경로로 받을 논문(출판사별) / 범위 밖
 - 다음 행동: 웹 경로로 받을 파일 목록과 자리 요청, 색인 질문 또는 생략 안내(5.7)
 - 실패가 있으면 논문과 이유 한 줄씩
 
@@ -351,7 +354,7 @@ python scripts/sci_collect.py refs --kb-root <root> --source <PDF 경로 | 링�
 | ACS | 10.1021 | 없음, 바로 웹 경로 | "Open PDF". SI 는 Supporting Information 절의 "sifile1" 류 링크 | 30~60초 (한 편 처리 시간, 따로 기다리지 않음) | 확인 창이 한 번 뜰 수 있음. SI 미리보기 창의 Download 버튼 말고 링크를 씀. 토큰 제도 없음 |
 | RSC | 10.1039 | 없음, 바로 웹 경로 | 툴바 "PDF". SI 는 "Supplementary information (PDF)" | 30~60초 (한 편 처리 시간, 따로 기다리지 않음) | 2026-06-30 새 플랫폼. 로그인 확인 페이지를 잠깐 거친 뒤 자동으로 열림 |
 | ECS/IOP | 10.1149 | 없음, 바로 웹 경로 | "PDF" 버튼. SI 는 "Supplementary data" 버튼 → 목록 페이지의 파일 링크(있을 때) | 30~60초 (한 편 처리 시간, 따로 기다리지 않음) | 쿠키 동의 창은 누르지 않음. 출판사 텍스트 마이닝 정책 페이지가 있음 |
-| Science | 10.1126 | 없음, 바로 웹 경로 | 제목 아래 오른쪽 빨간 PDF 아이콘 → 열린 온라인 보기의 오른쪽 위 둥근 다운로드 아이콘. 또는 도구 막대 눈 아이콘 "View Options" → "DOWNLOAD PDF". SI 는 Supplementary Material 의 "DOWNLOAD" | 30~60초 (한 편 처리 시간, 따로 기다리지 않음) | 아래쪽 뉴스레터 안내는 닫기 |
+| Science | 10.1126 | 없음, 바로 웹 경로 | 제목 아래 오른쪽 빨간 PDF 아이콘 → 열린 온라인 보기의 오른쪽 위 둥근 다운로드 아이콘. 또는 도구 막대 눈 아이콘 "View Options" → "DOWNLOAD PDF". SI 는 Supplementary Material 의 "DOWNLOAD" | 30~60초 (한 편 처리 시간, 따로 기다리지 않음) | 아래쪽 뉴스레터 안내는 닫기. PDF 가 없는 웹 전용 글(Expert Voices 등)은 5.5 의 웹 본문 저장 |
 | Springer | 10.1007, 10.1023 | 직접 PDF + HTML + SI | 자동 실패한 논문만 | 2초 | |
 | Nature | 10.1038 | 논문 페이지 + PDF + SI | 자동 실패한 논문만 | 15초 | 갓 나온 논문은 페이지에 초록만 있고 PDF 주소가 HTML 로 응답해 실패로 남는다(2026-09-26). 며칠 뒤 `collect --ids <id> --force` |
 | MDPI | 10.3390 | 직접 PDF + HTML + SI | 자동 실패한 논문만: "Download ▾" → "Download PDF"("with Cover" 아님, playbook 3.13) | 2초 | 모두 OA. 자동 요청을 막는 날이 있다(2026-09-27 첫 요청 403 → 도구가 나머지를 요청 없이 웹 경로로). 사용자 Chrome 에서는 바로 열린다 |
@@ -373,7 +376,7 @@ python scripts/sci_collect.py refs --kb-root <root> --source <PDF 경로 | 링�
   papers/{paper_id}/
     pdf/{paper_id}.pdf           본문 PDF (필수)
     pdf/{paper_id}_SI.pdf        SI. 여러 개면 _SI_2, _SI_3 … (받은 형식 그대로, 변환 없음. 확장자는 받은 파일 형식)
-    html/{paper_id}.html         원본 HTML (있을 때)
+    html/{paper_id}.html         원본 HTML (있을 때. 웹 전용 글은 본문·참고문헌만 추린 HTML)
     xml/{paper_id}.xml           Elsevier XML (있을 때)
     source.md                    본문 텍스트 (머리에 메타, "## Full Text" 아래 본문)
     source.json                  메타 + 수집 방법 + 텍스트 출처
@@ -397,6 +400,7 @@ python scripts/sci_collect.py refs --kb-root <root> --source <PDF 경로 | 링�
 |---|---|---|
 | resolved | 메타만 있음 | collect |
 | full | 본문 PDF + 텍스트 | 색인 |
+| web_text | PDF 없는 웹 전용 글, 웹 본문·참고문헌 텍스트만 (2026-09-27) | 색인 |
 | abstract_only | 미구독, 초록만 | 없음 (사용자에게 알림) |
 | human_required | 웹 경로 대상 | 5.5 웹 경로 → intake |
 | pdf_missing | 텍스트는 있으나 PDF 없음 | 5.5 웹 경로 → intake |
