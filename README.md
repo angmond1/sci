@@ -16,7 +16,7 @@ LLM이 다루기 쉬운 markdown 파일로 자동 변환 및 색인화
 
 | skill | 용도 | 기능 | 권장모델 |
 |-------|------|------|:--------:|
-| **sci-retr** | 수집, 변환 | 본문·SI PDF 다운로드, 본문 text를 md 파일로 변환 | Sol / Opus |
+| **sci-retr** | 수집, 변환 | 본문·SI PDF 다운로드, 본문 text를 md 파일로 변환 | Sol High / Opus |
 | **sci-index** | 색인 | 서지 정보(제목 저널 저자 연도 키워드 초록 등)를 csv 파일로 정리 | Luna / Sonnet |
 | **sci-tldr** | 한줄요약 (선택사항) | 한국어 한 줄 요약 생성, csv에 추가 | Luna / Sonnet |
 
@@ -75,8 +75,6 @@ https://github.com/angmond1/sci 설치해줘
 
 ## 출판사별 수집 방법
 
-⚠️ 웹 다운로드 수집시 claude code는 Captha 클릭 불가능, 사용자가 대신 눌러줘야 함.
-
 | 출판사 | 조건 | 수집 방법 | 간격 |
 |---|---|---|---|
 | Wiley | 개인 TDM 토큰 있음<br>[TDM 토큰 발급 페이지](https://onlinelibrary.wiley.com/library-info/resources/text-and-datamining) | 파이썬 API | 5초 |
@@ -86,8 +84,11 @@ https://github.com/angmond1/sci 설치해줘
 | Springer, Nature, MDPI, Frontiers, PLOS, Beilstein, Copernicus, APS, Cambridge | - | 파이썬 | 2-15초 |
 | ACS, RSC, IOP, Science, Taylor & Francis, PNAS, AIP, Oxford, IEEE, ChemRxiv | - | 웹 다운로드 | 30-60초 |
 
-KIST 미구독 출판사는 초록만 저장.<br>
-Elsevier 기관 API key, Wiley 기관 TDM 토큰, ACS API key는 발급 거절당함 (26.04).
+⚠️ 웹 다운로드 수집시 claude code는 Captha 클릭 불가능, 사용자가 대신 눌러줘야 합니다.<br>
+⚠️ 최초 1-2회는 과정을 지켜봐주면서 실수를 알려주길 권장합니다.<br>
+⚠️ 토큰·API 키를 채팅창에 입력하면 타인에게 노출될 수 있습니다.<br>
+KIST 미구독 출판사는 초록만 저장합니다.<br>
+Elsevier 기관 API key, Wiley 기관 TDM 토큰, ACS API key는 발급 거절당함 ('26.02).
 
 <br>
 

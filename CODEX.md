@@ -18,7 +18,7 @@
 
 배포 저장소는 `angmond1/sci` 다. 기존 로컬 폴더 `D:\repo\sci-retr` 는 그대로 쓴다.
 
-- README 의 권장모델은 Codex / Claude 순서로 `sci-retr` Sol / Opus, `sci-index`·`sci-tldr` Luna / Sonnet 이다. 권장값이며 현재 세션 모델을 자동으로 바꾸지는 않는다. 2026-09-27 웹 경로 검증은 Sol Medium으로 수행했다. 하위 에이전트도 별도 지정이 없으면 세션 기본값을 따른다.
+- README 의 권장모델은 Codex / Claude 순서로 `sci-retr` Sol High / Opus, `sci-index`·`sci-tldr` Luna / Sonnet 이다. sci-retr의 Codex 권장 effort는 **High**다. 권장값이며 현재 세션 모델을 자동으로 바꾸지는 않는다. 2026-09-27 웹 경로 검증은 Sol Medium으로 수행했다. 하위 에이전트도 별도 지정이 없으면 세션 기본값을 따른다.
 - 이 문서는 설치 스크립트가 복사하는 세 skill 폴더 밖에 있다. `CODEX.md` 라는 이름만으로 자동 로드된다고 가정하지 않는다. README 설치 절은 Codex 에 이 문서를 읽도록 안내한다. 설치 완료 때도 절대경로를 남기고 새 대화에서 먼저 읽도록 한다.
 - 예시 요청: “`<패키지 폴더>/CODEX.md` 를 먼저 읽고, sci-retr 로 이 목록의 논문을 `<논문 폴더>` 에 수집해줘.” 이후 공용 skill 을 읽어 실행한다.
 
