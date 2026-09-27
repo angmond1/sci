@@ -16,21 +16,23 @@ LLM이 다루기 쉬운 markdown 파일로 자동 변환 및 색인화
 
 | skill | 용도 | 기능 | 권장모델 |
 |-------|------|------|:--------:|
-| **sci-retr** | 수집, 변환 | 본문·SI PDF 다운로드, 본문 text를 md 파일로 변환 | Opus / Sol |
-| **sci-index** | 색인 | 서지 정보(제목 저널 저자 연도 키워드 초록 등)를 csv 파일로 정리 | Sonnet / Luna |
-| **sci-tldr** | 한줄요약 (선택사항) | 한국어 한 줄 요약 생성, csv에 추가 | Sonnet / Luna |
+| **sci-retr** | 수집, 변환 | 본문·SI PDF 다운로드, 본문 text를 md 파일로 변환 | Sol / Opus |
+| **sci-index** | 색인 | 서지 정보(제목 저널 저자 연도 키워드 초록 등)를 csv 파일로 정리 | Luna / Sonnet |
+| **sci-tldr** | 한줄요약 (선택사항) | 한국어 한 줄 요약 생성, csv에 추가 | Luna / Sonnet |
+
+⚠️ Claude code는 Captha 클릭 불가능, 사용자가 대신 눌러줘야 함.
 
 <br>
 
 ## 설치
 
-claude code (claude 데스크탑 앱에서 code), codex 대화창에
+codex, claude code (claude 데스크탑 앱에서 code) 대화창에
 
 ```
 https://github.com/angmond1/sci 설치해줘
 ```
 
-설치지침: claude는 CLAUDE.md, codex는 CODEX.md
+설치지침: codex는 CODEX.md, claude는 CLAUDE.md
 
 <br>
 
@@ -65,9 +67,11 @@ https://github.com/angmond1/sci 설치해줘
 
 ## 출판사별 수집 방법
 
+⚠️ 웹 다운로드 수집시 claude code는 Captha 클릭 불가능, 사용자가 대신 눌러줘야 함.
+
 | 출판사 | 조건 | 수집 방법 | 간격 |
 |---|---|---|---|
-| Wiley | TDM 토큰 있음<br>[TDM 토큰 발급 페이지](https://onlinelibrary.wiley.com/library-info/resources/text-and-datamining) | 파이썬 API | 5초 |
+| Wiley | 개인 TDM 토큰 있음<br>[TDM 토큰 발급 페이지](https://onlinelibrary.wiley.com/library-info/resources/text-and-datamining) | 파이썬 API | 5초 |
 | Wiley | TDM 토큰 없음 | 웹 다운로드 | 30-60초 |
 | Elsevier | API key 있음 + Open access 논문<br>[API key 발급 페이지](https://dev.elsevier.com/) | 파이썬 API | 3초 |
 | Elsevier | 유료 논문 또는 API key 없음 | 웹 다운로드 | 30-60초 |
