@@ -63,12 +63,12 @@ https://github.com/angmond1/sci 설치해줘
 
 ## 사용법 예시
 
-* 논문 PDF 파일이나 웹 링크를 claude code, codex 대화창에 주면서,<br>
+* 논문 PDF 파일이나 웹 링크를 codex, claude code 대화창에 주면서,<br>
   "이 논문의 reference 논문들 모두 수집해줘. sci-retr 스킬 사용해."
 
 * Web of Science, Scopus에서 수집하고자 하는 논문 리스트를 파일로 저장하고,<br>
   ([Web of Science 검색](https://www.webofscience.com/wos/woscc/smart-search) · [Scopus 검색](https://www.scopus.com/pages/home#basic))<br>
-  claude code, codex 대화창에 리스트 파일을 주면서,<br>
+  codex, claude code 대화창에 리스트 파일을 주면서,<br>
   "sci-retr 스킬로 논문 수집해줘"
 
 <br>
