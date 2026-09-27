@@ -138,6 +138,9 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 - 본문: SI 로 내려간 뒤에는 상단 고정 막대의 "View PDF" 를 누른다. 바로 오른쪽 "Download full issue"(호 전체)는 누르지 않는다. SI 가 없으면 제목 아래 "View PDF"(`a.accessbar-utility-component`).
 - "View PDF" 글자는 태그가 나뉘어 있다. 글자로 찾을 때는 공백을 정리한 뒤 `/view\s*pdf/i` 로 찾고, 화면 위쪽(y 60 이하)에 보이는 것을 고른다.
 - 누르면 확인 단계 탭(`pdfft`)이 열리고 3~5초 안에 저장된다. 그 탭은 따로 닫는다.
+- SI 와 View PDF 는 한 호출에 넣지 않는다. SI 클릭이 guard 로 막히면 View PDF 가 먼저 눌려 추천 창이 SI 를 덮는다(2026-09-27 전체 흐름 시험). SI 저장을 확인한 뒤 View PDF 를 누른다.
+- View PDF 를 누른 뒤 탭 목록에 pdfft 탭이 없으면 추천 창을 X 로 닫고 View PDF 를 한 번 더 누른다(2026-09-27 1회).
+- Int. J. Electrochem. Sci.(10.20964, 지금은 Elsevier 가 펴냄)는 View PDF 가 늦게 나타나 `web_find.js` 가 20초 가까이 걸리기도 한다(2026-09-27).
 - View PDF 뒤 추천 논문 창이 페이지를 덮는다. X 만 누른다. 안의 "Download (N) PDFs" 는 다른 논문들이다. 창을 닫으면 배치가 바뀌므로 좌표를 다시 읽는다.
 - 파일: `1-s2.0-{PII}-main.pdf`, `1-s2.0-{PII}-mmc1.pdf` 또는 `.docx`, 동영상은 `-mmc2.mp4`. 리뷰 본문은 30 MB 를 넘기도 한다.
 - 링크 글자에 형식이 나온다("Download Acrobat PDF file", "Download Word document", "Download zip file", "Download video"). PDF 와 Word 만 누르고, zip·스프레드시트·동영상은 누르지 않는다.
@@ -159,11 +162,12 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 
 ### 3.3 ACS
 
-- 주소가 Silverchair 형 `pubs.acs.org/{저널코드}/article/…` 로 넘어간다(2026-09-27). 본문 속 'Figure S1'·'Table S1' 링크가 모두 SI 주소라 `web_find.js` 가 뺀다. SI 는 글자나 aria-label 에 'sifile' 이 든 링크다. 가운데로 스크롤하면 sifile1 과 Open PDF 가 같은 줄(y 가 같음)에 온다.
+- 주소가 Silverchair 형 `pubs.acs.org/{저널코드}/article/…` 로 넘어간다(2026-09-27). 본문 속 'Figure S1'·'Table S1' 링크가 모두 SI 주소라 `web_find.js` 가 뺀다. SI 는 글자나 aria-label 에 'sifile' 이 든 링크, 또는 'Supporting Information' 절 설명 끝의 '(PDF)' 글자나 설명 전체 링크다(경로 `/article-supplement/{번호}/pdf/{코드}_si_001/`, 2026-09-27 전체 흐름 시험 3편은 sifile 링크 없이 이 모양).
+- SI 링크는 가운데로 옮긴 뒤 1~3초 사이에 약 90 px 위로 밀린다(늦게 커지는 SI 미리보기 창). 이것 때문에 guard 0·hit true 인데도 두 번 빗나갔고, `sciretrFocus` 가 자리가 멈출 때까지 기다리게 바꿨다(2.4). SI 와 Open PDF 는 따로 누른다.
 
 - 주소 `https://pubs.acs.org/doi/{DOI}` 는 Silverchair 주소로 넘어간다. 4초 안에 뜬다. Cloudflare 확인 창은 2026-09-24 에 한 번 떴고, 09-25 6편에서는 없었다.
-- SI: 본문 속 "Figure S1", "Table S1" 링크도 SI 주소에 걸리므로 무시한다. 실제 파일은 aria-label "Download sifile1"(글자 "sifile1") 링크로, SI 미리보기 창 바로 아래에 있다. 미리보기 창이 늦게 커져 링크가 화면 밖으로 밀린다. 링크를 가운데로 스크롤하고 3초 뒤 한 번 더 스크롤한 다음 좌표를 읽는다. 미리보기 창의 Download 버튼은 쓰지 않는다.
-- 본문: 제목 아래 "Open PDF"(`a.article-pdf-button`). 가운데로 스크롤하면 자리가 일정해, SI 클릭과 같은 호출에서 이어서 누를 수 있다. 새 탭 없이 3~4초 안에 저장된다.
+- SI: 본문 속 "Figure S1", "Table S1" 링크도 SI 주소에 걸리므로 무시한다. 실제 파일은 aria-label "Download sifile1"(글자 "sifile1") 링크로, SI 미리보기 창 바로 아래에 있다. 미리보기 창이 늦게 커져 링크가 밀린다. `await sciretrFocus(N, x, y)` 가 자리가 멈출 때까지 기다린 뒤 좌표를 준다. 미리보기 창의 Download 버튼은 쓰지 않는다.
+- 본문: 제목 아래 "Open PDF"(`a.article-pdf-button`). SI 저장을 확인한 뒤 따로 누른다(2.2). 새 탭 없이 3~4초 안에 저장된다.
 - SI 링크 글자 끝에 형식이 붙는다(예: "sifile1- pdf file"). SI 가 여럿이면 pdf 만 받는다.
 - 파일: `{코드}.pdf`, `{코드}_si_001.pdf`.
 
@@ -171,7 +175,7 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 
 - SI 링크 칸이 본문 폭 전체라 칸 가운데는 글자 오른쪽 빈칸이다. `web_find.js`·`sciretrFocus` 는 글자 쪽(왼쪽 40px) 좌표를 준다. 툴바 PDF 는 네 편 모두 같은 자리였다(2026-09-27).
 
-- 주소는 `https://doi.org/{DOI}` 로 열면 `https://pubs.rsc.org/{저널}/article/{권}/{호}/{쪽}/{id}` 로 넘어간다. 조용한 SSO 확인 뒤 4초 안에 뜬다. 확인 창은 없다.
+- 주소는 `https://doi.org/{DOI}` 로 열면 `https://pubs.rsc.org/{저널}/article/{권}/{호}/{쪽}/{id}` 로 넘어간다. 조용한 SSO 확인 뒤 4초 안에 뜬다. 2026-09-27 전체 흐름 시험 첫 편에서는 Cloudflare 확인 창('Performing security verification', 탭 제목 'Just a moment...')이 떴다. 이 화면에서 `web_find.js` 는 20초 빈 결과, 스크린샷은 30초 시간 초과였다. 사용자가 한 번 눌러 준 뒤 이어진 2편에는 뜨지 않았다.
 - SI: "Supplementary data" 절의 "Supplementary information (PDF)"(`a[href*="/article-supplement/"]`). 새 탭 없이 저장된다. 링크가 페이지 끝 가까이에 있으면 가운데까지 스크롤되지 않으니, 가운데라고 가정하지 말고 좌표를 읽는다.
 - 본문: 툴바 "PDF"(`a.article-pdfLink`). 내려간 뒤에는 상단 고정 막대에 있고, SI 가 없어 스크롤하지 않았으면 제목 아래 원래 자리에 있다. 3~4초 안에 저장된다.
 - SI 목록에서 "Supplementary information (PDF)" 처럼 PDF·Word 인 것만 받는다. "Crystal structure data (CIF)", 스프레드시트, zip 은 받지 않는다. 주소의 형식 칸(`/article-supplement/{번호}/{형식}/`)으로도 알 수 있다.
@@ -182,7 +186,7 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 
 - 2026-09-27 연습(4편): SI 는 "Supplementary data" 버튼을 누르는 대신 탭을 `https://iopscience.iop.org/article/{DOI}/data` 로 옮긴다. 버튼은 그래픽 초록이 늦게 떠서 좌표를 읽은 뒤 약 290 px 밀렸다. /data 페이지의 파일 링크(IOP S3 서명 주소, `web_find.js` 가 허용)는 좌표로 누른다. SI 3편이 모두 Word(`jes{코드}supp1.docx`·`.doc`)였다.
 
-- 주소 `https://iopscience.iop.org/article/{DOI}`. 확인 창은 없다. 쿠키 동의 창은 누르지 않는다.
+- 주소 `https://iopscience.iop.org/article/{DOI}`. 쿠키 동의 창은 누르지 않는다. 2026-09-27 전체 흐름 시험에서 첫 PDF 클릭으로 열린 새 탭이 Radware 확인 창(탭 제목 'Radware Bot Manager Captcha')에 멈췄다. 확인 창은 클릭 뒤 탭 목록에 뜬 새 탭 제목으로 알아본다. 사용자가 통과시킨 뒤 같은 PDF 가 두 번 저장됐다(intake 가 같은 본문 중복으로 보고 하나만 옮긴다). 이후 2편은 확인 창 없이 3~4초에 저장됐다.
 - 본문 먼저: "PDF" 버튼(`a[href$="/pdf"]`, 새 탭). 내려간 뒤에는 오른쪽 위 고정 "PDF". 새 탭이 잠깐 열렸다 닫히며 3~4초 안에 저장된다.
 - SI 나중: 초록 아래 "Supplementary data" 버튼(`a[href$="/data"]`)을 누르면 SI 목록 페이지(`/article/{DOI}/data`)로 간다. 거기서 파일 링크("Supplemental Material" 등)를 누른다. PDF·Word 만 받고 README, zip, 스프레드시트는 받지 않는다.
 - "Supplementary data" 버튼 가장자리를 누르면 넘어가지 않는다. 가운데를 누르고 주소가 `/data` 로 바뀌었는지 본다.
@@ -192,12 +196,13 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 
 ### 3.6 Science
 
-- 2026-09-27 연습(4편): 온라인 보기가 "Loading publication (N MB)" 를 띄우는 동안 다운로드 아이콘("Download PDF • 크기", 오른쪽 위)은 반응하지 않는다. 누른 뒤 3초 안에 파일이 생기지 않으면 한 번 더 누른다. SI 를 받느라 내려간 뒤에는 상단 고정 막대의 빨간 아이콘을 SI 클릭과 같은 호출에서 누른다. SI 유무는 `a[href*=suppl_file]` 개수로 본다. Perspective 는 SI 가 없다.
+- 2026-09-27 연습(4편): 온라인 보기가 "Loading publication (N MB)" 를 띄우는 동안 다운로드 아이콘("Download PDF • 크기", 오른쪽 위)은 반응하지 않는다. 누른 뒤 3초 안에 파일이 생기지 않으면 한 번 더 누른다. SI 를 받느라 내려간 뒤에는 SI 저장을 확인하고 상단 고정 막대의 빨간 아이콘을 누른다(2.2, 한 호출에 클릭 두 개를 넣지 않는다). SI 유무는 `a[href*=suppl_file]` 개수로 본다. Perspective 는 SI 가 없다.
 
 - 주소 `https://www.science.org/doi/10.1126/science.{코드}`. 대개 확인 창 없이 뜨지만, 첫 접속에서 Cloudflare 의 "Just a moment…/Performing security verification" 화면에 20초 넘게 멈추기도 한다(2026-09-27). 그 화면에서는 스크린샷이 시간 초과로 실패하고 체크박스는 없었다. 15초쯤 기다렸다 새로고침하면 열린다. 오른쪽 "RECOMMENDED" 추천 창이나 아래쪽 뉴스레터 안내가 뜨지만 버튼을 가리지 않았다. 가리면 X 를 누른다.
 - SI 먼저: "Supplementary Materials" 절의 "DOWNLOAD"(`a[href*="suppl_file"]`, 크기 표시). 새 탭 없이 저장된다. PDF 만 받고, 동영상 묶음(Movies)과 데이터 파일(Data S1 등, zip·Excel)은 받지 않는다. "MDAR Reproducibility Checklist" PDF 는 보고 양식이라 받지 않는다. 링크 주소에 토큰이 들어 있어 스크립트 결과로 파일 이름을 통째로 받으면 가려지므로, 확장자와 `mdar` 여부만 받는다.
 - 본문: 빨간 PDF 아이콘(제목 아래 오른쪽, 내리면 상단 고정 막대)을 누르면 5초 안에 온라인 보기(`/doi/epdf/`)가 열린다(아이콘 링크는 `/doi/reader/` 이고 열리면 `/doi/epdf/` 로 넘어간다. 찾을 때 둘 다 본다). 오른쪽 위 둥근 청록색 다운로드 아이콘("Download PDF • 크기")을 누르면 2~3초 안에 저장된다. 대안은 도구 막대 "View Options" 의 "DOWNLOAD PDF".
-- SI "DOWNLOAD", 빨간 아이콘, 온라인 보기의 다운로드 아이콘은 한 호출에서 이어서 누를 수 있다. 빨간 아이콘 뒤 5초 기다리고, 다운로드 아이콘 자리를 확대 캡처로 남긴 뒤 누른다. 2차 시험 3편이 모두 40~45초였다.
+- 빨간 아이콘과 온라인 보기의 다운로드 아이콘은 한 호출에서 이어서 누를 수 있다(빨간 아이콘 뒤 5초, 다운로드 아이콘은 화면 기준 자리). SI "DOWNLOAD" 는 그 앞 호출에서 따로 누른다. 2차 시험 3편이 모두 40~45초였다.
+- Science Advances 에서 `web_find.js` 가 주는 `/doi/pdf/` "Download PDF" 는 2편 모두 다른 것에 가려져 있었다(hit false, guard 가 막음, 2026-09-27). 누르지 말고 빨간 아이콘으로 간다.
 - SI 가 현재판과 원본판(v1) 두 개로 보이면 현재판만 받는다.
 - 파일: `science.{코드}.pdf`. SI 는 `science.{코드}_sm.pdf`, `science.{코드}_sm.v2.pdf`, `{코드}-{저자}-sm.pdf`, `{코드}_fu_sm.pdf` 처럼 여러 가지다.
 - PDF 가 없는 웹 전용 글(2026-09-27 E2E, Science "Expert Voices"): 빨간 PDF 아이콘·View Options 의 DOWNLOAD PDF 가 없고 본문이 웹에만 있다. 초록만으로 두지 않고 웹 본문을 저장한다(사용자 지시). `web_find.js` 가 본문 후보 없이 끝나면 같은 탭에 `web_text.js` 를 넣어 heads(남은 소제목)에 RECOMMENDED·관련 글·뉴스·지표가 없는지 보고, `sciretrSaveText('<paper_id>')` 로 `<paper_id>.sciretr.html` 을 받는다. intake 가 source.md 로 만든다(2.5, SKILL 5.5).
@@ -210,6 +215,7 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 - 본문: 페이지 맨 아래 참고문헌 뒤의 작은 "Download PDF"(`a[href*="/doi/pdf/"]`, 글자 "Download PDF"). 가운데로 스크롤해 좌표를 읽고 누르면 새 탭 없이 바로 저장된다(8 MB 에 몇 초). 상단 고정 막대의 초록 "View PDF" 는 온라인 보기(`/doi/epdf/`)라 쓰지 않는다.
 - SI: "Supplemental material" 절의 `a[href*="/doi/suppl/"]` 링크(이번 논문에는 없었음).
 - 파일 이름은 논문 제목이다. intake 는 본문 DOI·제목으로 가린다.
+- 2026-09-27 전체 흐름 시험(3편, SI 없음): 맨 아래 "Download PDF" 를 `sciretrFocus` 와 클릭으로 바로 받았다(편당 약 1분). 누를 때 빈 탭('Untitled')이 잠깐 떴다가 저절로 닫힌다. 따로 닫지 않는다.
 
 ### 3.8 PNAS (2026-09-26, 1편)
 
@@ -219,10 +225,11 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 - SI 먼저: "Supporting Information" 절의 "DOWNLOAD"(`a[href*="/doi/suppl/"]`, 파일 `pnas.{번호}.sapp.pdf`). 가운데로 스크롤해 누르면 바로 저장된다. 데이터 파일(xlsx 등)은 받지 않는다.
 - 본문: 참고문헌 뒤 "Download PDF"(`a[href*="/doi/pdf/"]`, 글자 "Download PDF"). 누르면 같은 탭이 Cloudflare "Performing security verification… Verification successful" 화면을 거쳐 저장된다(약 15초). 그 화면이 남아 있어도 파일이 왔으면 다음 논문으로 간다. 제목 아래 빨간 PDF 아이콘은 온라인 보기(`/doi/epdf/`)라 쓰지 않는다.
 - 파일: `{저자}-et-al-{연도}-{제목 앞부분}.pdf`, `pnas.{번호}.sapp.pdf`.
+- 2026-09-27 전체 흐름 시험(3편): "DOWNLOAD PDF" 뒤 확인 화면 없이 5~15초에 저장됐다. SI 목록에 데이터(`.sd01.txt`)와 동영상(`.sm01.mpg`)이 같은 "DOWNLOAD" 글자로 나온다. `web_find.js` 가 이제 이 둘을 거른다. `.sapp.pdf` 만 누른다.
 
 ### 3.9 AIP (2026-09-26, 1편)
 
-- 2026-09-27 연습(4편): 본문 "PDF" 를 누르면 새 탭("Untitled")이 열렸다 저절로 닫히며 4~15초 뒤 저장된다(6 MB 에 11~15초). SI 는 본문 끝 "Supplementary Material" 절의 링크이고 형식이 주소의 형식 칸(`/article-supplement/{번호}/{형식}/`)에 있다. pdf·docx 일 때만 누른다(`web_find.js` 가 나머지를 뺀다. 경로 끝만 보고 zip 을 받은 적이 있다). 목차의 "SUPPLEMENTARY MATERIAL"(`#`)과 Views 메뉴의 "Supplementary Material"(`js`)은 SI 가 없는 논문에도 있어 SI 유무 판단에 쓰지 않는다. 4편 중 SI 는 1편(zip)뿐이었다.
+- 2026-09-27 연습(4편): 본문 "PDF" 를 누르면 새 탭("Untitled")이 열렸다 저절로 닫히며 4~15초 뒤 저장된다(6 MB 에 11~15초). SI 는 본문 끝 "Supplementary Material" 절의 링크이고 형식이 주소의 형식 칸(`/article-supplement/{번호}/{형식}/`)에 있다. pdf·docx 일 때만 누른다(`web_find.js` 가 나머지를 뺀다. 경로 끝만 보고 zip 을 받은 적이 있다). 목차의 "SUPPLEMENTARY MATERIAL"(`#`)과 Views 메뉴의 "Supplementary Material"(`js`)은 SI 가 없는 논문에도 있어 SI 유무 판단에 쓰지 않는다. 4편 중 SI 는 1편(zip)뿐이었다. `sih` 가 1 인데 s 에 파일 링크가 없으면 SI 가 받지 않는 형식(zip 등)이라 거른 것이다(2026-09-27 전체 흐름 시험 1편).
 
 - 주소는 `https://doi.org/{DOI}` 로 열면 `pubs.aip.org/aip/{저널}/article/…` 로 넘어간다(RSC 와 같은 Silverchair). 확인 창 없이 뜬다. 쿠키 동의 창은 누르지 않는다. 아래쪽 버튼을 가리면 가운데로 스크롤한다.
 - 본문: 제목 아래 도구 막대의 "PDF"(`a.article-pdfLink`, 새 탭). 가운데로 스크롤해 누르면 새 탭이 잠깐 열렸다 닫히며 저장된다(3~4초).
@@ -235,12 +242,13 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 
 - 주소는 `https://doi.org/{DOI}` 로 연다(`academic.oup.com/{저널}/article/…`, Silverchair). 논문 주소를 직접 치면 저널 첫 화면으로 갈 때가 있어 DOI 로 연다. 확인 창 없이 뜬다.
 - SI 먼저: 끝부분 "Supplementary data" 절(`#supplementary-data`)의 목록(`.dataSuppLink`)에 파일이 하나씩 있다. 이번 논문은 그림 S1~S4, 표 S1 이 PDF 5개로 나뉘어 있었고 통합 파일은 없었다. 목록의 PDF·Word 를 모두 받는다. 목록이 늦게 채워지므로 비어 보이면 잠깐 기다린다. 본문 속 "Supplementary Fig. S1" 같은 인라인 링크도 같은 파일(`silverchair-cdn.com … Content_public`)이라 그것을 눌러도 된다. 누르면 바로 저장된다.
-- 본문: 상단 고정 막대의 "PDF"(`a[href*="article-pdf"]`, 왼쪽 위). 누르면 같은 탭이 Cloudflare 확인 화면을 거쳐 저장된다(약 15초).
+- 본문: 상단 고정 막대의 "PDF"(`a[href*="article-pdf"]`, 왼쪽 위). 누르면 같은 탭이 Cloudflare 확인 화면을 거쳐 저장된다(약 15초). 2026-09-27 전체 흐름 시험 2편은 그 화면도 뜨지 않았다.
+- SI 를 누른 뒤에는 본문 "PDF" 가 상단 고정 막대(왼쪽 위)로 옮겨 가 첫 `web_find.js` 좌표가 맞지 않는다. guard 가 준 좌표로 다시 누른다(2026-09-27).
 - 파일: `{코드}.pdf`(예 `deag140.pdf`), `{코드}_supplementary_figure_s1.pdf`.
 
 ### 3.11 IEEE (2026-09-26, 1편)
 
-- 2026-09-27 연습(4편): "PDF" 뒤 3초 안에 어두운 화면과 "열기"가 떴다. "열기"는 가운데 x, 가운데 y+42 px 로 일정해 "PDF" 클릭과 3초 뒤 "열기" 클릭을 한 호출에 넣었다(따로 확인하는 왕복 5~10초보다 짧다). 파일이 안 생기면 "열기"를 한 번 더 누른다. 받는 중에 탭을 다음 논문으로 옮겨도 끊기지 않았다(17.5 MB, 약 50초). SI 는 본문 끝 "Supplemental Items" 버튼(주소 없음)을 누르면 주소가 `/document/{번호}/media` 로 바뀌며 파일 카드가 나온다. 카드 링크는 글자 없는 `…/supp1-{번호}.pdf` 이고, 크기 0 인 숨은 복제본이 먼저 있다(`web_find.js` 가 보이는 것을 앞에 둔다). SI 도 논문 제목 이름으로 저장되어 본문에 " (1)" 이 붙는다. intake 는 SI 첫 줄 "Supplementary File" 로 가린다.
+- 2026-09-27 연습(4편): "PDF" 뒤 3초 안에 어두운 화면과 "열기"가 떴다. "열기"는 가운데 x, 가운데 y+42 px 로 일정하다(2026-09-27 전체 흐름 시험 3번 모두 맞음). "PDF" 는 `sciretrFocus` 결과(guard 0)를 확인한 뒤 누르고, "열기"는 3초 뒤 따로 한 호출로 누른다. "PDF" 클릭이 guard 로 막혔는데 같은 호출의 "열기" 자리 클릭이 실행되면 페이지의 엉뚱한 곳을 누른다. "열기"를 누르지 않으면 45초가 지나도 파일이 생기지 않는다(1편 확인). 파일이 안 생기면 "열기"를 한 번 더 누른다. 받는 중에 탭을 다음 논문으로 옮겨도 끊기지 않았다(17.5 MB, 약 50초). SI 는 본문 끝 "Supplemental Items" 버튼(주소 없음)을 누르면 주소가 `/document/{번호}/media` 로 바뀌며 파일 카드가 나온다. 카드 링크는 글자 없는 `…/supp1-{번호}.pdf` 이고, 크기 0 인 숨은 복제본이 먼저 있다(`web_find.js` 가 보이는 것을 앞에 둔다). SI 도 논문 제목 이름으로 저장되어 본문에 " (1)" 이 붙는다. intake 는 SI 첫 줄 "Supplementary File" 로 가린다.
 
 - 주소는 `https://doi.org/{DOI}` 로 열면 `ieeexplore.ieee.org/document/{번호}` 로 넘어간다. 확인 창 없이 뜬다. 쿠키 동의 창은 누르지 않는다.
 - 본문: 제목 아래 빨간 "PDF"(`a[href*="stamp/stamp.jsp"]`). 누르면 같은 탭에 PDF 보기 페이지가 열리고, Chrome 의 "PDF 다운로드" 설정 때문에 어두운 화면에 `getPDF.jsp` 와 "열기" 버튼이 뜬다(Wiley 와 같음). 화면 가운데보다 40 px 아래를 누르면 저장된다.
@@ -294,6 +302,16 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 
 - 게재 전 논문은 `/prl/accepted/{DOI}` 로 가며 초록만 있다(제목 'Accepted Paper', PDF 링크 없음). `web_find.js` 는 20초를 다 기다린 뒤 빈 결과를 낸다. `mark --status abstract_only --note "웹 확인: 게재 전"` 으로 두고 게재 뒤 다시 받는다(`mark --status resolved` 후 collect).
 - SI: 도구가 목록 페이지를 못 읽으면 웹 목록에 SI 행이 올라간다. `link.aps.org/supplemental/{DOI}` 는 초록 페이지 `#supplemental` 로 가고, 파일은 `/{저널}/supplemental/{DOI}/{파일}.pdf` 다. navigate 로 열어 19초에 받았다.
+- 2026-09-27 전체 흐름 시험: SI 링크가 그림 하나만 감싼 링크라 첫 사각형이 폭 0 인 빈 줄이었고, 좌표가 그림 모서리 1 px 밖으로 나와 guard 가 한 번 막았다. 돌려받은 좌표로 다시 눌러 받았다.
+
+### 3.18 Cambridge (2026-09-27 전체 흐름 시험, SI 행 3건과 Oxford 로 넘어간 1편)
+
+- 자동 경로로 받는 출판사다(SKILL 6.1). 웹 경로는 자동으로 받지 못한 논문과 도구가 SI 행을 올린 논문만이다.
+- `https://doi.org/{DOI}` 는 `www.cambridge.org/core/journals/…/article/…/{ID}` 로 넘어가고 확인 창 없이 뜬다. 위의 'Temporary Disruption' 막대와 아래 쿠키 창은 누르지 않아도 된다.
+- SI 유무는 제목 아래 탭으로 본다. 'Article · Figures · (Peer reviews) · Metrics' 뿐이고 본문에 supplementary 글자가 없으면 SI 가 없다. 그때는 `mark --ids <paper_id> --si-none --note "웹 확인: SI 없음"` 으로 웹 목록의 SI 행을 닫는다.
+- 웹 목록의 SI 주소가 `/core/services/authors/publishing-supplementary-material` 이면 사이트 바닥글의 저자 안내 페이지다(2026-09-27 도구가 SI 목록 페이지로 잘못 잡아 3편에 SI 행이 생김, 지금은 거른다). 받지 않는다.
+- Microscopy and Microanalysis 옛 DOI(`10.1017/S14319276…`)는 Oxford 로 넘어간다. 3.10 대로 "PDF" 를 누른다.
+- 이번 세 편은 모두 SI 가 없어서 SI 가 있을 때의 탭 이름과 파일 주소 모양은 아직 모른다.
 
 ## 4. 여러 탭 동시 진행 시험 (2026-09-25, 두 차례)
 

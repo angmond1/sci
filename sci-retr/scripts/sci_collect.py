@@ -832,6 +832,20 @@ SI_FILE_HINT = re.compile(r"\.pdf(\?|$)|\.docx?(\?|$)|/suppl_file/|mmc\d|MOESM|s
 SI_LANDING_HINT = re.compile(r"/supplemental/|/suppl/|supplementary[-_]?(material|information|data)s?/?(\?|$)", re.I)
 
 
+def own_si_landing(url: str, doi: str, base_url: str) -> bool:
+    """SI 목록 페이지가 이 논문 것인가: 주소에 이 논문 DOI(또는 끝부분)나 논문 페이지 경로가 있어야 한다.
+    (2026-09-27 Cambridge 바닥글의 저자 안내 페이지 /core/services/authors/publishing-supplementary-material 를 SI 목록으로 잡음)"""
+    own = (doi or "").lower()
+    if not own:
+        return True
+    u = unquote(url).lower()
+    suffix = own.split("/", 1)[-1]
+    if own in u or (len(suffix) >= 6 and suffix in u):
+        return True
+    bp = urlparse(base_url).path.rstrip("/").lower()
+    return len(bp) > 1 and urlparse(u).path.startswith(bp)
+
+
 def find_si_links(raw_html: str, base_url: str, doi: str = "") -> list[str]:
     links = []
     own = (doi or "").lower()
@@ -845,7 +859,7 @@ def find_si_links(raw_html: str, base_url: str, doi: str = "") -> list[str]:
         if own and DOI_RE.search(u) and own not in u:
             continue
         links.append(url)
-    pref = [l for l in dict.fromkeys(links) if SI_FILE_HINT.search(l) or SI_LANDING_HINT.search(l)]
+    pref = [l for l in dict.fromkeys(links) if SI_FILE_HINT.search(l) or (SI_LANDING_HINT.search(l) and own_si_landing(l, doi, base_url))]
     return pref[:8]
 
 
@@ -1813,6 +1827,9 @@ def report_block(ctx: Ctx) -> None:
         say(f"  웹 본문만 {len(webtext)}편 (PDF 없는 웹 전용 글, 본문·참고문헌 저장): {pub_counts(webtext)}")
     say(f"  초록만 {len(absonly)}편: {pub_counts(absonly)}")
     say(f"  Chrome 에서 받을 논문 {len(web)}편: {pub_counts(web)}" + (f"  (목록 {ctx.work / 'manual_download.csv'})" if web else ""))
+    si_rows = manual_si_rows(ctx)
+    if si_rows:
+        say(f"  SI 만 받을 행 {len(si_rows)}개 ({len({r['paper_id'] for r in si_rows})}편, 본문은 있음): 웹에서 SI 가 없으면 mark --ids <id> --si-none")
     if todo:
         say(f"  아직 시도 안 함 {len(todo)}편: {pub_counts(todo)}  → collect")
     say(f"  실패 {len(failed)}편" + (": " + "; ".join(f"{r['paper_id']} — {(r.get('note') or '')[:60]}" for r in failed[:8]) if failed else ""))
@@ -1982,6 +1999,7 @@ def update_manual_csv(ctx: Ctx, new_rows: list[dict]) -> Path:
         # 범위 밖·초록만으로 정한 논문은 SI 행까지 모두 뺀다 (2026-09-27: 초록만으로 표시한 논문이 목록에 남아 있었다)
         full = {r["paper_id"] for r in ctx.registry.values() if r.get("status") in ("full", "web_text")}
         closed = {r["paper_id"] for r in ctx.registry.values() if r.get("status") in ("out_of_scope", "abstract_only")}
+        si_none = read_si_none(ctx)   # 웹에서 SI 가 없다고 확인한 논문 (mark --si-none)
         def saved(r: dict) -> bool:
             # 저장 자리와 이름(확장자 빼고)이 같은 파일이 있으면 받은 것 — SI 가 예상과 다른 형식으로 왔거나 확장자를 잘못 짐작한 행
             # (2026-09-27 APS SI 행이 _SI.04300 으로 적혀 _SI.pdf 를 받은 뒤에도 남았다)
@@ -1989,11 +2007,32 @@ def update_manual_csv(ctx: Ctx, new_rows: list[dict]) -> Path:
             return s.exists() or (bool(s.name) and s.parent.exists() and any(s.parent.glob(s.stem + ".*")))
         keep = [r for r in rows.values()
                 if not saved(r) and r.get("paper_id") not in closed
-                and not (r.get("paper_id") in full and str(r.get("save_to", "")).endswith(f"{r.get('paper_id')}.pdf"))]
+                and not (r.get("paper_id") in full and str(r.get("save_to", "")).endswith(f"{r.get('paper_id')}.pdf"))
+                and not (r.get("paper_id") in si_none and is_si_row(r))]
         with open(p, "w", encoding="utf-8-sig", newline="") as f:
             w = csv.DictWriter(f, fieldnames=MANUAL_FIELDS, extrasaction="ignore")
             w.writeheader(); w.writerows(keep)
     return p
+
+
+def is_si_row(r: dict) -> bool:
+    """웹 목록 행이 SI 파일 행인가 (저장 이름이 {id}_SI*)."""
+    return Path(r.get("save_to") or "").name.lower().startswith(f"{(r.get('paper_id') or '').lower()}_si")
+
+
+def read_si_none(ctx: Ctx) -> set:
+    p = ctx.work / "si_none.txt"
+    return {l.strip() for l in p.read_text(encoding="utf-8").splitlines() if l.strip()} if p.exists() else set()
+
+
+def manual_si_rows(ctx: Ctx) -> list[dict]:
+    """웹 목록에 남은 SI 만 받을 행 (본문은 이미 있음)."""
+    p = ctx.work / "manual_download.csv"
+    if not p.exists():
+        return []
+    have = {r["paper_id"] for r in ctx.registry.values() if r.get("status") in ("full", "web_text")}
+    with open(p, encoding="utf-8-sig", newline="") as f:
+        return [r for r in csv.DictReader(f) if r.get("paper_id") in have and is_si_row(r)]
 
 
 def write_manual_list(ctx: Ctx, rows: list[dict], reason: str) -> Path:
@@ -2018,8 +2057,25 @@ def cmd_mark(args) -> None:
     """범위 밖(out_of_scope) 표시 / 해제(resolved). Claude 의 사전 분류 결과를 registry 에 기록하는 유일한 경로 (CSV 직접 편집 금지)."""
     ctx = make_ctx(args)
     want = {w.lower() for w in args.ids}
+    if not args.status and not getattr(args, "si_none", False):
+        say("mark: --status 나 --si-none 중 하나를 준다."); return
     n = 0
     hit: set[str] = set()
+    if getattr(args, "si_none", False):
+        # 웹에서 SI 가 없다고 확인한 논문: 상태는 그대로 두고 웹 목록의 SI 행만 닫는다 (2026-09-27 Cambridge 3편)
+        ids = sorted({row["paper_id"] for row in ctx.registry.values() if row["paper_id"].lower() in want or row["doi"].lower() in want})
+        hit |= {x.lower() for x in ids} | {row["doi"].lower() for row in ctx.registry.values() if row["paper_id"] in ids}
+        f = ctx.work / "si_none.txt"
+        f.write_text("\n".join(sorted(read_si_none(ctx) | set(ids))) + "\n", encoding="utf-8")
+        if (ctx.work / "manual_download.csv").exists():
+            update_manual_csv(ctx, [])
+        say(f"SI 없음 표시: {len(ids)}편 — 웹 목록의 SI 행을 닫았습니다 ({f.name})" + (f" 메모: {args.note}" if args.note else ""))
+        if not args.status:
+            miss = sorted(want - hit)
+            if miss:
+                say(f"  목록에 없는 id: {', '.join(miss)}")
+            report_block(ctx)
+            return
     for row in ctx.registry.values():
         if row["paper_id"].lower() in want or row["doi"].lower() in want:
             hit |= {row["paper_id"].lower(), row["doi"].lower()}
@@ -2489,7 +2545,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("assist", parents=[common]); p.add_argument("--ids", nargs="*"); p.add_argument("--publishers", default=None); p.add_argument("--exclude-publishers", default=None); p.add_argument("--force", action="store_true"); p.add_argument("--window", action="store_true", help="예전 도구 창 방식 (기본: 창 없이 웹 경로 목록만)")
     p = sub.add_parser("intake", parents=[common]); p.add_argument("--downloads", default=None, help="다운로드 폴더 (기본: 설정 downloads_dir → Chrome 설정 → Windows 다운로드 폴더 → ~/Downloads)"); p.add_argument("--hours", type=float, default=24, help="최근 몇 시간 안에 받은 파일만"); p.add_argument("--dry-run", action="store_true", help="옮기지 않고 판정만 보기")
     p = sub.add_parser("reextract", parents=[common]); p.add_argument("--ids", nargs="*"); p.add_argument("--publishers", default=None)
-    p = sub.add_parser("mark", parents=[common]); p.add_argument("--ids", nargs="+", required=True, help="paper_id 또는 DOI"); p.add_argument("--status", choices=["out_of_scope", "resolved", "abstract_only"], required=True, help="abstract_only: 웹에서 구독 밖으로 확인한 논문을 초록만 저장"); p.add_argument("--note", default="")
+    p = sub.add_parser("mark", parents=[common]); p.add_argument("--ids", nargs="+", required=True, help="paper_id 또는 DOI"); p.add_argument("--status", choices=["out_of_scope", "resolved", "abstract_only"], default=None, help="abstract_only: 웹에서 구독 밖으로 확인한 논문을 초록만 저장"); p.add_argument("--si-none", action="store_true", help="웹에서 SI 가 없다고 확인한 논문: 웹 목록의 SI 행만 닫는다 (상태는 그대로)"); p.add_argument("--note", default="")
     sub.add_parser("status", parents=[common])
     sub.add_parser("doctor", parents=[common], help="처음 쓰기 전 환경 점검 (읽기만 함)")
     p = sub.add_parser("refs", parents=[common], help="한 논문(PDF·링크·DOI·paper_id)의 참고문헌 DOI 목록 만들기 (수집은 하지 않음)")
