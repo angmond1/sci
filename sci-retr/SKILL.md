@@ -115,7 +115,7 @@ python scripts/sci_collect.py token --kb-root <root>
 |---|---|---|
 | `intervals` | elsevier_api 3, wiley 5, springer 2, mdpi 2, nature 15, generic 5 (초) | 자동 경로에서 같은 출판사 논문 사이의 대기. 요청을 보내지 않은 논문 뒤에는 기다리지 않는다. acs·science·rsc·ecs·elsevier 값은 웹 전용 출판사를 목록에서 뺄 때만 쓰인다 |
 | `web_only_publishers` | acs, rsc, science, ecs, tandf, pnas, aip, oup, ieee, chemrxiv | 자동 요청을 보내지 않고 바로 웹 경로로 보낼 출판사(2026-09-26 여섯 곳 추가). 사이트 사정이 바뀌면 여기서 뺀다 |
-| `web_first_publishers` | rsc, ecs, science, royal_society, pnas, oup, acs | 웹 목록에서 먼저 받을 출판사(확인 창이 잦은 곳). 사용자가 확인 창을 누르는 동안 다른 출판사를 받는다(2026-09-27 사용자 결정) |
+| `web_first_publishers` | rsc, ecs, science, royal_society, pnas, oup, acs | 웹 목록에서 먼저 받을 출판사(확인 창이 잦은 곳). 확인 창이 풀리기를 기다리는 동안 다른 출판사를 받는다(2026-09-27 사용자 결정) |
 | `abstract_only_publishers` | thieme, world_scientific, csj, bentham, royal_society | 초록만 저장할 미구독 출판사 (Open Access 논문은 예외: 한 번 자동 시도, 안 되면 웹 경로) |
 | `si_skip_exts` | mp4·avi·mov 등 동영상, mp3·wav, cif·fcf·hkl·mol·mol2·sdf·pdb·xyz·cdx, zip·rar·7z·tar·gz·tgz, xls·xlsx·xlsm·xlsb·csv·ods | 받지 않는 SI 형식. 링크 확장자로 먼저 거른다. 자동 경로는 받은 뒤 실제 형식이 PDF·Word(docx·doc)인 것만 저장하고 그 밖(그림·표·압축·동영상·PowerPoint)은 버린다(2026-09-27 허용 목록 방식). 같은 내용이 다른 주소로 두 번 오면 한 번만 저장한다. intake 도 이 형식은 옮기지 않는다 |
 | `downloads_dir` | 없음 → Chrome 설정의 다운로드 폴더 → Windows 다운로드 폴더 → 사용자 Downloads 순으로 찾음 | intake 가 볼 다운로드 폴더 (`--downloads` 로도 가능). intake 와 doctor 가 어느 근거로 정했는지 출력한다 |
@@ -224,8 +224,8 @@ python scripts/sci_collect.py assist --kb-root <root>
 2. **받을 파일 확인**: 출판사별로 받을 논문과 파일(본문 PDF, SI)을 사용자에게 한 번에 알리고 확인을 받는다. 파일 다운로드는 확인 없이 하지 않는다. Chrome 설정 두 가지(3.1)는 이때 `doctor` 로 확인한다. 작업용 Chrome 창이 화면 뒤쪽에 열리면 앞으로 가져와 달라고 미리 안내한다. 예상 시간은 한 편에 1~2분으로 말한다(요령이 있는 사이트는 1분 안팎, 처음 다루는 사이트는 2분 이상).
 3. **받기**: Claude in Chrome 확장으로 사용자 Chrome 의 새 탭에서 논문 주소를 연다. 한 편씩 진행한다. 그 Chrome 창은 화면 앞에 두고 수집 중에는 건드리지 않는다. 다른 모니터나 다른 프로그램은 써도 되지만, 그 창이 다른 창에 완전히 덮이거나 최소화되면 스크린샷이 안 되고 클릭이 빗나간다.
    - **웹 목록 전체를 전용 에이전트 `sci-retr-web` 하나에 맡긴다**(2026-09-27 사용자 결정). 프롬프트: `kb-root: <root>. skill 폴더: <이 skill 폴더>. Chrome deviceId: <list_connected_browsers 에서 onThisComputer 인 것>. 웹 목록을 끝까지 받아 줘.` (연결된 Chrome 이 둘 이상이면 에이전트 쪽에는 이 컴퓨터 표시가 없을 수 있다 — 2026-09-27 시험에서 묻고 멈춤) 도구를 Chrome·Bash·Read 로 좁히고 모델 sonnet·추론 medium 으로 정의돼 있다(`agents/sci-retr-web.md`, 설치 스크립트가 `~/.claude/agents/` 로 복사, 새 대화부터 인식). 묶음마다 새 에이전트를 띄우지 않는다 — 지침과 스크립트를 한 번만 읽는다(묶음마다 다시 읽는 데 4~8분). 범용 에이전트는 쓰지 않는다(도구 설명 약 7만 토큰을 호출마다 싣고 대화의 추론 수준을 그대로 이어받는다). 에이전트가 없으면(설치 전 대화, Codex) 메인이 직접 받는다.
-   - 목록은 확인 창이 잦은 사이트가 앞에 온다(설정 `web_first_publishers`). 확인 창이 뜨면 에이전트는 **그 탭을 닫거나 옮기지 않고 그대로 두고** 다른 출판사를 새 탭에서 받는다. 사용자가 그 탭에서 누르는 동안 기다리는 시간이 없다(2026-09-27 6편 시험: 탭을 옮겨 버리면 누를 틈이 없다). 이때만 탭이 둘이 된다.
-   - 메인은 에이전트가 도는 동안 다른 작업을 끼워 넣지 않는다. 에이전트가 `확인 창: …` 이나 `창 최소화` 를 보내면 사용자에게 그대로 전하고, 사용자가 눌렀다(앞으로 가져왔다)고 하면 SendMessage 로 에이전트에게 알린다. 에이전트가 끝나면 바로 색인(5.7)으로 간다.
+   - 목록은 확인 창이 잦은 사이트가 앞에 온다(설정 `web_first_publishers`). 확인 창이 뜨면 에이전트는 **그 탭을 닫거나 옮기지 않고 확인을 통과할 때까지 그대로 두고** 다른 출판사를 새 탭에서 받는다. 그래서 기다리는 시간이 없다(2026-09-27 6편 시험: 탭을 옮기면 확인 화면이 사라져 통과할 수 없었다). 이때만 탭이 둘이 된다.
+   - 메인은 에이전트가 도는 동안 다른 작업을 끼워 넣지 않는다. 에이전트가 `확인 창: …` 이나 `창 최소화` 를 보내면 사용자에게 그대로 전하고, 확인을 통과했다(창을 앞으로 가져왔다)고 하면 SendMessage 로 에이전트에게 알린다. 에이전트가 끝나면 바로 색인(5.7)으로 간다.
    - 출판사별 요령(선택자, 기다릴 시간, 누르는 순서, 함정)은 `references/web_download_playbook.md` 를 먼저 읽고 첫 논문부터 그대로 한다. 링크 찾기는 `references/web_find.js`(요령 문서 2.2, 결과 형식 2.4)로 한다. 헤매는 호출을 줄이는 것이 시간을 가장 많이 줄인다.
    - 확인 창이 계속 다시 뜨면 반복해서 누르지 않고 그 사이트는 멈춘다.
    - 창이 최소화되면(`web_find.js` 결과 `min: 1`, 스크립트로 본 outerWidth 0) 스크린샷이 되더라도 클릭이 페이지에 닿지 않는다(2026-09-27). 사용자에게 창을 앞으로 가져와 달라고 하고, 그동안은 스크립트로 읽은 파일 경로(쿼리 없는 것)를 navigate 로 열어 받는다. navigate 로 연 뒤에는 다운로드 폴더에 파일이 보인 뒤에 탭을 옮긴다.

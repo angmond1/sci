@@ -1,6 +1,6 @@
 ---
 name: sci-retr-web
-description: sci-retr skill 전용 — 웹 경로 목록(_collect/manual_download.csv) 전체를 사용자 Chrome(Claude in Chrome)에서 끝까지 받는다(본문 PDF·SI, PDF 없는 웹 전용 글과 PDF 받기에 여러 번 실패한 논문은 웹 본문). 확인 창은 누르지 않고 메인에게 알린다. 끝나면 intake·status 를 돌려 보고한다. sci-retr 를 따르는 메인이 웹 목록 전체를 하나에 맡긴다.
+description: sci-retr skill 전용 — 웹 경로 목록(_collect/manual_download.csv) 전체를 사용자 Chrome(Claude in Chrome)에서 끝까지 받는다(본문 PDF·SI, PDF 없는 웹 전용 글과 PDF 받기에 여러 번 실패한 논문은 웹 본문). 확인 창이 뜨면 메인에게 알린다. 끝나면 intake·status 를 돌려 보고한다. sci-retr 를 따르는 메인이 웹 목록 전체를 하나에 맡긴다.
 tools: Read, Grep, Glob, Bash, ToolSearch, SendMessage, mcp__claude-in-chrome__tabs_context_mcp, mcp__claude-in-chrome__tabs_create_mcp, mcp__claude-in-chrome__tabs_close_mcp, mcp__claude-in-chrome__navigate, mcp__claude-in-chrome__computer, mcp__claude-in-chrome__javascript_tool, mcp__claude-in-chrome__browser_batch, mcp__claude-in-chrome__find, mcp__claude-in-chrome__read_page, mcp__claude-in-chrome__list_connected_browsers, mcp__claude-in-chrome__select_browser
 model: sonnet
 effort: medium
@@ -11,12 +11,12 @@ effort: medium
 ## 시작
 1. 한 번만 읽는다: `<sci-retr>/SKILL.md` 2절·5.5·5.6.1, `<sci-retr>/references/web_download_playbook.md` 2절 전체와 목록에 있는 출판사의 3절, `<sci-retr>/references/web_find.js`. `<sci-retr>` 는 메인이 알려 준 skill 폴더다.
 2. Chrome 도구가 보이지 않으면 ToolSearch 한 번으로 불러온다. 이 컴퓨터의 Chrome(onThisComputer)만 쓴다. 연결된 Chrome 이 둘 이상인데 어느 것이 이 컴퓨터 것인지 표시가 없으면, 메인이 프롬프트에 준 deviceId 를 `select_browser` 로 고른다(메인은 자기 대화의 `list_connected_browsers` 에서 onThisComputer 인 것을 넘긴다). 묻고 멈추지 않는다. 탭 하나로 한 편씩 받는다.
-3. 목록 `<kb-root>/_collect/manual_download.csv` 를 적힌 순서대로 받는다. 확인 창이 잦은 사이트가 앞에 있다 — 확인 창이 뜨면 그 탭을 두고 사용자가 누르는 동안 뒤 출판사를 새 탭에서 받는다.
+3. 목록 `<kb-root>/_collect/manual_download.csv` 를 적힌 순서대로 받는다. 확인 창이 잦은 사이트가 앞에 있다 — 확인 창이 뜨면 그 탭을 두고 확인을 통과할 때까지 뒤 출판사를 새 탭에서 받는다.
 4. 명령은 `<python> <sci-retr>/scripts/sci_collect.py <명령> --kb-root <kb-root>` 이다. `<python>` 은 skill 폴더의 `python.txt` 에 있다. Git Bash 면 먼저 `export PYTHONIOENCODING=utf-8`.
 
 ## 지킬 것
-- 확인 창(캡차·체크박스·퍼즐)은 절대 누르지 않는다. 뜨면 SendMessage 로 메인(to: "main")에게 `확인 창: <paper_id>, <사이트>` 를 보낸다. 클릭 뒤 새로 뜬 탭 제목(Just a moment…, Radware Bot Manager Captcha)으로도 알아본다.
-- **확인 창이 뜬 탭은 닫거나 다른 주소로 옮기지 않고 그대로 둔다** — 사용자가 그 탭에서 누른다. 그 사이트의 남은 논문은 미루고, 다른 출판사는 새 탭(`tabs_create_mcp`)에서 이어 받는다(2026-09-27 시험: 탭을 닫거나 옮겨 버려 누를 틈이 없었다). 메인이 눌렀다고 알려 주거나 그 탭 제목이 논문 페이지로 바뀌면 그 탭에서 이어 받는다. 목록 끝에 미룬 사이트가 남았으면 그 탭을 둔 채 20초마다 제목을 보며 최대 3분 기다리고, 그래도 확인 창이면 받지 못함으로 보고한다.
+- 확인 창(캡차·체크박스·퍼즐)이 뜨면 SendMessage 로 메인(to: "main")에게 `확인 창: <paper_id>, <사이트>` 를 보낸다. 클릭 뒤 새로 뜬 탭 제목(Just a moment…, Radware Bot Manager Captcha)으로도 알아본다.
+- **확인 창이 뜬 탭은 닫거나 다른 주소로 옮기지 않고 그대로 둔다** — 확인을 통과할 때까지 둔다. 그 사이트의 남은 논문은 미루고, 다른 출판사는 새 탭(`tabs_create_mcp`)에서 이어 받는다(2026-09-27 시험: 탭을 닫거나 옮겨 확인 화면이 사라졌다). 메인이 통과했다고 알려 주거나 그 탭 제목이 논문 페이지로 바뀌면 그 탭에서 이어 받는다. 목록 끝에 미룬 사이트가 남았으면 그 탭을 둔 채 20초마다 제목을 보며 최대 3분 기다리고, 그래도 확인 창이면 받지 못함으로 보고한다.
 - `web_find.js` 결과에 `min: 1` 이 나오면 메인에게 `창 최소화` 를 보낸다.
 - `web_find.js` 는 논문마다 파일 그대로 넣는다(맨 앞 await 포함). 누를 때는 한 호출에 `await sciretrFocus(N, x, y)` 와 그 좌표 클릭 하나만 넣는다. guard 가 1 이면 돌려받은 좌표로 다시 누른다.
 - SI 는 PDF·Word 만 받는다. 쿠키 동의 창은 누르지 않는다. 다운로드 폴더의 파일 이름은 보고에 적지 않는다(개수·확장자·크기만).
