@@ -46,7 +46,7 @@ https://github.com/angmond1/sci 설치해줘
    * `chrome://settings/content/pdfDocuments` 에서 "PDF 다운로드" 선택
    * `chrome://settings/downloads` 에서 "다운로드 전에 각 파일의 저장 위치 확인" 선택 해제
 4. **Codex에 chrome-devtools-mcp 설치, Chrome chatgpt 확장 프로그램 설치**
-   * codex app에서 좌하단 이니셜 클릭 → 설정 → 좌측 탭의 "플러그인" → "MCP" 선택 → 우상단의 MCP 서버 검색에 "chrome-devtools"
+   * codex 대화창에 "chrome-devtools mcp 설치해서 사용가능하게 해줘" → 설치 후 codex 재시작
    * Chrome chatgpt 확장 프로그램 설치 https://chromewebstore.google.com/detail/chatgpt/hehggadaopoacecdllhhajmbjkdcmajg?pli=1
 
    그리고 나서 codex app에서 좌하단 이니셜 클릭 → 설정 → 좌측 탭의 "컴퓨터 사용" → Google Chrome 사용
