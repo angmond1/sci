@@ -63,7 +63,9 @@ PREFIX_PUBLISHER = {
     "10.1016": "elsevier", "10.1006": "elsevier", "10.1039": "rsc", "10.1002": "wiley", "10.1021": "acs",
     "10.1007": "springer", "10.1023": "springer", "10.3390": "mdpi", "10.1038": "nature", "10.1126": "science",
     "10.1149": "ecs", "10.1055": "thieme", "10.1142": "world_scientific", "10.1246": "csj", "10.2174": "bentham",
-    "10.1098": "royal_society", "10.1248": "jstage", "10.1134": "pleiades", "10.20964": "tsinghua_oae", "10.26599": "tsinghua_oae",
+    "10.1098": "royal_society", "10.1248": "jstage", "10.1134": "pleiades", "10.26599": "tsinghua_oae",
+    # ESG(International Journal of Electrochemical Science)는 2023 년 Elsevier 로 옮겨 옛 DOI 도 ScienceDirect 에서 열린다 (2026-09-27, 예전 'tsinghua_oae' 는 잘못)
+    "10.20964": "elsevier",
     # 2026-09-26 섞인 목록 실측으로 이름을 붙인 사이트. 처리는 모두 일반(generic) 경로(논문 페이지 → PDF 후보 → SI)이고,
     # 이름은 보고·간격·차단 판정 단위가 된다. 자동 요청을 막는 곳은 DEFAULT_CONFIG["web_only_publishers"] 에도 넣는다.
     "10.3389": "frontiers", "10.1371": "plos", "10.3762": "beilstein", "10.5194": "copernicus", "10.1103": "aps", "10.1017": "cambridge",
@@ -500,6 +502,11 @@ def resolve_doi(ctx: Ctx, doi: str) -> dict:
     if row and row.get("paper_id"):
         if not row.get("doc_type"):   # 2026-09-27 이전 목록: 문서 유형만 채운다 (id 는 그대로)
             row["doc_type"] = norm_doc_type(((openalex_work(ctx, doi) or {}).get("type")) or "") or "unknown"
+        # 접두어 표가 바뀌었으면 아직 받지 않은 논문의 출판사만 고친다 (id 는 그대로, 2026-09-27 10.20964)
+        prefix = doi.split("/", 1)[0].lower()
+        if prefix in PREFIX_PUBLISHER and row.get("publisher") != PREFIX_PUBLISHER[prefix] and row.get("status") in ("resolved", "", "failed", "human_required"):
+            say(f"  출판사 고침: {row['paper_id']} {row.get('publisher')} → {PREFIX_PUBLISHER[prefix]}")
+            row["publisher"] = PREFIX_PUBLISHER[prefix]
         return row  # id 동결
     cr = crossref_work(ctx, doi)
     oa = openalex_work(ctx, doi)
@@ -812,13 +819,19 @@ SI_FILE_HINT = re.compile(r"\.pdf(\?|$)|\.docx?(\?|$)|/suppl_file/|mmc\d|MOESM|s
 SI_LANDING_HINT = re.compile(r"/supplemental/|/suppl/|supplementary[-_]?(material|information|data)s?/?(\?|$)", re.I)
 
 
-def find_si_links(raw_html: str, base_url: str) -> list[str]:
+def find_si_links(raw_html: str, base_url: str, doi: str = "") -> list[str]:
     links = []
+    own = (doi or "").lower()
     for m in SI_LINK_RE.finditer(raw_html or ""):
         href = htmlmod.unescape(m.group(1))
         if href.startswith("#") or "javascript" in href:
             continue
-        links.append(urljoin(base_url, href))
+        url = urljoin(base_url, href)
+        # 주소에 이 논문이 아닌 DOI 가 든 링크는 다른 논문의 SI 다 — 참고문헌에 걸린 링크 (2026-09-27 Frontiers 논문에서 JACS SI 를 잡음)
+        u = unquote(url).lower()
+        if own and DOI_RE.search(u) and own not in u:
+            continue
+        links.append(url)
     pref = [l for l in dict.fromkeys(links) if SI_FILE_HINT.search(l) or SI_LANDING_HINT.search(l)]
     return pref[:8]
 
@@ -1181,7 +1194,7 @@ def h_springer(ctx: Ctx, row: dict) -> Outcome:
         return Outcome(status="failed", note=f"springer pdf/html 모두 실패 {fail_status(codes)}")
     res = write_paper(ctx, row, out)
     if out.html_raw:
-        res.si_files = save_si(ctx, row["paper_id"], http_fetch(ctx), find_si_links(out.html_raw, out.page_url))
+        res.si_files = save_si(ctx, row["paper_id"], http_fetch(ctx), find_si_links(out.html_raw, out.page_url, row["doi"]))
     return res
 
 
@@ -1205,7 +1218,7 @@ def h_mdpi(ctx: Ctx, row: dict) -> Outcome:
         return Outcome(status="failed", note=f"mdpi pdf/html 실패 {fail_status(codes)}")
     res = write_paper(ctx, row, out)
     if out.html_raw:
-        res.si_files = save_si(ctx, row["paper_id"], http_fetch(ctx), find_si_links(out.html_raw, out.page_url))
+        res.si_files = save_si(ctx, row["paper_id"], http_fetch(ctx), find_si_links(out.html_raw, out.page_url, row["doi"]))
     return res
 
 
@@ -1230,7 +1243,7 @@ def h_landing_generic(ctx: Ctx, row: dict, method_prefix: str) -> Outcome:
         # 실패로 두면 웹 목록에서 빠지므로 웹 경로 대상으로 둔다. 웹에서 구독 밖이면 mark --status abstract_only (2026-09-27)
         res.status = "human_required"
         res.note = "논문 페이지에 PDF 링크 없음 (구독 밖일 수 있음 → 웹 경로로 확인) — " + res.note
-    res.si_files = save_si(ctx, row["paper_id"], http_fetch(ctx), find_si_links(raw, h.url))
+    res.si_files = save_si(ctx, row["paper_id"], http_fetch(ctx), find_si_links(raw, h.url, row["doi"]))
     return res
 
 
@@ -1286,7 +1299,7 @@ def h_browser_headless(ctx: Ctx, row: dict, kind: str) -> Outcome:
                 return Outcome(status="human_required", note=f"{kind} pdf 실패 ({how}) → 사용자 확인 묶음")
             out = Outcome(method=f"{kind}_browser_{how}", pdf_data=data, html_raw=raw, page_url=landing)
             res = write_paper(ctx, row, out)
-            res.si_files = save_si(ctx, row["paper_id"], br.browser_fetch(), find_si_links(raw, landing))
+            res.si_files = save_si(ctx, row["paper_id"], br.browser_fetch(), find_si_links(raw, landing, row["doi"]))
             return res
         except Exception as exc:
             if attempt < attempts:
@@ -1467,7 +1480,7 @@ def a_elsevier(ctx: Ctx, br: Browser, row: dict, first: bool) -> Outcome:
             say(f"!! [Elsevier {row['paper_id']}] PDF 링크에 출판사 확인이 걸려 있습니다. 창에서 'View PDF' 를 눌러 파일을 다음 경로로 저장해 주세요:\n   {target}")
     res = write_paper(ctx, row, out)
     if not br.page.is_closed():
-        res.si_files = save_si(ctx, row["paper_id"], br.browser_fetch(), find_si_links(raw, url))
+        res.si_files = save_si(ctx, row["paper_id"], br.browser_fetch(), find_si_links(raw, url, row["doi"]))
     return res
 
 
@@ -1486,7 +1499,7 @@ def a_rsc(ctx: Ctx, br: Browser, row: dict, first: bool) -> Outcome:
         else:
             out.note = f"pdf 실패: {how}"
     res = write_paper(ctx, row, out)
-    res.si_files = save_si(ctx, row["paper_id"], br.browser_fetch(), find_si_links(raw, br.page.url))
+    res.si_files = save_si(ctx, row["paper_id"], br.browser_fetch(), find_si_links(raw, br.page.url, row["doi"]))
     return res
 
 
@@ -1508,7 +1521,7 @@ def a_ecs(ctx: Ctx, br: Browser, row: dict, first: bool) -> Outcome:
         return Outcome(status="pdf_missing", note=f"PDF 직접 저장 필요 → {target} ({how})")
     raw = br.content()
     res = write_paper(ctx, row, Outcome(method=f"ecs_iopscience_userassist_{how}", pdf_data=data, html_raw=raw, page_url=landing))
-    res.si_files = save_si(ctx, row["paper_id"], br.browser_fetch(), find_si_links(raw, landing))
+    res.si_files = save_si(ctx, row["paper_id"], br.browser_fetch(), find_si_links(raw, landing, row["doi"]))
     return res
 
 
@@ -1535,7 +1548,7 @@ def a_generic(ctx: Ctx, br: Browser, row: dict, first: bool) -> Outcome:
     if not out.pdf_data and not raw:
         return Outcome(status="failed", note="본문·PDF 모두 실패")
     res = write_paper(ctx, row, out)
-    res.si_files = save_si(ctx, row["paper_id"], br.browser_fetch(), find_si_links(raw, br.page.url))
+    res.si_files = save_si(ctx, row["paper_id"], br.browser_fetch(), find_si_links(raw, br.page.url, row["doi"]))
     return res
 
 
