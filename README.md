@@ -32,7 +32,7 @@ codex, claude code (claude 데스크탑 앱에서 code) 대화창에
 https://github.com/angmond1/sci 설치해줘
 ```
 
-설치지침: codex는 CODEX.md, claude는 CLAUDE.md
+설치지침: codex는 [CODEX.md](CODEX.md), claude는 [CLAUDE.md](CLAUDE.md)
 
 <br>
 
