@@ -2197,8 +2197,11 @@ def match_download(ctx: Ctx, f: Path) -> dict:
     if best < 2:
         return {"status": "unmatched", "reason": f"근거 부족 (점수 {best})"}
     if len(tops) > 1:
-        return {"status": "ambiguous", "reason": "여러 논문에 해당: " + ", ".join(x[1]["paper_id"] for x in tops[:3])}
-    s, row, why = scored[0]
+        live = [x for x in tops if x[1].get("status") != "out_of_scope"]
+        if len(live) != 1:
+            return {"status": "ambiguous", "reason": "여러 논문에 해당: " + ", ".join(x[1]["paper_id"] for x in tops[:3])}
+        tops = live   # 같은 논문의 두 DOI(온라인 먼저 판·최종판) 중 하나를 범위 밖으로 둔 경우 — 남은 쪽으로 (2026-09-27 CCS SI)
+    s, row, why = tops[0]
     # 첫 쪽이 SI 쪽 번호 "S1 " 로 시작하는 것도 SI (2026-09-27 PNAS SI "S1 Electrochemical Borylation…"). "S1P receptor" 같은 제목은 띄어쓰기가 없어 걸리지 않는다
     slot = "si" if (not is_pdf_file or SI_NAME_RE.search(f.name) or any(ph in p1_n[:80] for ph in SI_TEXT_PHRASES)
                     or re.match(r"\s*S1\s", p1 or "")) else "main"

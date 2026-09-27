@@ -135,7 +135,8 @@ def cmd_prep(args) -> None:
     unknown = redo - {r["paper_id"] for r in rows}
     if unknown:
         print(f"!! index.csv 에 없는 paper_id: {', '.join(sorted(unknown))}")
-    todo = [r for r in rows if args.all or not r.get(TLDR_COL) or r["paper_id"] in redo]
+    todo = [r for r in rows if (args.all or not r.get(TLDR_COL) or r["paper_id"] in redo)
+            and not (r.get("원문상태") or "").startswith("범위밖")]   # 범위 밖으로 둔 논문(같은 논문의 다른 DOI 등)은 요약하지 않는다 (2026-09-27)
     work = kb_root / "_collect"
     work.mkdir(parents=True, exist_ok=True)
     for old in work.glob("tldr_batch_*.md"):

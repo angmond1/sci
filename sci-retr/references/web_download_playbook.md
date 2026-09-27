@@ -64,7 +64,7 @@
 - 좌표는 누르기 직전에 읽는다. 늦게 뜨는 요소 때문에 배치가 수십 px 밀린다(ACS SI 미리보기 창, Wiley SI 펼침, Elsevier 추천 창 닫기, IOP). 예상 좌표가 어긋나면 `sciretrFocus` 의 guard 가 클릭을 막는다.
 - 버튼 위치는 외워 두지 않는다. 누를 때마다 스크립트로 그 페이지에서 요소의 위치를 읽는다(확인은 `sciretrFocus` 의 hit·guard). 그래서 모니터 해상도, 창 크기, 브라우저 확대 비율이 사용자마다 달라도 같은 방법으로 된다. 사이트가 개편되어 요소 이름이나 문구가 바뀔 때만 이 문서를 고친다. 창이 아주 좁으면 사이트가 모바일 배치로 바뀌어 버튼이 메뉴 안으로 숨을 수 있다.
 - 창이 작아도 된다. 1366×768 창(페이지 1355×586)에서 여섯 출판사 6편을 같은 절차로 받았다(2026-09-26). 여섯 사이트 모두 데스크톱 배치를 유지했고 버튼을 다시 찾은 일이 없었다. 작은 창에서 자리가 화면 기준인 버튼도 그대로였다. Wiley "열기"는 가운데 +45 px, Science 온라인 보기의 다운로드 아이콘은 오른쪽 끝에서 40 px 안쪽·위에서 30 px.
-- 스크립트가 'Inspected target navigated or closed' 로 끝나면 페이지가 한 번 다시 뜬 것이다. 사이트의 첫 논문에서 흔하고(2026-09-27 Science·T&F·PNAS 첫 편), `doi.org` 를 거쳐 여는 사이트는 그 뒤에도 난다(De Gruyter). 기다리지 말고 같은 스크립트를 한 번 더 돌린다.
+- 스크립트가 'Inspected target navigated or closed' 로 끝나면 페이지가 한 번 다시 뜬 것이다. 사이트의 첫 논문에서 흔하고(2026-09-27 Science·T&F·PNAS 첫 편), `doi.org` 를 거쳐 여는 사이트는 그 뒤에도 난다(De Gruyter). `doi.org` 를 거치는 사이트의 첫 논문은 navigate 뒤 같은 묶음 안에서 3초 기다린 다음(computer wait) `web_find.js` 를 돌린다. 끊기면 스크립트를 다시 써야 해 약 55초가 더 든다(2026-09-27 4조: 3회 끊김, 3초 기다림을 넣은 뒤로는 0회).
 - navigate 로 파일 주소를 열면 도구가 다운로드 응답 전에 돌아온다. 다운로드 폴더에 그 파일이나 `.crdownload` 가 보인 뒤에 탭을 다음 논문으로 옮긴다(2026-09-27 12 MB PDF 1회 취소).
 - 쿼리로 파일을 가리는 링크(Atypon `downloadSupplement?doi=…&file=…`)는 창이 보일 때 누른다. 주소를 결과로 받지 않는다(쿼리가 든 값은 가려진다). `web_find.js` 는 이런 링크를 파일 이름(글자)으로 나눠 보여 주고, 형식이 파일 이름에만 있으면(7z 등) 글자로 거른다.
 - 누르기 직전 확인은 스크린샷·확대 캡처 대신 `sciretrFocus` 결과의 `hit`(elementFromPoint)로 한다. 확인과 클릭을 한 호출에 넣을 수 있고 30초 시간 초과를 피한다(2026-09-27 PNAS 13~37초). 스크린샷은 사이트의 첫 논문을 연 직후나 결과가 이상할 때만 찍는다. 스크롤한 뒤나 무거운 페이지(T&F figshare 틀, PNAS 끝부분)의 스크린샷은 다섯 번 시간 초과가 났다.
@@ -80,6 +80,7 @@
 - 부드러운 스크롤은 쓰지 않는다. 스크린샷과 겹쳐 DOI 링크를 누른 적이 있다.
 - 스크립트 결과로 링크 주소를 통째로 받지 않는다. 확장이 쿼리 문자열이나 토큰이 든 값을 `[BLOCKED]` 로 가린다. 경로만(`?` 앞) 또는 글자만 받는다. outerHTML 이나 본문 글자 조각을 넣어도 결과 전체가 `[BLOCKED: Cookie/query string data]` 로 가려진다(2026-09-27 두 번). 참·거짓과 개수만 받는다.
 - 창 크기가 바뀌면 좌표도 바뀐다(2026-09-25 에 818, 1022, 1074, 1148, 1316 px 로 바뀜). 좌표는 그 호출의 스크린샷 좌표계를 따른다.
+- 새 탭을 만든 직후 같은 차례에 옛 탭을 닫으면 탭 그룹이 통째로 사라지고 새 탭도 그룹 밖으로 빠진다(2026-09-27). 옛 탭은 새 탭에서 한 동작을 마친 뒤 닫는다.
 - 탭 닫기는 묶음 안에 넣지 않는다. 묶음 안에서 탭을 닫으면 뒤 동작이 깨진다. 닫은 뒤 탭 목록을 다시 읽는다.
 - 페이지가 아직 그려지는 중이면 스크립트가 `document.body` 없음 오류를 내거나 45초 시간 초과로 끝난다. 뜰 때까지 기다림과 스크린샷으로 확인한다. 페이지가 뜬 직후의 확대 캡처도 시간 초과가 나기 쉽다(2026-09-27 두 번). 2~3초 기다렸다 찍고, 직전 스크린샷으로 자리가 확인됐으면 확대 캡처 없이 누른다.
 
@@ -93,7 +94,7 @@
 
 ### 2.4 web_find.js 결과와 함수
 
-`web_find.js` 에는 주석을 짧게 둔다. 에이전트가 논문마다 이 파일 전체를 javascript_tool 입력으로 다시 써 넣기 때문이다. 2026-09-27 전체 흐름 시험 1·2조에서 논문 사이 시간이 논문당 약 95초였고, 그 큰 몫이 18,089자(한글 약 2,000자)를 매번 쓰는 시간으로 보였다(2조 에이전트 제안). 머리 설명을 이 절로, 웹 본문 저장을 `web_text.js`(2.5)로 옮겨 8,761자가 됐다. 설명은 여기에 적고 스크립트에는 넣지 않는다.
+`web_find.js` 에는 주석을 짧게 둔다. 에이전트가 논문마다 이 파일 전체를 javascript_tool 입력으로 다시 써 넣기 때문이다. 2026-09-27 전체 흐름 시험 1·2조에서 논문 사이 시간이 논문당 약 95초였고, 그 큰 몫이 18,089자(한글 약 2,000자)를 매번 쓰는 시간으로 보였다(2조 에이전트 제안). 머리 설명을 이 절로, 웹 본문 저장을 `web_text.js`(2.5)로 옮겨 8,761자가 됐다. 설명은 여기에 적고 스크립트에는 넣지 않는다. 가벼운 판으로 받은 4조는 논문 사이 간격 중앙값이 57초였다(1·2조 약 95초). 그래도 `web_find.js` 가 든 호출 하나를 쓰는 데 49~69초가 들어 브라우저 시간의 절반이었고, 짧은 클릭 호출은 5~8초였다. 스크립트의 한글도 줄인다(주석은 영어로 짧게). browser_batch 안에서 한글이 `\uXXXX` 로 길어진다는 관찰이 있다(4조, 확인되지 않음).
 
 - 넣는 법: javascript_tool 에 파일을 그대로 넣는다. 맨 앞 `await` 가 없으면 결과가 `{}` 로 빈다. Codex 의 evaluate_script 는 함수를 받으므로 `async () => { return await (async () => { … })(); }` 로 감싼다.
 - 결과(JSON, 1,000자 안): `t` 제목 40자, `v` visibilityState, `w` innerWidth, `dpr` devicePixelRatio, `ms` 실제로 기다린 시간, `sih` SI 절 제목(h1~h4·summary·button)이 있으면 1, `min` 1 이면 창이 최소화됨(outerWidth 0, 2.1).
@@ -121,6 +122,9 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 
 - 본문 상자는 문단 글이 가장 많은 상자와 거의 같은(90% 이상) article·main 중 가장 안쪽이다(main 보다 article, 글이 적은 추천 카드 article 은 빠짐). 본문만 든 상자(#bodymatter 등)는 초록·참고문헌이 밖에 있어 article·main 이 없을 때만 쓴다. 참고문헌이 본문 상자 밖에 있으면 따로 붙인다.
 - 구독 밖이라 초록만 보이면 쓰지 않는다. 글이 500자보다 짧으면 `sciretrSaveText` 가 ok false 를 준다. 그때는 `mark --status abstract_only --note "웹 확인: 구독 밖"`.
+- **새 탭에서 저장한다.** 그 탭에서 앞서 파일을 받았으면 `sciretrSaveText` 가 ok true 를 줘도 저장되지 않는다(Chrome 의 여러 파일 자동 다운로드 제한으로 보임, 2026-09-27 4조). 저장 뒤 다운로드 폴더에서 `<paper_id>.sciretr.html` 을 확인한다.
+- 문단은 `<p>` 와 `div[role=paragraph]`(Science) 를 함께 센다. Atypon 옆 패널(`core-collateral-*`: Information & Authors, Metrics & Citations, View Options, 참고문헌 사본, Figures·Tables·Media, Share), 말풍선(aria-hidden, `references-pop-up` 등), 옆 패널 제목(Information, Authors, View options 등 정확히 그 글자)은 뺀다. 본문 문단의 절반 넘게 담은 상자는 이름이나 소제목이 걸려도 지우지 않는다. 제목은 `citation_title` → `dc.Title` → `og:title` → 탭 제목(" | 사이트" 뺌) 순.
+- 실제 Science 페이지(2026-09-27, Expert Voices 1편): 첫 판은 `div[role=paragraph]` 를 문단으로 세지 않아 옆 패널(게재 정보·저작권·저자 소속·이메일)과 빈 'View options'·'References' 제목까지 저장했다. 고친 판은 제목과 본문 11문단(10,931자)만 저장했다. 이 글에는 참고문헌 목록이 없다.
 - 시험(2026-09-27, 흉내 페이지): 머리 메뉴, 본문 밖 추천 카드, 공유 막대, 본문 속 지표 상자, "Recommended" 절, "Latest News" 절, 뉴스레터 가입 상자, 꼬리말을 모두 뺐고 제목·초록·본문 4문단·참고문헌 2개는 남았다.
 
 ## 3. 출판사별
@@ -272,6 +276,7 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 - 본문: 제목 왼쪽 위 "Download ▾" 를 누르면 메뉴가 열린다. 그 안의 "Download PDF" 를 누른다. 바로 아래 "Download PDF with Cover" 는 표지가 붙은 판이라 누르지 않는다. 새 탭 없이 저장된다.
 - SI: "Supplementary Materials" 절의 링크(있을 때). 대개 zip 이라 받지 않는다.
 - 파일: `{저널}-{권}-{번호}.pdf` (예: `catalysts-10-01276.pdf`).
+- 2026-09-27 전체 흐름 시험(3편): 본문은 첫 편부터 `/{ISSN}/{권}/{호}/{번호}/pdf` 를 navigate 로 연다. `sciretrGo` 는 그 탭의 첫 다운로드만 저장됐다(둘째 편 30초 허비). SI 는 3편 모두 ZIP-Document 라 받지 않았다.
 
 ### 3.14 Thieme (2026-09-27, 1편, 미구독 출판사의 Open Access 논문)
 
@@ -280,6 +285,7 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 - 주소는 `https://doi.org/{DOI}` 로 연다. Crossref 가 준 `thieme-connect.de/DOI/DOI?…` 주소는 404 다.
 - OneTrust 쿠키 창이 배경막으로 페이지 전체 클릭을 막는다. 쿠키 창은 누르지 않는다. 페이지 스크립트로 SI 링크와 본문 PDF 링크의 경로(`/products/ejournals/pdf/…`, `/media/…`)를 읽어 그 주소로 탭을 옮기면 저장된다(2.2 의 주소 이동 방식). 페이지를 옮기면 쿠키 창은 저절로 사라진다.
 - 파일: `{DOI 끝}.pdf` (예: `a-2309-6737.pdf`), SI 는 `…-si.pdf` 류.
+- 2026-09-27 전체 흐름 시험(2편): 쿠키를 이미 골라 둔 뒤라 쿠키 창이 없으면 `sciretrFocus` 와 클릭으로 바로 받는다(29~35초).
 
 ### 3.15 CCS Chemistry 와 그 밖의 Atypon 형 사이트 (2026-09-27, 1편)
 
@@ -289,12 +295,14 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 - Taylor & Francis·PNAS 와 같은 Atypon 구조다. 도구 막대의 "PDF" 는 온라인 보기(`/doi/epdf/`)라 쓰지 않고, 페이지 아래 작은 "PDF download"(`a[href*="/doi/pdf/"]`)를 누르면 바로 저장된다.
 - 그림마다 "Download PowerPoint" 링크가 있어 "download" 글자로 찾으면 12개가 섞여 나온다. `/doi/pdf/` 경로로 찾는다.
 - SI: "Supplemental material" 절의 링크(review 는 없기도 하다).
+- 2026-09-27 전체 흐름 시험(2편): "PDF download" 는 예상 y(441)와 실제 y(855~856)가 달라 2편 모두 guard 1 이었다. 엉뚱한 곳은 눌리지 않았으니 돌려받은 좌표로 바로 다시 누른다. SI 는 목록 페이지에서 `web_find.js` 를 한 번 더 돌려 Word 를 받았다.
+- 같은 논문이 온라인 먼저 판(`ccschem.025…`)과 최종판(`ccschem.026…`) 두 DOI 로 오기도 한다. 하나를 `mark --status out_of_scope` 로 두면 intake 가 남은 쪽으로 가린다(2026-09-27 고침, 전에는 '여러 논문에 해당' 으로 남았다).
 - 처음 보는 사이트는 이 순서로 본다: ① `a[href*="/doi/pdf/"]` 또는 `citation_pdf_url` 메타 ② 글자가 "Download PDF"·"PDF download" 인 링크 ③ 그래도 없으면 사용자에게 버튼을 직접 눌러 달라고 한다.
 
 ### 3.16 De Gruyter (2026-09-27, 4편)
 
 - `www.degruyterbrill.com`. 설정 표에 없는 "그 외" 사이트다. 자동 요청은 202 로 막히고, 사용자 Chrome 에서는 확인 창 없이 열린다. `https://doi.org/{DOI}` 는 `/document/doi/{DOI}/html` 로 넘어간다.
-- 본문: "Download Article (PDF)" = `/document/doi/{DOI}/pdf`. 구독 밖이면 "Purchase Article 30,00 €" 가 보이고 PDF 링크가 없다(4편 중 1편 → `mark --status abstract_only`).
+- 본문: "Download Article (PDF)" = `/document/doi/{DOI}/pdf`. 구독 밖이면 "Purchase Article 30,00 €" 가 보이고 PDF 링크가 없다(4편 중 1편 → `mark --status abstract_only`). 2026-09-27 전체 흐름 시험에서도 3편 중 2편(Pure Appl. Chem., Materials Testing)이 구독 밖이었다. 이때 `web_find.js` 는 20초 빈 결과를 낸다. 짧은 뉴스 글(Chemistry International)은 PDF 1쪽이라 본문 길이 경고가 나는 것이 정상이다.
 - 바닥글·관련 논문 링크가 SI 후보로 잘못 잡혔었다('suppliers', '/data-sharing-policy', 관련 논문 제목의 'Si'). `web_find.js` 가 이제 거른다.
 - 약 13분 동안 PDF 3개를 받은 뒤 넷째 요청에서 HTTP 202 빈 확인 화면(본문 0자)이 나왔다. 그 사이트는 멈추고 30분 뒤 논문 페이지부터 다시 열어 받았다(원칙 7). 차단되지 않는 간격을 찾는 시험은 하지 않는다.
 
@@ -312,6 +320,15 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 - 웹 목록의 SI 주소가 `/core/services/authors/publishing-supplementary-material` 이면 사이트 바닥글의 저자 안내 페이지다(2026-09-27 도구가 SI 목록 페이지로 잘못 잡아 3편에 SI 행이 생김, 지금은 거른다). 받지 않는다.
 - Microscopy and Microanalysis 옛 DOI(`10.1017/S14319276…`)는 Oxford 로 넘어간다. 3.10 대로 "PDF" 를 누른다.
 - 이번 세 편은 모두 SI 가 없어서 SI 가 있을 때의 탭 이름과 파일 주소 모양은 아직 모른다.
+
+### 3.19 Royal Society (2026-09-27 전체 흐름 시험, 3편, 미구독 출판사의 Open Access 논문)
+
+- 미구독 출판사라 초록만 저장하지만, Open Access 논문은 한 번 자동 시도하고 안 되면 웹 경로로 받는다(SKILL 6.1).
+- `https://doi.org/{DOI}` 는 `royalsocietypublishing.org/{저널}/article/…` 로 간다. Silverchair 구조(AIP·Oxford 와 같음)이고 확인 창 없이 열렸다. 아래쪽 쿠키 창은 누르지 않는다.
+- 본문: 도구 막대 "PDF"(`a.article-pdfLink`, 경로 `/article-pdf/doi/10.1098/{코드}/{번호}/{코드}.pdf`). 누르면 "Untitled" 탭이 잠깐 열렸다 닫히며 3~6초에 저장된다. 첫 편은 보조 탭이 Cloudflare "Just a moment…" 로 남았고(체크박스 없음, 누르지 않음) 약 2.5분 뒤 저절로 통과해 같은 PDF 를 한 번 더 저장했다(intake 가 하나만 옮긴다). 파일이 이미 왔으면 보조 탭을 닫고 다음 논문으로 간다.
+- SI ①: 본문 끝 "Supplementary data"(`#supplementary-data`, `.dataSuppLink`)의 `/article-supplement/{번호}/{형식}/…`. 형식 칸으로 판단한다(zip 은 `web_find.js` 가 뺀다).
+- SI ② figshare: 본문 문구 "Electronic supplementary material is available online at https://doi.org/10.6084/m9.figshare.c.{N}". 다른 사이트라 `web_find.js` 에 보이지 않으므로 `a[href*=figshare]` 로 본다. 컬렉션 페이지 → 항목(`a[href*="/articles/"]`) → 항목 페이지의 파일 이름으로 형식을 확인하고, PDF·Word 만 `https://rs.figshare.com/ndownloader/files/{번호}` 를 navigate 로 연다(2초). xlsx·zip 은 받지 않는다. "clear version" 과 "with revised section highlighted" 가 함께 있으면 clear version 만 받는다. figshare 쿠키 창은 누르지 않는다.
+- Views 메뉴의 "Supplementary Material"(js)은 SI 가 없어도 있다. SI 유무는 `#supplementary-data` 와 figshare 링크로 본다.
 
 ## 4. 여러 탭 동시 진행 시험 (2026-09-25, 두 차례)
 
