@@ -30,7 +30,7 @@ if (-not $Dest) {
 }
 $ExtId = "fcoeoabgfenejglbffodgkkbkcdhcgfn"
 $ExtUrl = "https://chromewebstore.google.com/detail/claude/$ExtId"
-$Packages = "requests pymupdf truststore beautifulsoup4 lxml openpyxl wiley-tdm playwright"
+$Packages = "requests pymupdf truststore beautifulsoup4 lxml openpyxl playwright"
 $installed = @()
 
 function Update-SessionPath {

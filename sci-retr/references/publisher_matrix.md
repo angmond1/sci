@@ -239,9 +239,7 @@ J-STAGE는 volume/issue 정보가 URL path에 들어가는데 자동 fetch 시 p
 - 발급: https://onlinelibrary.wiley.com/library-info/resources/text-and-datamining
 
 **method**:
-- `wiley-tdm` Python package 사용
-- TDM API endpoint → PDF 직접 회수
-- KIST 망 SSL 경고: wiley session 한정 fallback (`client._api_session.verify = False`)
+- TDM API endpoint(`api.wiley.com/onlinelibrary/tdm/v1/articles/{DOI}`)를 requests 로 직접 불러 PDF 회수 (2026-09-27: `wiley-tdm` 패키지와 그 `verify = False` 우회는 쓰지 않는다. 인증서는 truststore 로 확인)
 
 **검증**: 3/3 (100%).
 

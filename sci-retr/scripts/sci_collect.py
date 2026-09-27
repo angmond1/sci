@@ -1824,7 +1824,7 @@ def cmd_status(args) -> None:
     report_block(ctx)
 
 
-PIP_NAMES = {"bs4": "beautifulsoup4", "wiley_tdm": "wiley-tdm"}
+PIP_NAMES = {"bs4": "beautifulsoup4"}
 
 
 def cmd_doctor(args) -> None:
@@ -1853,8 +1853,8 @@ def cmd_doctor(args) -> None:
         bad(f"Python {v.major}.{v.minor} — 3.11 이상이 필요하다 ({sys.executable})")
     for mod, why, level in (("requests", "필수", "bad"), ("pymupdf", "필수 (PDF 텍스트)", "bad"), ("bs4", "필수 (HTML 본문)", "bad"),
                             ("lxml", "필수 (HTML 본문)", "bad"), ("truststore", "필수 (기관 망 인증서)", "bad"),
-                            ("openpyxl", "xlsx 입력에 필요", "warn"), ("playwright", "예전 도구 창 방식에만 필요", "info"),
-                            ("wiley_tdm", "Wiley 토큰이 있을 때 필요", "info")):
+                            ("openpyxl", "xlsx 입력에 필요", "warn"), ("playwright", "예전 도구 창 방식에만 필요", "info")):
+        # wiley-tdm 패키지는 쓰지 않는다 — Wiley TDM API 는 requests 로 직접 부른다 (2026-09-27 설치 목록에서 뺌)
         try:
             m = importlib.import_module(mod)
         except ImportError:

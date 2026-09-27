@@ -27,7 +27,7 @@ scripts는 `--env-path <path>` 인자로 위치 지정. default는 `<kb-root>/.e
 # Wiley Online Library TDM API
 # 발급: https://onlinelibrary.wiley.com/library-info/resources/text-and-datamining
 WILEY_TDM_TOKEN=
-# wiley-tdm Python package alias (동일 값)
+# 같은 값의 다른 이름 (둘 중 하나만 있어도 된다)
 TDM_API_TOKEN=
 
 # Elsevier Article Retrieval API
@@ -67,7 +67,7 @@ ANTHROPIC_API_KEY=
 
 **용도**: Wiley paper (10.1002 prefix) PDF 자동 다운.
 
-**검증**: 2/2 sample 성공. `wiley-tdm` Python package 사용.
+**검증**: 2/2 sample 성공. TDM API 를 requests 로 직접 부른다(`wiley-tdm` 패키지는 쓰지 않는다, 2026-09-27).
 
 ---
 

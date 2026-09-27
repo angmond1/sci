@@ -28,7 +28,7 @@ else
   DEST="$HOME/.claude/skills"; APP="Claude"
 fi
 EXT_URL="https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn"
-PACKAGES="requests pymupdf truststore beautifulsoup4 lxml openpyxl wiley-tdm playwright"
+PACKAGES="requests pymupdf truststore beautifulsoup4 lxml openpyxl playwright"
 OS="$(uname -s)"
 INSTALLED=""
 export PYTHONIOENCODING=utf-8

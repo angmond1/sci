@@ -51,7 +51,7 @@ python scripts/sci_collect.py doctor --kb-root <root>
 
 ### 3.1 소프트웨어
 
-- Python 3.11 이상과 패키지: `pip install requests playwright pymupdf wiley-tdm truststore beautifulsoup4 lxml openpyxl`
+- Python 3.11 이상과 패키지: `pip install requests playwright pymupdf truststore beautifulsoup4 lxml openpyxl`
 - Google Chrome. 기본 경로가 아니면 환경변수 `CHROME_EXE` 에 실행 파일 경로를 둔다. 기본 설정에서는 자동 단계가 브라우저를 띄우지 않는다. 웹 전용 출판사를 설정 목록에서 뺐을 때만 창 없는 시도에 쓴다.
 - **웹 경로용**: 사용자 Chrome 에 Claude in Chrome 확장이 연결되어 있어야 한다. 그리고 Chrome 설정 두 가지를 맞춘다(사용자가 직접 바꾼다. `doctor` 가 읽어서 알려 준다).
   - `chrome://settings/content/pdfDocuments` 의 기본 동작을 "PDF 다운로드" 로 둔다. 그래야 PDF 가 저장 창 없이 다운로드 폴더로 바로 저장된다. Chrome PDF 보기 화면의 다운로드 버튼은 설정과 관계없이 항상 저장 창을 띄우므로 쓰지 않는다. 수집이 끝나면 되돌려도 된다.
@@ -480,7 +480,7 @@ python scripts/sci_collect.py intake --kb-root D:/papers/my_topic
 - `examples/sample_doi_input.csv`: 출판사별 실제 DOI 예시(2026-09-26 확인). 첫 실행 연습용.
 - `references/_history/`, `examples/_history/`: 옛 문서(2026-04~05 의 도구 창·Playwright·90초 간격 방식, 개인 기록). 현재 규칙과 다르므로 지침으로 읽지 않는다.
 - `references/credentials_setup.md`: 키·토큰 발급.
-- `scripts/README.md`: scripts 폴더 안내. 명령은 `sci_collect.py`(수집)와 `sci_index.py`(색인)이고, runner.py·validate.py 는 sci_collect 가 불러 쓰는 판정·검증 함수다. 옛 배치 스크립트(split_assignment, elsevier_html_retry_safe, failure_classifier, manual_ingest, runner 의 배치 실행부)는 2026-09-27 에 뺐다.
+- `scripts/README.md`: scripts 폴더 안내. 명령은 `sci_collect.py`(수집), `sci_index.py`(색인), `sci_tldr.py`(한국어 한 줄 요약, sci-tldr)이고, runner.py·validate.py 는 sci_collect 가 불러 쓰는 판정·검증 함수다. 옛 배치 스크립트(split_assignment, elsevier_html_retry_safe, failure_classifier, manual_ingest, runner 의 배치 실행부)는 2026-09-27 에 뺐다.
 
 ## 12. 하지 않는 것
 
