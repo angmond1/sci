@@ -829,8 +829,9 @@ def si_ext(url: str, default: str = "bin") -> str:
     if m:
         return m.group(1).lower()[:5]
     last = url.split("?", 1)[0].rstrip("/").rsplit("/", 1)[-1]
-    ext = last.rsplit(".", 1)[-1][:5] if "." in last else ""
-    return re.sub(r"[^a-z0-9]", "", ext.lower()) or default
+    ext = (last.rsplit(".", 1)[-1] if "." in last else "").lower()
+    # 확장자는 글자로 시작하는 2~5자만 ('PRXEnergy.3.043008' 의 숫자를 확장자로 써 _SI.04300 이 된 적이 있다, 2026-09-27 APS)
+    return ext if re.fullmatch(r"[a-z][a-z0-9]{1,4}", ext) else default
 
 
 def si_skip_set(ctx: Ctx) -> set:
@@ -1622,7 +1623,9 @@ def summarize(ctx: Ctx, header: str = "status") -> None:
         say(f"범위 밖으로 표시(미수집): {len(oos)}편 — 다시 받으려면 `mark --ids <id> --status resolved` 후 collect")
     absonly = [r for r in rows if r.get("status") == "abstract_only"]
     if absonly:
-        say(f"초록만 저장 (미구독): {len(absonly)}편 — " + ", ".join(sorted({r['publisher'] for r in absonly})))
+        say(f"초록만 저장 (미구독·게재 전 등): {len(absonly)}편 — " + ", ".join(sorted({r['publisher'] for r in absonly})))
+        for r in [r for r in absonly if (r.get("note") or "").startswith("웹")][:10]:   # mark 로 적은 웹 확인 사유 (2026-09-27)
+            say(f"  {r['paper_id']}: {(r.get('note') or '')[:60]}")
     failed = [r for r in rows if r.get("status") == "failed"]
     for r in failed[:20]:
         say(f"  FAIL {r['paper_id']} [{r['publisher']}] {r.get('note', '')[:100]}")
@@ -1953,8 +1956,13 @@ def update_manual_csv(ctx: Ctx, new_rows: list[dict]) -> Path:
         # 범위 밖·초록만으로 정한 논문은 SI 행까지 모두 뺀다 (2026-09-27: 초록만으로 표시한 논문이 목록에 남아 있었다)
         full = {r["paper_id"] for r in ctx.registry.values() if r.get("status") == "full"}
         closed = {r["paper_id"] for r in ctx.registry.values() if r.get("status") in ("out_of_scope", "abstract_only")}
+        def saved(r: dict) -> bool:
+            # 저장 자리와 이름(확장자 빼고)이 같은 파일이 있으면 받은 것 — SI 가 예상과 다른 형식으로 왔거나 확장자를 잘못 짐작한 행
+            # (2026-09-27 APS SI 행이 _SI.04300 으로 적혀 _SI.pdf 를 받은 뒤에도 남았다)
+            s = Path(r.get("save_to") or "")
+            return s.exists() or (bool(s.name) and s.parent.exists() and any(s.parent.glob(s.stem + ".*")))
         keep = [r for r in rows.values()
-                if not Path(r.get("save_to") or "").exists() and r.get("paper_id") not in closed
+                if not saved(r) and r.get("paper_id") not in closed
                 and not (r.get("paper_id") in full and str(r.get("save_to", "")).endswith(f"{r.get('paper_id')}.pdf"))]
         with open(p, "w", encoding="utf-8-sig", newline="") as f:
             w = csv.DictWriter(f, fieldnames=MANUAL_FIELDS, extrasaction="ignore")
@@ -2186,6 +2194,7 @@ def cmd_intake(args) -> None:
     if skipped:
         say(f"  받지 않는 SI 형식(동영상, 결정 구조, 압축, 스프레드시트 등) {len(skipped)}개는 옮기지 않고 그대로 둠: " + ", ".join(p.name for p in skipped[:5]))
     moved_main, results = 0, []
+    planned: dict[str, list[tuple[str, str]]] = {}   # 이번 실행에서 정한 SI (이름, sha1) — 미리보기에서도 실제와 같은 이름·중복 판정 (2026-09-27)
     matches = [(f, match_download(ctx, f)) for f in files]
     main_cands: dict[str, int] = {}
     for f, m in matches:
@@ -2210,14 +2219,16 @@ def cmd_intake(args) -> None:
             else:
                 digest = _file_sha1(f)
                 existing = sorted(pdir.glob(f"{pid}_SI*"))
-                if any(_file_sha1(e) == digest for e in existing):
+                mine = planned.setdefault(pid, [])
+                if any(_file_sha1(e) == digest for e in existing) or any(d == digest for _, d in mine):
                     action = "같은 SI 이미 있음 — 그대로 둠"
                 else:
                     ext = (f.suffix.lower().lstrip(".") or "bin")[:5]
                     k = 1
-                    while any(pdir.glob(f"{si_name(pid, k, '*')}")):
+                    while any(pdir.glob(f"{si_name(pid, k, '*')}")) or any(n.rsplit(".", 1)[0] == si_name(pid, k, "x")[:-2] for n, _ in mine):
                         k += 1
                     dst = pdir / si_name(pid, k, ext)
+                    mine.append((dst.name, digest))
                     action = f"SI → {dst.name}"
                     if not args.dry_run:
                         shutil.move(str(f), str(dst))

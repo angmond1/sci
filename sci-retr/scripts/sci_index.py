@@ -398,7 +398,8 @@ def cmd_prep(args) -> None:
                 "각 논문의 요약_ko(한국어 한 문장, 200자 이내, 무엇을 했고 무엇을 찾았는지)와 check_flags 를 정해",
                 f"`{work / f'index_gists_{bi}.csv'}` 에 쓴다 (열: paper_id, 요약_ko, check_flags / UTF-8 BOM / 파이썬 csv 모듈).",
                 "초록 끝의 '…(뒤 생략)' 은 묶음을 줄이려고 스크립트가 자른 것이다. '초록 잘림' 으로 보지 않는다.",
-                "단어수가 짧은 기사인지는 스크립트가 PDF 쪽수로 이미 판단했다. '결정적 flag' 에 없으면 단어수를 문제 삼지 않는다.", ""]
+                "단어수가 짧은 기사인지는 스크립트가 PDF 쪽수로 이미 판단했다. '결정적 flag' 에 없으면 단어수를 문제 삼지 않는다.",
+                "요약_ko 에는 판단 과정('초록이 부족하다' 등)을 쓰지 않는다. 있는 글로 쓸 수 있는 만큼 내용을 쓰고, 문제는 check_flags 에만 적는다.", ""]
         (work / f"index_batch_{bi}.md").write_text("\n".join(head) + "\n" + "\n".join(batch), encoding="utf-8")
     sizes = ", ".join(f"{len(b)}편" for b in batches)
     print(f"요약 대상 {len(todo)}편 → 묶음 {len(batches)}개 ({sizes}; 한 묶음 최대 {size}편·{max_bytes // 1000}KB): "
@@ -462,6 +463,10 @@ def cmd_apply(args) -> None:
         with open(chk, "w", encoding="utf-8-sig", newline="") as f:
             w = csv.DictWriter(f, fieldnames=["paper_id", "flags", "n_flags"]); w.writeheader(); w.writerows(checks)
     left = sum(1 for r in rows if not r.get("요약_ko"))
+    # 요약에 판단 과정이 섞인 행(2026-09-27 96편 중 1편: "제목은 …를 다루나, 제공된 초록은 …") — 다시 요약할 목록으로 알린다
+    meta = [r["paper_id"] for r in rows if re.search(r"(제공된|주어진)\s*(초록|본문|정보)|초록(은|이|에는|만으로)\s|제목(은|만으로)\s|본문 앞부분", r.get("요약_ko") or "")]
+    if meta:
+        print(f"!! 요약에 판단 과정이 섞인 행 {len(meta)}개 — prep --ids 로 다시 요약: {' '.join(meta[:10])}")
     print(f"요약_ko 병합 {n}건 (파일 {len(files)}개) → {out}" + (f" — 아직 빈 행 {left}개 (prep 을 다시 돌리면 빈 행만 묶는다)" if left else "") + "  ▼・ᴥ・▼")
 
 
