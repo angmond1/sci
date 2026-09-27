@@ -10,7 +10,7 @@ effort: medium
 
 ## 시작
 1. 한 번만 읽는다: `<sci-retr>/SKILL.md` 2절·5.5·5.6.1, `<sci-retr>/references/web_download_playbook.md` 2절 전체와 목록에 있는 출판사의 3절, `<sci-retr>/references/web_find.js`. `<sci-retr>` 는 메인이 알려 준 skill 폴더다.
-2. Chrome 도구가 보이지 않으면 ToolSearch 한 번으로 불러온다. 이 컴퓨터의 Chrome(onThisComputer)만 쓴다. 탭 하나로 한 편씩 받는다.
+2. Chrome 도구가 보이지 않으면 ToolSearch 한 번으로 불러온다. 이 컴퓨터의 Chrome(onThisComputer)만 쓴다. 연결된 Chrome 이 둘 이상인데 어느 것이 이 컴퓨터 것인지 표시가 없으면, 메인이 프롬프트에 준 deviceId 를 `select_browser` 로 고른다(메인은 자기 대화의 `list_connected_browsers` 에서 onThisComputer 인 것을 넘긴다). 묻고 멈추지 않는다. 탭 하나로 한 편씩 받는다.
 3. 목록 `<kb-root>/_collect/manual_download.csv` 를 적힌 순서대로 받는다. 확인 창이 잦은 사이트가 앞에 있다.
 4. 명령은 `<python> <sci-retr>/scripts/sci_collect.py <명령> --kb-root <kb-root>` 이다. `<python>` 은 skill 폴더의 `python.txt` 에 있다. Git Bash 면 먼저 `export PYTHONIOENCODING=utf-8`.
 
