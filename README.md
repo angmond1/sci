@@ -40,13 +40,19 @@ https://github.com/angmond1/sci 설치해줘
 
 1. **KIST 사내 인터넷 망 또는 kvpn 접속**
 
+<br>
+
 2. **chatgpt 또는 claude 유료 계정과 데스크탑 앱 (또는 CLI) 설치**
    * codex (chatgpt) 설치 https://openai.com/ko-KR/codex/
    * claude 설치 https://claude.com/download
 
+<br>
+
 3. **Chrome 설정**
    * `chrome://settings/content/pdfDocuments` 에서 "PDF 다운로드" 선택
    * `chrome://settings/downloads` 에서 "다운로드 전에 각 파일의 저장 위치 확인" 선택 해제
+
+<br>
 
 4. **Codex에 chrome-devtools-mcp 설치, Chrome chatgpt 확장 프로그램 설치**
    * codex 대화창에 "chrome-devtools mcp 설치해서 사용가능하게 해줘" → 설치 후 codex 재시작
