@@ -2,7 +2,7 @@
 
 > 이 문서는 Codex Desktop / Codex CLI 가 [sci-retr 패키지](https://github.com/angmond1/sci)를 설치하고 사용할 때 읽는 지침이다. 사용자가 “sci-retr 설치해줘”라고 하면 1절부터 진행한다.
 > 공용 skill 본문은 Claude 기준이다. 수집은 [sci-retr/SKILL.md](sci-retr/SKILL.md), 색인은 [sci-index/SKILL.md](sci-index/SKILL.md), 선택 사항인 한국어 한 줄 요약은 [sci-tldr/SKILL.md](sci-tldr/SKILL.md)를 따른다. 도구·모델·경로 차이는 이 문서를 적용한다. [CLAUDE.md](CLAUDE.md)는 Claude 설치용이다.
-> 갱신 기준: 2026-09-27, 소스 `81066d7`, 패키지 `VERSION` 0.2.1. 세 skill 구성, 수집 뒤 항상 색인, 선택형 한 줄 요약, 새 웹 보조 스크립트를 반영했다. Codex 에서 확인한 범위와 Claude 쪽 시험 기록은 7절에 구분한다.
+> 갱신 기준: 2026-09-27, 소스 `6cdbc81`, 패키지 `VERSION` 0.2.1. 웹 본문 저장, 참고문헌 번호, 새 색인 열과 웹 경로 운영을 반영했다. Codex 에서 확인한 범위와 Claude 쪽 시험 기록은 7절에 구분한다.
 
 ## 0. 구성과 적용 범위
 
@@ -18,9 +18,8 @@
 
 배포 저장소는 `angmond1/sci` 다. 기존 로컬 폴더 `D:\repo\sci-retr` 는 그대로 쓴다.
 
-- README 의 Opus·Sonnet 은 Claude 모델이다. Codex 모델과 임의로 대응시키지 않는다. 현재 세션 모델을 쓰고, 하위 에이전트도 별도 지정이 없으면 세션 기본값을 따른다.
-- 이 문서는 설치 스크립트가 복사하는 세 skill 폴더 밖에 있다. `CODEX.md` 라는 이름만으로 자동 로드된다고 가정하지 않는다. README 의 설치 절에도 이 문서 안내가 없으므로, 설치 완료 안내에 이 파일의 절대경로를 남기고 새 대화에서는 먼저 읽도록 안내한다.
-- 공용 수집 지침에 남은 옛 “색인 검수 하위 에이전트” 표현 대신 현행 `sci-index`·`sci-tldr` 절차와 이 문서 6절을 따른다. 색인에는 하위 에이전트를 쓰지 않는다.
+- README 의 권장모델은 Claude / Codex 순서로 `sci-retr` Opus / Sol, `sci-index`·`sci-tldr` Sonnet / Luna 다. 권장값이며 현재 세션 모델을 자동으로 바꾸지는 않는다. 하위 에이전트도 별도 지정이 없으면 세션 기본값을 따른다.
+- 이 문서는 설치 스크립트가 복사하는 세 skill 폴더 밖에 있다. `CODEX.md` 라는 이름만으로 자동 로드된다고 가정하지 않는다. README 설치 절은 Codex 에 이 문서를 읽도록 안내한다. 설치 완료 때도 절대경로를 남기고 새 대화에서 먼저 읽도록 한다.
 - 예시 요청: “`<패키지 폴더>/CODEX.md` 를 먼저 읽고, sci-retr 로 이 목록의 논문을 `<논문 폴더>` 에 수집해줘.” 이후 공용 skill 을 읽어 실행한다.
 
 ## 1. 설치
@@ -61,13 +60,15 @@ bash "$package_root/install.sh" --codex
 - Windows 의 Python 탐색 순서는 `py -3.12 → py -3.13 → py -3.11 → py -3 → python → python3`, 이후 사용자 설치 경로의 Python312·313·311 이다. 셸 스크립트는 `python3.12 → python3.13 → python3.11 → python3 → python` 순으로 3.11 이상을 찾는다. 설치 직후 PATH 미반영도 구분한다.
 - 선택한 Python 실행 파일의 절대경로는 **`<skillBase>/sci-retr/python.txt`** 에 기록한다. 가상환경을 썼으면 그 경로다. 이후 수집·색인·요약 CLI 는 모두 이 인터프리터로 실행한다. `ModuleNotFoundError` 가 나면 먼저 이 파일과 해당 Python 의 패키지를 확인한다. `python.txt` 가 없는 이전 설치에서만 동작하는 인터프리터를 별도로 찾는다.
 - 재설치 때 기존 설치본의 `token.txt` 는 보존한다. 원본의 `token.txt`, `python.txt`, `_history`, `__pycache__` 는 복사하지 않는다. `-Codex` / `--codex` 는 Claude 확장 설치 안내·웹스토어 열기를 건너뛴다. Node.js 설치·MCP 등록은 하지 않는다.
-- Claude 설치에만 전용 에이전트 `sci-tldr/agents/sci-tldr-writer.md` 를 `~/.claude/agents/` 로 추가 복사한다. **Codex 옵션은 이 추가 복사를 하지 않는다.** skill 안의 정의 파일이 함께 복사돼도 Codex 에이전트로 등록된 것은 아니다. 요약은 6.2 의 주 에이전트 처리 방법을 쓴다.
+- Claude 설치에만 전용 에이전트 `sci-tldr/agents/sci-tldr-writer.md` 와 `sci-retr/agents/sci-retr-web.md` 를 `~/.claude/agents/` 로 추가 복사한다. **Codex 옵션은 둘 다 추가 복사하지 않는다.** skill 안의 정의 파일이 함께 복사돼도 Codex 에이전트로 등록된 것은 아니다. 웹 목록은 5절, 요약은 6.2 의 주 에이전트 처리 방법을 쓴다.
 
 **Codex 의 skill 검색 경로는 실행 환경에서 확인한다.** 이 PC 의 현재 세션은 `~/.codex/skills` 를 읽는다. 한편 [OpenAI 공식 skill 문서](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills)는 사용자 경로 `~/.agents/skills` 와 저장소 경로 `.agents/skills` 를 안내한다. 다른 환경에서 패키지 기본 경로가 인식되지 않으면 실제 검색 경로에 맞춘다. Windows 는 `-Dest "$env:USERPROFILE\.agents\skills"` 를 쓸 수 있다. `install.sh` 에는 `--dest` 가 없으므로 그 경우 세 skill 폴더를 실제 검색 경로 아래에 각각 복사한다. 같은 이름의 skill 을 여러 경로에 중복 설치하지 않는다.
 
 설치 후 세 `SKILL.md`, `sci_collect.py`·`sci_index.py`·`sci_tldr.py`, `sci-retr/python.txt` 를 확인한다. 출력의 설치 완료 문구만 보지 말고 `[문제]`·주의 항목과 새로 설치한 프로그램을 안내한다. Chrome 설정 변경은 점검에서 문제가 나온 항목만 요청한다. 점검의 `root` 는 임시 폴더이며 논문 저장 위치가 아니다.
 
 마지막에는 “새 대화를 열거나 Codex 를 다시 시작한 뒤, 논문 목록 파일을 대화창에 끌어다 놓고 ‘sci-retr 스킬로 논문 수집해줘’라고 해 주세요.”라고 안내하고, 이 `CODEX.md` 의 절대경로도 남긴다. 공식 문서는 skill 자동 변경 감지를 안내하므로 재시작이 모든 환경에서 필수라고 단정하지 않는다. 새 대화에서 세 skill 의 인식을 확인한다.
+
+설치 직후와 사용법을 묻는 대화에서는 특정 주제의 논문 목록을 [Web of Science](https://www.webofscience.com/wos/woscc/smart-search) 또는 [Scopus](https://www.scopus.com/pages/home#basic)에서 검색·Export 해 파일로 전달할 수 있다고 안내한다(공용 지침 4·8절).
 
 ### 1.3 논문 폴더와 점검
 
@@ -124,7 +125,7 @@ args = ["-y", "chrome-devtools-mcp@latest", "--autoConnect"]
 | 공용 지침의 Claude 도구·표현 | Codex 에서 적용할 방법 |
 |---|---|
 | `tabs_context_mcp`, 탭 목록 | `list_pages` |
-| `tabs_create_mcp`, 새 탭 | `new_page`. 작업용 탭 하나만 만들고 재사용한다 |
+| `tabs_create_mcp`, 새 탭 | `new_page`. 평소에는 작업용 탭 하나를 재사용한다. 확인 창 탭을 보존하는 동안 다른 출판사에 쓸 새 탭을 만든다 |
 | `navigate` | `navigate_page` 에 작업 탭의 `pageId` 와 주소를 준다 |
 | 탭 선택·앞으로 가져오기 | `select_page` 의 `pageId`, `bringToFront: true` |
 | `javascript_tool` | `evaluate_script`. DOM 읽기·링크 확인·스크롤에 쓴다 |
@@ -137,7 +138,7 @@ args = ["-y", "chrome-devtools-mcp@latest", "--autoConnect"]
 | `list_connected_browsers`, `select_browser`, `onThisComputer` | 직접 대응하는 필드는 없다. 로컬 MCP 설정과 `list_pages` 결과로 연결 대상을 확인한다 |
 | `selectedTabId` | 작업 탭의 `pageId` 를 기록한다. 실제 앞 탭 여부는 `select_page` 와 화면 상태로 확인한다 |
 | Bash·Read·Grep·파일 쓰기 | 세션의 셸·파일 도구. Windows 는 PowerShell, 검색은 `rg` 를 쓴다 |
-| sonnet 하위 에이전트 | 큰 목록 사전 분류와 한 줄 요약의 Claude 표현이다. 색인은 LLM 없이 실행하고, 요약은 6.2, 사전 분류는 6.3 을 따른다 |
+| Claude 전용 하위 에이전트 | `sci-retr-web`(웹 목록 전체), `sci-tldr-writer`(한 줄 요약), 큰 목록 사전 분류는 Claude 절차다. Codex 의 웹 목록은 주 에이전트가 5절, 요약은 6.2, 사전 분류는 6.3 을 따른다. 색인은 LLM 없이 실행한다 |
 
 ### 3.1 페이지 안의 링크·버튼
 
@@ -147,18 +148,20 @@ args = ["-y", "chrome-devtools-mcp@latest", "--autoConnect"]
 4. 클릭이 안 되고 페이지에 실제 다운로드 링크가 있으면 **그 페이지에서 확인한 주소**로 같은 탭을 이동하는 방법을 검토한다. Elsevier SI·View PDF, ACS/RSC 의 `/article-pdf/`·`/article-supplement/`, IOP 본문 `/pdf` 는 Claude 쪽 주소 이동 사례다. Codex 성공을 보장하는 목록은 아니다.
 5. IOP SI 의 서명 링크는 `/data` 목록에서 클릭한다. Science 본문은 playbook 의 온라인 보기 또는 View Options 경로를 쓴다. 주소를 추측하거나 토큰을 떼어 새 다운로드 요청을 만들지 않는다.
 
-링크 후보 찾기는 설치본의 [references/web_find.js](sci-retr/references/web_find.js)를 세션에서 한 번 읽어 재사용한다. 첫 코드 줄은 `await (async () => { … })();` 이며 **JSON 문자열을 반환**한다. `evaluate_script` 의 `function` 에 넣을 때는 `async () => { return await (async () => { … })(); }` 로 감싼다. 파일 앞 주석은 보존하고 첫 코드의 `await` 를 `return await` 로 바꿔 바깥 async 함수 안에 넣는다. 읽은 실제 본문을 쓰며 `…` 를 그대로 실행하지 않는다. `pageId` 는 작업 탭이다. 스크립트가 준비 상태를 기다리므로 `waitForStableDom: false` 로 중복 대기를 줄일 수 있다.
+링크 후보 찾기는 설치본의 [references/web_find.js](sci-retr/references/web_find.js)를 세션에서 한 번 읽어 재사용한다. 머리의 짧은 영어 주석 두 줄 뒤 첫 코드 줄은 `await (async () => { … })();` 이며 **JSON 문자열을 반환**한다. `evaluate_script` 의 `function` 에 넣을 때는 `async () => { return await (async () => { … })(); }` 로 감싼다. 첫 코드의 `await` 를 `return await` 로 바꿔 바깥 async 함수 안에 넣고, 실제 파일 본문을 쓴다(`…` 는 예시다). 결과와 함수의 자세한 규격은 [playbook 2.4](sci-retr/references/web_download_playbook.md#24-web_findjs-결과와-함수)에 둔다. 스크립트에 긴 설명이나 한글을 다시 넣지 않는다. `pageId` 는 작업 탭이다. 스크립트가 준비 상태를 기다리므로 `waitForStableDom: false` 로 중복 대기를 줄일 수 있다.
 
 - 스크립트는 HTML 로딩, 그림 등 최대 3초, 후보가 나타날 때까지 1초 간격으로 합계 약 20초까지 기다린다. 끝내 후보가 없으면 제목 `t` 와 playbook 의 선택자로 확인한다. 이 스크립트만 실행해서 파일이 다운로드되지는 않는다.
 - 결과 키는 `t`(제목), `v`(visibilityState), `w`(innerWidth), `dpr`, `sih`(SI 절 제목 존재), `ms`(실제 대기 시간), `s`(SI 최대 5개), `m`(본문 최대 4개)다. 창이 최소화된 것으로 감지되면 `min: 1` 이 붙는다. 각 후보는 `[번호, 글자, 경로, x, y]` 또는 `[번호, 글자, 경로, "접힘"]` 이며, 본문 온라인 보기는 끝에 `"online"` 이 붙는다. Science 는 온라인 보기를 거쳐 다운로드한다.
 - 빈 경로는 접힌 절 제목·버튼, `"#"`·`"js"` 는 목차·메뉴일 수 있다. 글자는 최대 24자, 경로는 끝 36자 등으로 줄인 **표시용 값**이다. 이를 다운로드 주소로 쓰지 않는다. 접힌 절을 펼치거나 페이지가 바뀌면 스크립트를 다시 실행해 번호를 갱신한다.
-- 후보 번호 `n` 은 MCP 의 `uid` 가 아니다. Codex 의 uid 클릭에서는 **예상 좌표 없이** `() => window.sciretrFocus(3)` 처럼 부른다(`3`은 예시). JSON 문자열로 돌아온 `ok`, `n`, `x`, `y`, `w`, `hit`, `guard`, `text` 를 확인하고, 최신 snapshot 에서 같은 링크의 `uid` 를 찾아 클릭한다. `hit: false` 면 가림·배치를 확인한다.
-- 좌표를 함께 주는 `sciretrFocus(n, x, y)` 는 예상 지점에 해당 요소가 없으면 다음 클릭 한 번을 막는 투명한 막을 만든다(`guard: 1`, 최대 8초). uid 클릭에 이 방식을 섞지 않는다. 이미 막이 생겼으면 사라진 뒤 snapshot 을 다시 받는다. 좌표 도구를 쓸 때만 실제 화면 좌표계와 `hit`·`guard` 를 확인한다.
+- 후보 번호 `n` 은 MCP 의 `uid` 가 아니다. `sciretrFocus` 는 **비동기 함수**이며 요소 자리가 멈출 때까지 1초 간격으로 최대 3초 기다린다. Codex 의 uid 클릭에서는 **예상 좌표 없이** `async () => await window.sciretrFocus(3)` 처럼 부른다(`3`은 예시). 반환된 `ok`, `n`, `x`, `y`, `w`, `hit`, `guard`, `text` 를 확인하고, 최신 snapshot 에서 같은 링크의 `uid` 를 찾아 클릭한다. `hit: false` 면 가림·배치를 확인한다.
+- 좌표를 함께 주는 `sciretrFocus(n, x, y)` 는 예상 지점에 해당 요소가 없으면 다음 클릭 한 번을 막는 투명한 막을 만든다(`guard: 1`, 최대 8초). uid 클릭에 이 방식을 섞지 않는다. 이미 막이 생겼으면 사라진 뒤 snapshot 을 다시 받는다. 좌표 도구를 쓸 때는 `await` 뒤 실제 화면 좌표계와 `hit`·`guard` 를 확인한다.
 - `min: 1` 또는 최소화 때문에 `ok: false` 면 창을 복원하고 작업 탭을 앞으로 가져온 뒤 다시 읽는다. `v: hidden` 만으로 클릭 불가라고 단정하지 않는다. 최소화 상태에서 클릭이 닿지 않은 것은 Claude 실측이며 Codex 에서는 현재 화면·도구 결과로 확인한다.
-- `() => window.sciretrGo(3)` 는 찾아 둔 실제 링크로 **같은 탭을 이동**하며 주소를 출력하지 않는다. 다운로드를 일으킬 수 있으므로 파일 목록 확인 뒤에만 쓴다. 같은 탭의 두 번째 다운로드부터 Chrome 의 “여러 파일 다운로드” 확인에 걸린 Claude 기록이 있다. 저장 여부를 확인하고, 막히면 링크 클릭으로 진행한다.
-- Silverchair SI 의 문서 형식, 다른 논문 링크, 학회 초록집 `Supplement_1`, `suppliers`·`data-sharing-policy`, 규소 `Si`, 7z·ZIP-Document 등을 거른다. 허용된 Elsevier·Silverchair·IOP SI 도메인 외의 외부 링크는 제외될 수 있다. 후보가 없다고 SI 가 없다고 단정하지 않으며, PDF·Word 형식과 MDAR 제외는 최종 확인한다.
+- `() => window.sciretrGo(3)` 는 찾아 둔 실제 링크로 **같은 탭을 이동**하며 주소를 출력하지 않는다. 다운로드를 일으킬 수 있으므로 파일 목록 확인 뒤에만 쓴다. 같은 탭의 두 번째 다운로드부터 Chrome 의 “여러 파일 다운로드” 확인에 걸린 Claude 기록이 있다. `sciretrSaveText` 도 영향을 받았으므로 웹 본문은 새 탭에서 저장한다. 실제 저장 여부를 다운로드 폴더에서 확인한다.
+- Silverchair SI 의 문서 형식, 다른 논문 링크, 학회 초록집 `Supplement_1`, `suppliers`·`data-sharing-policy`, 규소 `Si`, 7z·ZIP-Document, 동영상·`.txt`, 호·권의 `/issue/` 링크를 거른다. MDPI 의 `/s` SI 후보는 숫자 1~3자리만 인정해 긴 Elsevier PII 주소를 제외하고, 폭·높이 4px 미만의 빈 줄 사각형은 좌표 후보에서 뺀다. 허용된 Elsevier·Silverchair·IOP SI 도메인 외의 외부 링크는 제외될 수 있다. 후보가 없다고 SI 가 없다고 단정하지 않으며, PDF·Word 형식과 MDAR 제외는 최종 확인한다.
 
 결과를 약 1,000자 안으로 줄인 것은 Claude 도구의 출력 제한에 맞춘 설계다. Codex 에도 같은 제한이 있다고 가정하지 않는다.
+
+PDF 가 없는 웹 전용 글 또는 5절의 PDF 실패 처리에는 [references/web_text.js](sci-retr/references/web_text.js)를 쓴다([playbook 2.5](sci-retr/references/web_download_playbook.md#25-웹-전용-글의-웹-본문-web_textjs)). 파일 끝의 즉시 실행 함수를 `evaluate_script` 에서는 `() => { return (() => { … })(); }` 로 감싼다. 반환 통계 `chars`·`paras`·`refs`·`removed`·`heads` 를 읽고, `heads` 에 추천·관련 글·뉴스·지표가 남아 있으면 저장하지 않고 점검한다. 본문이 500자 미만이면 저장 함수가 `ok: false` 를 반환할 수 있다. 적절한 전문이면 **앞서 다운로드하지 않은 새 탭에서 같은 논문 페이지를 열고 스크립트를 다시 넣어**, `() => window.sciretrSaveText('<paper_id>')` 를 실행한다. PDF 재시도에도 실패한 경우에는 두 번째 인자 `'pdffail'` 을 준다. `<paper_id>.sciretr.html` 이 다운로드 폴더에 실제로 생겼는지 확인한 뒤 `intake` 한다. 본문·참고문헌 외의 추천 글 등이 빠졌는지 `heads` 와 저장 파일로 확인한다.
 
 웹 전용 출판사의 파일을 `requests`, `curl`, 페이지 안 `fetch`, 네트워크 응답 추출로 대신 받지 않는다. 브라우저에서 정상 다운로드하고 파일 정리는 `intake` 에 맡긴다. 서명 URL·쿠키·토큰은 출력하지 않는다. playbook 의 `[BLOCKED]` 마스킹·출력 잘림·클릭 실패는 Claude 도구의 관찰이며 Codex 에도 같다고 단정하지 않는다.
 
@@ -170,7 +173,7 @@ Wiley·IEEE 의 “열기/Open”, Science 온라인 보기의 다운로드 아�
 - Chrome DevTools MCP 공식 설정에는 좌표 도구를 켜는 `--experimentalVision` 이 있다. 이 세션에는 `click_at` 이 노출되지 않았고 시험하지 않았다. 기본 설치 조건으로 추가하지 않으며, 사용할 때는 설치 버전·실제 도구 정의를 확인한다. [공식 설정](https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/configuration.md)
 - 사용할 화면 제어 도구가 없거나 버튼을 특정하지 못하면 사용자가 그 다운로드 버튼을 직접 누르게 안내한다. 저장된 파일은 `intake` 로 정리한다.
 
-`handle_dialog` 는 Chrome 의 모든 화면·저장 창을 처리하는 도구가 아니다. 화면 제어 기능이 있어도 **탭 하나로 한 편씩, 작업 탭은 화면 앞에** 둔다는 규칙은 유지한다.
+`handle_dialog` 는 Chrome 의 모든 화면·저장 창을 처리하는 도구가 아니다. 평소에는 **탭 하나로 한 편씩, 작업 탭은 화면 앞에** 둔다. 확인 창이 뜬 탭은 닫거나 다른 주소로 옮기지 않고 그대로 두며, 다른 출판사는 `new_page` 로 연 새 탭에서 이어간다(5절).
 
 ## 4. 경로·설정·자격증명
 
@@ -211,7 +214,7 @@ resolve 결과에 Elsevier OA·Wiley 논문이 있고 해당 키·토큰이 없�
 1. 1.3 에 따라 **저장 폴더를 확인받은 뒤** 새 폴더는 `doctor`, 이어서 `resolve` 를 실행한다. `resolve` 끝의 **`=== 다음 단계 … ===`** 블록에 나온 경로별 편수·review·키 질문·주제 확인·다음 명령을 안내에 옮긴다. 숫자나 경로 분류를 따로 다시 계산하지 않는다.
 2. 주제 확인은 **30편 초과**일 때만 하며, 이미 주제를 받았으면 다시 묻지 않는다. 30편 이하는 WoS·Scopus 입력이어도 목록 그대로 진행한다. review 는 제목 추정 대신 출력의 `[review]` 와 registry `doc_type` 을 쓴다. 문서 유형은 WoS `DT`·Scopus `Document Type`, 없으면 OpenAlex 유형이다. review follow-up·해당 키 발급 질문은 한 메시지에 묶는다. 신규 논문의 연도·paper_id 는 인쇄 연도 우선이며 기존 id 는 바꾸지 않는다. Angewandte 의 ange/anie 두 판은 `resolve` 가 독일어판을 범위 밖으로 처리한다.
 3. 사용자가 요청한 수집 범위에서 **답과 무관한 자동 수집은 먼저 진행**한다. 키 발급 질문이 있으면 해당 출판사만 `collect --exclude-publishers elsevier,wiley` 로 빼고, 없으면 `collect` 를 쓴다. 제외 목록은 실제로 답을 기다리는 출판사만 넣는다. 주제 답에 의존하는 분류·수집이나 추가 참고문헌 수집은 답을 받은 뒤 한다. 자동 결과와 남은 질문을 함께 알린다.
-4. **`collect` 가 `_collect/manual_download.csv` 도 만든다.** 웹 경로를 처음 시작할 때 `assist` 를 반복할 필요가 없다. 목록을 다시 만들거나 중단 뒤 재개할 때만 `assist` 를 쓴다(`--exclude-publishers` 도 지원). 초록만·범위 밖 논문과 이미 저장된 파일 항목은 목록에서 제외된다. 웹 다운로드는 출판사별 논문·본문/SI 목록을 알리고 확인받은 뒤 시작한다. [playbook](sci-retr/references/web_download_playbook.md)의 순서를 이 문서 3절 도구로 수행하고, `.crdownload` 가 사라져 파일이 완성되기 전에 다음 논문으로 이동하지 않는다.
+4. **`collect` 가 `_collect/manual_download.csv` 도 만든다.** 웹 경로를 처음 시작할 때 `assist` 를 반복할 필요가 없다. 목록을 다시 만들거나 중단 뒤 재개할 때만 `assist` 를 쓴다(`--exclude-publishers` 도 지원). 초록만·범위 밖 논문과 이미 저장된 파일 항목은 목록에서 제외된다. 목록은 설정 `web_first_publishers`(기본 rsc→ecs→science→royal_society→pnas→oup→acs) 순으로 확인 창이 잦은 사이트를 앞에 두고 나머지는 이름 순으로 둔다. 출판사별 논문·본문/SI 목록을 알리고 확인받은 뒤, **Codex 주 에이전트가 목록 순서대로 끝까지** 처리한다. 묶음마다 새 에이전트를 띄우거나 웹 작업 사이에 다른 일을 끼워 넣지 않는다. [playbook](sci-retr/references/web_download_playbook.md)의 순서를 이 문서 3절 도구로 수행하고, `.crdownload` 가 사라져 파일이 완성되기 전에 다음 논문으로 이동하지 않는다.
 5. SI 는 PDF·Word 문서만 받는다. 동영상·음성·결정 구조·압축·스프레드시트·Science MDAR 체크리스트는 받지 않는다. “Download full issue”, 다른 논문 묶음, 모든 SI 압축 다운로드도 쓰지 않는다.
 6. `intake --dry-run` 으로 매칭을 보고 `intake` 로 옮긴다. 파일명은 바꿀 필요가 없다. 못 가린 파일은 그대로 두고 DOI·제목으로 확인한다. `status` 의 **`=== 보고용 요약 … ===` 에서 `색인` 줄**을 따른다. 받을 논문이 남았으면 웹 수집·intake 를 마치고, 끝났으면 편수와 관계없이 6.1 의 `build` 를 바로 실행한다. 한 줄 요약만 6.2 에 따라 사용자에게 한 번 묻는다.
 
@@ -231,11 +234,15 @@ Windows 실행 예시 — 1절에서 확인한 폴더·Python 을 이어 쓴다.
 
 `--hours 1` 은 방금 받은 묶음의 예시다. 오래전에 받은 파일도 정리해야 하면 시간 범위를 늘린다. macOS/Linux 도 `python.txt` 에 적힌 실행 파일과 같은 CLI 인자를 쓴다.
 
-- 보고는 `collect`·`intake`·`status`·`assist` 의 **`보고용 요약`** 블록을 바탕으로 한다. 출판사별 편수·SI 수·실패 사유와 `색인` 안내를 그대로 활용한다. 공용 SKILL 의 인사·완료/부분 완료/중단 머리표를 따르되, 이 표시는 채팅 보고에만 쓰고 CSV·본문·파일명에는 넣지 않는다.
+- 보고는 `collect`·`intake`·`status`·`assist` 의 **`보고용 요약`** 블록을 바탕으로 한다. 출판사별 편수·SI 수·실패 사유와 `색인` 안내, `받는 순서`, `웹 본문만`, `PDF 받기 실패 → 웹 본문 저장`, `SI 만 받을 행` 을 그대로 활용한다. PDF 실패 행은 논문마다 보고 블록의 DOI 링크를 함께 전달한다. 공용 SKILL 의 인사·완료/부분 완료/중단 머리표를 따르되, 이 표시는 채팅 보고에만 쓰고 CSV·본문·파일명에는 넣지 않는다.
 - `intake` 는 PNAS `.sapp`, IEEE “Supplementary File”과 SI 첫 쪽 문구를 판정에 쓴다. “본문 후보 N개”가 나오면 임의로 하나를 본문으로 정하지 않는다. 첫 쪽·DOI·제목으로 SI 를 확인해 지정된 SI 자리에 정리한 뒤 다시 실행한다. dry-run 도 같은 실행의 SI 이름·중복을 반영하며, 목록과 무관한 개인 파일 이름은 출력하지 않는다.
+- `intake` 는 `<paper_id>.sciretr.html` 을 해당 논문의 `html/{paper_id}.html` 로 옮겨 `source.md` 를 만든다. PDF 가 중복 저장돼도 본문 글이 같으면 하나만 옮기고, SI 도 글 내용으로 중복을 가린다. 동일 논문의 두 DOI 중 하나가 범위 밖이면 남은 논문에 맞춘다. 웹 본문을 나중에 PDF 로 보완하면 해당 PDF 를 `intake` 해 상태를 갱신한다.
 - 웹에서 구독 밖·게재 전을 확인했으면 `mark --ids <paper_id> --status abstract_only --note "웹 확인: 구독 밖"` 또는 `--note "웹 확인: 게재 전"` 으로 남긴다. `status` 는 그 사유를 함께 보여 준다. 코드가 “구독 밖일 수 있음”이라고 한 것만으로 확정하지 않는다.
+- 본문은 이미 있고 웹 목록에 SI 만 남은 논문에서 SI 가 없음을 확인했으면 `mark --ids <paper_id> --si-none --note "웹 확인: SI 없음"` 으로 그 행을 닫는다. 논문 상태는 바꾸지 않는다. `mark` 는 `--status` 또는 `--si-none` 중 하나만 받는다.
+- 확인 창이 뜬 탭은 닫거나 다른 주소로 옮기지 않고 그대로 둔다. 그 사실을 알리고 다른 출판사는 `new_page` 로 연 새 탭에서 처리한다. 목록을 한 바퀴 돈 뒤 남은 탭의 제목을 약 20초 간격으로 최대 3분 확인하고, 다운로드 폴더에서도 저장 여부를 본다. 확인이 계속 남거나 반복되면 해당 사이트를 멈추고 남은 항목을 보고한다.
+- PDF 가 한 번 안 받아졌다고 웹 본문으로 넘기지 않는다. ① 출판사별 기본 버튼 ② 페이지에서 확인한 다른 경로(`navigate_page` 로 PDF 주소 열기, `sciretrGo`, 온라인 보기의 다운로드) ③ 논문 페이지 재방문 후 재시도를 한다. 그래도 PDF 를 받지 못했고 페이지에 전문이 보일 때만 3.1 의 `web_text.js` 를 **새 탭에서** 실행해 `sciretrSaveText('<paper_id>', 'pdffail')` 로 저장한다. 확인 창과 구독 밖은 PDF 실패로 분류하지 않는다. PDF 자체가 없는 웹 전용 글은 `sciretrSaveText('<paper_id>')` 를 쓴다.
 - `assist --window` 는 쓰지 않는다. 설정 `web_only_publishers` 를 줄여 자동 요청을 시도하지 않는다. Elsevier API 는 키가 있는 OA 논문에만, Wiley 자동 경로는 TDM 토큰이 있을 때 쓴다. 미구독 출판사도 OA 논문은 자동 경로로 한 번 시도하고 실패하면 웹 경로로 넘긴다. 자동 요청의 User-Agent 는 `sci-retr/0.2.1 (+https://github.com/angmond1/sci)` 이며 브라우저로 위장하지 않는다.
-- playbook 의 한 편 처리 시간과 96편 연습 기록은 Claude 실측이며 고정 대기나 Codex 속도 보장이 아니다. 페이지 준비는 새 `web_find.js` 의 기다림·결과로 확인한다. 웹은 한 편이 끝나면 다음 편으로 가고, 자동 경로는 설정 간격을 유지한다.
+- playbook 의 한 편 처리 시간과 96편·81편·6편 연습 기록은 Claude 실측이며 고정 대기나 Codex 속도 보장이 아니다. 페이지 준비는 `web_find.js` 의 기다림·결과로 확인한다. 웹은 한 편이 끝나면 다음 편으로 가고, 자동 경로는 설정 간격을 유지한다.
 - 차단·확인 반복이면 그 사이트를 멈춘다. 쿠키 복사, User-Agent·TLS 지문·자동화 표시 위장, 응답 가로채기, 차단 직전 간격 시험은 하지 않는다. 공용 지침의 대기 후 재개 규칙을 따르되 무인 재시도를 반복하지 않는다.
 - 끊긴 뒤에는 `intake → status → assist` 순으로 남은 목록을 다시 만든다. 작업에서 만든 보조 탭만 정리하고 사용자 기존 탭은 보존한다.
 - 브라우저 제어를 쓰지 못해도 사용자가 평소 Chrome 에서 직접 받은 파일을 같은 `intake` 절차로 정리할 수 있다.
@@ -253,9 +260,11 @@ $sourcePdf = 'C:\papers_inbox\source_paper.pdf'
 # 출력된 _collect/refs_<원 논문>.txt 의 실제 경로로 이어서 resolve 한다
 ```
 
-참고문헌 목록은 Crossref·OpenAlex 로 조회하고, 둘 다 비면 로컬 PDF 의 참고문헌 DOI 를 쓴다. 링크에서 원 논문 DOI 를 찾을 때 웹 전용 출판사 페이지에는 요청하지 않는다. 그 밖의 허용된 사이트에서는 DOI 메타를 읽을 수 있다. DOI 를 찾지 못하면 원 논문 PDF 나 DOI 를 요청한다. 원 논문 자체는 목록에서 제외되며 DOI 없는 참고문헌은 빠지므로 출력의 누락 안내도 전달한다.
+참고문헌 목록은 Crossref·OpenAlex 로 조회하고, 둘 다 비면 로컬 PDF 의 참고문헌 DOI 를 쓴다. 링크에서 원 논문 DOI 를 찾을 때 웹 전용 출판사 페이지에는 요청하지 않는다. 그 밖의 허용된 사이트에서는 DOI 메타를 읽을 수 있다. DOI 를 찾지 못하면 원 논문 PDF 나 DOI 를 요청한다. 원 논문 자체는 목록에서 제외된다. DOI 없는 참고문헌은 출력·목록 머리에 표시된 누락 번호와 함께 알린다.
 
-결과 파일로 `resolve` 부터 진행한다. 사용자가 “모두”라고 했으면 편수와 관계없이 주제 확인·사전 분류로 목록을 줄이지 않는다. `--limit N` 은 사용자가 일부만 요청했거나 허락한 시험에만 쓴다. review follow-up 에 동의한 경우도 `refs --source <paper_id>` 로 목록을 만들고 이미 등록된 DOI 를 제외해 이어간다.
+`_collect/refs_<원 논문>.txt` 의 각 데이터 줄은 **`번호<TAB>DOI`** 다. Crossref 목록 순서가 원 논문의 참고문헌 번호이며, OpenAlex 에서 더 찾은 DOI 는 원 목록의 DOI 없는 항목과 제목 또는 연도·권·첫 쪽을 맞춰 번호를 붙인다. 못 찾으면 `00`(번호 모름)이다. PDF 만 있을 때는 `[12]`·`12.` 같은 줄 번호가 1부터 이어질 때만 번호로 쓴다. 파일의 `#` 로 시작하는 안내 줄은 입력에서 제외된다.
+
+참고문헌 수집은 **원 논문마다 새 주제 폴더**에서 시작한다. 결과 파일로 `resolve` 하면 번호가 신규 논문의 `paper_id`·폴더·PDF·SI 파일명 앞에 붙는다(예: `07_2021_ACS-Catal_Cheng`, 최소 두 자리). 이미 등록된 논문은 id 를 바꾸지 않고 레지스트리의 `ref_no` 와 색인 번호만 채운다. 사용자가 “모두”라고 했으면 편수와 관계없이 주제 확인·사전 분류로 목록을 줄이지 않는다. `--limit N` 은 사용자가 일부만 요청했거나 허락한 시험에만 쓴다. review follow-up 에 동의한 경우도 `refs --source <paper_id>` 로 목록을 만들고 이미 등록된 DOI 를 제외해 이어간다.
 
 ## 6. Codex 색인·한 줄 요약
 
@@ -268,6 +277,7 @@ $sourcePdf = 'C:\papers_inbox\source_paper.pdf'
 ```
 
 - `build` 는 LLM 없이 `index.csv`, `index_check.csv`, 주제 폴더의 `README.md`(에이전트용 5줄 사용법)를 만든다. 별도의 LLM 색인 검수나 검수용 하위 에이전트를 실행하지 않는다.
+- DOI 다음 `웹페이지` 열에는 `https://doi.org/<DOI>`, DOI 가 없으면 레지스트리의 논문 주소가 들어간다. `수집 URL` 은 실제 API·PDF 주소일 수 있어 별개다. `ref_no` 가 있는 참고문헌 수집 색인은 맨 왼쪽에 `참고문헌 번호` 열을 둔다(번호를 모르면 `-`). 웹 본문 수집은 `원문상태` 에 `전문(웹 본문, PDF 없음)`, PDF 실패 뒤 웹 본문 저장은 `전문(웹 본문, PDF 받기 실패)` 로 구별한다.
 - 사이트 안내 문구가 들어간 초록은 빼고 flag 를 남긴다. 빈 초록은 전문의 초록 절에서 복원할 수 있을 때 채운다. 두 단이 섞이거나 참고문헌·붙은 단어로 의심되면 채우지 않는다. 짧은 기사(PDF 2~4쪽, 쪽당 200단어 이상)는 단어수 부족 경고에서 제외한다. 프리프린트의 저널명은 서버 이름으로 보완한다.
 - 기존 `한줄요약` 열과 `LLM:` flag 를 보존한다. 옛 `요약_ko` 열은 `한줄요약` 으로 옮긴다. 요약 열이 없던 색인에는 `build` 만으로 새 요약 열을 붙이지 않는다.
 - 총 편수·상태별 편수, 남은 flag 와 조치, 실제 걸린 시간을 보고한다. Claude 기록의 “96편 1~3초”를 Codex 에서 측정한 시간으로 보고하지 않는다. `index.csv` 는 논문을 고르는 입구이며, 판단 근거는 `source.md`·PDF 에서 읽는다.
@@ -287,7 +297,7 @@ $sourcePdf = 'C:\papers_inbox\source_paper.pdf'
 & $retrPython "$tldrScript" apply --kb-root "$kbRoot"
 ```
 
-1. `prep` 은 기본적으로 요약이 빈 행을 `_collect/tldr_batch_<n>.md` 로 묶고, 검증 재료를 `tldr_src_<n>.json` 에 둔다. 기본 분할 기준은 50편·50KB(`--size`, `--max-kb`)다. 출력의 실제 묶음 번호·결과 경로를 사용한다. `--ids` 는 기존 요약이 있어도 지정 논문을 다시 묶고, `--all` 은 전체를 다시 묶는다.
+1. `prep` 은 기본적으로 요약이 빈 행을 `_collect/tldr_batch_<n>.md` 로 묶고, 검증 재료를 `tldr_src_<n>.json` 에 둔다. `범위밖-미수집` 행은 요약 대상에서 제외한다. 기본 분할 기준은 50편·50KB(`--size`, `--max-kb`)다. 출력의 실제 묶음 번호·결과 경로를 사용한다. `--ids` 는 기존 요약이 있어도 지정 논문을 다시 묶고, `--all` 은 전체를 다시 묶는다.
 2. **Codex 기본 경로는 주 에이전트의 순차 처리다.** Claude 의 `sci-tldr-writer` 는 Read·Write 도구와 `model: sonnet` 으로 정의되어 있으며 Codex 에 등록되지 않는다. 전용 에이전트가 없으면 메인이 처리한다는 공용 지침을 따른다. 10편 미만은 원래부터 메인이 처리하고, 10편 이상도 이 Codex 경로에서는 묶음마다 직접 읽고 쓴다. 범용 하위 에이전트를 대용으로 띄우거나 Claude 의 모델·effort 를 Codex 설정으로 옮기지 않는다. 전용 에이전트 정의에도 현재 effort 지정은 없다.
 3. 묶음 파일을 한 번 읽고 머리의 규칙 8개에 따라, **묶음의 모든 논문**을 지정된 `_collect/tldr_<n>.jsonl` 에 한 번에 쓴다. 한 줄에 JSON 하나, 필드는 `paper_id`, `한줄요약`, `flag` 다. Python `json.dumps(..., ensure_ascii=False)` 등으로 따옴표·줄바꿈을 이스케이프하고 UTF-8 로 저장한다. 마크다운 코드 울타리는 결과 파일에 넣지 않는다.
 4. 요약은 제공된 글에 근거한 한국어 한 문장, 권장 60~120자·최대 150자로 마침표로 끝낸다. 숫자·단위·물질명·화학식을 추측하거나 변환해 보태지 않는다. 리뷰·논평은 그 유형에 맞게 쓴다. 재료 부족·제목과 글 불일치면 `한줄요약` 을 빈 문자열로 두고 이유를 `flag` 에 쓴다.
@@ -310,11 +320,11 @@ $sourcePdf = 'C:\papers_inbox\source_paper.pdf'
 
 | 항목 | 확인 범위 |
 |---|---|
-| 저장소·설치 옵션 | 소스 `81066d7`, `VERSION` 0.2.1. 세 skill 복사, Codex 옵션의 Claude 에이전트 추가 복사 생략, 일곱 패키지를 코드로 확인. 실제 설치·업데이트는 실행하지 않음 |
-| skill 검색 | 현재 세션이 `~/.codex/skills` 의 skill 을 노출함. 해당 경로에 `sci-retr/SKILL.md` 는 있고 `sci-index`·`sci-tldr/SKILL.md` 는 없음. 문서 갱신은 설치 상태를 바꾸지 않음 |
+| 저장소·설치 옵션 | 소스 `6cdbc81`, `VERSION` 0.2.1. 세 skill 복사, Codex 옵션의 Claude 전용 에이전트 둘(`sci-tldr-writer`, `sci-retr-web`) 추가 복사 생략을 코드로 확인. 실제 설치·업데이트는 실행하지 않음 |
+| skill 검색 | 2026-09-27 앞선 문서 점검에서 `~/.codex/skills` 의 `sci-retr/SKILL.md` 만 확인했고 `sci-index`·`sci-tldr/SKILL.md` 는 없었음. 문서 갱신은 설치 상태를 바꾸지 않음 |
 | Python CLI | Python 3.12 에서 `sci_index.py build`, `sci_tldr.py prep/apply` 의 `--help` 성공. 옛 `sci_index.py prep/apply` 는 새 CLI 안내와 종료 코드 2 를 실제 확인. 논문 폴더에는 실행하지 않음 |
-| 공용 코드 | `색인` 보고 문구, 색인·요약 분리, 한줄요약 열 이행·보존, `LLM:` flag, intake 충돌 처리·문자 복원, 옛 배치 코드 제거를 코드로 확인. 실제 수집 자료의 결과를 재검증한 것은 아님 |
-| 링크 찾기 스크립트 | 새 async 규격·JSON 문자열·후보 배열·focus/guard/go 동작을 코드로 확인. Node.js 에서 Codex 용 async 함수 래퍼 구문 검사 통과. 실제 논문 페이지에서는 실행·클릭하지 않음 |
+| 공용 코드 | `색인` 보고 문구, 색인·요약 분리, 한줄요약 열 이행·보존, `LLM:` flag, `web_first_publishers`·`--si-none`·`ref_no`·`웹페이지`·`web_text_pdffail` 을 코드·공용 지침에서 확인. 실제 수집 자료의 결과를 재검증한 것은 아님 |
+| 웹 보조 스크립트 | `web_find.js` 의 짧은 영어 머리와 [playbook 2.4](sci-retr/references/web_download_playbook.md#24-web_findjs-결과와-함수)의 async focus, `web_text.js` 와 [2.5](sci-retr/references/web_download_playbook.md#25-웹-전용-글의-웹-본문-web_textjs)의 저장 절차를 확인. 기존 `web_find.js` Codex async 래퍼는 앞선 문서 점검에서 Node.js 구문 검사 통과. 이번 작업에서 실제 논문 페이지에 실행·클릭하지 않음 |
 | 브라우저 도구 | 3절의 기본 도구와 `pageId`·`uid`·`bringToFront`, async 함수를 받는 `evaluate_script` 정의 확인. 실제 Chrome 연결·다운로드는 이번 작업에서 시험하지 않음 |
 | 보조 화면 제어 | Windows computer-use 스킬·node_repl 제공 및 API 문서 확인. 실제 제어와 `--experimentalVision` 은 미시험 |
 
@@ -322,8 +332,10 @@ $sourcePdf = 'C:\papers_inbox\source_paper.pdf'
 
 - 인계 기록상 기존 Python CLI 는 깨끗한 Python 3.12·3.14 환경에서 시험했다. 새 `sci-index build`·`sci-tldr prep/apply` 의 논문 처리 결과와 검증 사례도 Claude 쪽 기록이며, 이번 Codex 문서 작업에서 전체 과정을 재시험한 것은 아니다.
 - 새 설치 스크립트의 Windows PowerShell 5.1·7, PATH/winget 누락, Codex 옵션, Git Bash 위임, WSL Ubuntu 24.04 가상환경 시험은 Claude 쪽 인계 기록이다. macOS 는 그 기록에서도 미시험이다.
-- 세 skill 과 Claude 전용 에이전트의 임시 폴더 복사 시험도 인계 기록이다. `-Codex` 에서는 전용 에이전트를 설치하지 않는다는 코드 확인과 구분한다.
+- 세 skill 과 Claude 전용 에이전트의 임시 폴더 복사 시험도 인계 기록이다. `-Codex` 에서는 전용 에이전트 둘을 설치하지 않는다는 코드 확인과 구분한다.
 - 2026-09-27 전 출판사 96편 연습은 **Claude in Chrome 실측**이다. 전문 90편(자동 31·웹 59), 초록만 6편, 실패 0, SI 38편·39파일로 기록됐다. 기존 출판사 외 De Gruyter·APS SI/게재 전·CCS Renewables 요령이 추가됐다. playbook 1.1·3.1~3.17 을 참고하되, 최소화·클릭·차단·처리 시간이 Codex 에서도 같다고 보고하지 않는다.
+- 2026-09-27 전체 흐름 81편 시험도 **Claude 실측**이다. 준비 15분, 웹 네 묶음 46·21·28·40분, 색인 2.5초, 한 줄 요약 22분으로 기록됐다. 결과는 전문 70·웹 본문 1·초록만 9·범위 밖 1·실패 0, SI 23편·25파일, 한줄요약 79/81 이다(playbook 1.2). 웹 전용 `sci-retr-web` 에이전트의 별도 6편 시험은 6/6 전문·SI 7파일, 첫 논문부터 23.1분, 확인 창 네 곳으로 기록됐다. 모두 Codex 처리 시간·비용의 근거로 쓰지 않는다.
+- `web_find.js` 를 매 논문 호출에 넣는 Claude 시험에서는 한글 1,412자일 때 호출 작성 122초, 37자일 때 24초였다(playbook 1.2·2.4). Codex `evaluate_script` 의 입력 작성 시간에는 이 수치를 적용하지 않는다.
 - 요약의 현행 Claude 전용 에이전트는 `sonnet`, effort 지정 없음이다. **35편 묶음 6분 35초·약 11.7만 토큰·35/35 검증 통과**는 Claude 실측이다. 예전 `effort: low` 시험의 묶음당 65~73초·약 5.3만 토큰을 현재 기본값이나 Codex 비용으로 쓰지 않는다. Codex 의 주 에이전트 순차 처리 시간·비용은 미측정이다.
 - macOS/Linux 설치·skill 재탐색, 기관 구독 접근, Codex 웹 다운로드와 실제 논문을 이용한 수집·색인·한 줄 요약 전체 흐름은 이번 작업에서 미검증이다.
 - 실제 다운로드 시험은 사용자에게 출판사별 대상 논문과 본문/SI 목록을 제시하고 확인받은 뒤 한다. 확인된 출판사·날짜·도구·파일 검증 결과만 추가한다.
