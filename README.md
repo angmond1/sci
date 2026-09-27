@@ -20,7 +20,7 @@ LLM이 다루기 쉬운 markdown 파일로 자동 변환 및 색인화
 | **sci-index** | 색인 | 서지 정보(제목 저널 저자 연도 키워드 초록 등)를 csv 파일로 정리 | Luna / Sonnet |
 | **sci-tldr** | 한줄요약 (선택사항) | 한국어 한 줄 요약 생성, csv에 추가 | Luna / Sonnet |
 
-⚠️ claude code는 captcha 클릭 불가능, 사용자가 대신 눌러줘야 함.
+⚠️ codex(chatgpt) 사용권장. claude code는 captcha 클릭 불가능, 사용자가 대신 눌러줘야 함.
 
 <br>
 
@@ -93,7 +93,7 @@ https://github.com/angmond1/sci 설치해줘
 | Springer, Nature, MDPI, Frontiers, PLOS, Beilstein, Copernicus, APS, Cambridge | - | 파이썬 | 2-15초 |
 | ACS, RSC, IOP, Science, Taylor & Francis, PNAS, AIP, Oxford, IEEE, ChemRxiv | - | 웹 다운로드 | 30-60초 |
 
-⚠️ 웹 다운로드 수집시 claude code는 captcha 클릭 불가능, 사용자가 대신 눌러줘야 합니다.<br>
+⚠️ 웹 다운로드 수집시 claude code는 captcha 클릭 불가능, 사용자가 대신 눌러줘야 합니다. codex(chatgpt) 사용권장.<br>
 ⚠️ 최초 1-2회는 과정을 지켜봐주면서 실수를 알려주길 권장합니다.<br>
 ⚠️ 토큰·API 키를 채팅창에 입력하면 타인에게 노출될 수 있습니다.<br>
 KIST 미구독 출판사는 초록만 저장합니다.<br>
