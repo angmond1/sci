@@ -647,7 +647,7 @@ CONTAINER_SELECTORS = {
     "wiley": [".article__body", "section.article-section__content", "article", "main"],
     "acs": [".article-body", ".widget-ArticleFulltext", ".article_content", "article", "main"],   # 2026 Silverchair 이전 후
     "generic": ["article", "main", "[role=main]", "#content"],
-    "web_text": ["article"],   # web_find.js 가 본문·참고문헌만 추려 <article> 하나에 담아 준다 (짧은 글도 그대로 쓴다)
+    "web_text": ["article"],   # references/web_text.js 가 본문·참고문헌만 추려 <article> 하나에 담아 준다 (짧은 글도 그대로 쓴다)
 }
 FURNITURE_CLASS_RE = re.compile(r"(cited|citation|related|recommend|share|metrics|cookie|banner|toolbar|sidebar|breadcrumb|footer|nav|menu|advert|newsletter|social)", re.I)
 
@@ -2053,7 +2053,7 @@ SI_NAME_RE = re.compile(r"(mmc\d+|_suppl|_si_\d+|-sup-\d+|suppmat|suppdata|supp\
 SI_TEXT_PHRASES = ("supportinginformation", "supplementarymaterial", "supplementaryinformation", "electronicsupplementary", "supplementarydata",
                    "thepdffileincludes", "siappendix", "supplementarynote", "supplementaryfile", "supplementalmaterial", "supplementalinformation")
 INTAKE_EXTS = {".pdf", ".docx", ".doc", ".xlsx", ".xls", ".csv", ".zip", ".cif", ".txt", ".pptx", ".mp4", ".mov", ".avi", ".html"}
-# web_find.js 의 sciretrSaveText 가 저장하는 웹 본문 파일: <paper_id>.sciretr.html (같은 이름이 있으면 Chrome 이 ' (1)' 을 붙인다)
+# references/web_text.js 의 sciretrSaveText 가 저장하는 웹 본문 파일: <paper_id>.sciretr.html (같은 이름이 있으면 Chrome 이 ' (1)' 을 붙인다)
 WEBTEXT_RE = re.compile(r"^(.+?)\.sciretr(?: \(\d+\))?\.html$", re.I)
 
 

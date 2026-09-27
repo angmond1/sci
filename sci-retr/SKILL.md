@@ -221,7 +221,7 @@ python scripts/sci_collect.py assist --kb-root <root>
 
 2. **받을 파일 확인**: 출판사별로 받을 논문과 파일(본문 PDF, SI)을 사용자에게 한 번에 알리고 확인을 받는다. 파일 다운로드는 확인 없이 하지 않는다. Chrome 설정 두 가지(3.1)는 이때 `doctor` 로 확인한다. 작업용 Chrome 창이 화면 뒤쪽에 열리면 앞으로 가져와 달라고 미리 안내한다. 예상 시간은 한 편에 1~2분으로 말한다(요령이 있는 사이트는 1분 안팎, 처음 다루는 사이트는 2분 이상).
 3. **받기**: Claude in Chrome 확장으로 사용자 Chrome 의 새 탭에서 논문 주소를 연다. 한 편씩 진행한다. 그 Chrome 창은 화면 앞에 두고 수집 중에는 건드리지 않는다. 다른 모니터나 다른 프로그램은 써도 되지만, 그 창이 다른 창에 완전히 덮이거나 최소화되면 스크린샷이 안 되고 클릭이 빗나간다.
-   - 출판사별 요령(선택자, 기다릴 시간, 누르는 순서, 함정)은 `references/web_download_playbook.md` 를 먼저 읽고 첫 논문부터 그대로 한다. 링크 찾기는 `references/web_find.js`(요령 문서 2.2)로 한다. 헤매는 호출을 줄이는 것이 시간을 가장 많이 줄인다.
+   - 출판사별 요령(선택자, 기다릴 시간, 누르는 순서, 함정)은 `references/web_download_playbook.md` 를 먼저 읽고 첫 논문부터 그대로 한다. 링크 찾기는 `references/web_find.js`(요령 문서 2.2, 결과 형식 2.4)로 한다. 헤매는 호출을 줄이는 것이 시간을 가장 많이 줄인다.
    - 확인 창이 계속 다시 뜨면 반복해서 누르지 않고 그 사이트는 멈춘다.
    - 창이 최소화되면(`web_find.js` 결과 `min: 1`, 스크립트로 본 outerWidth 0) 스크린샷이 되더라도 클릭이 페이지에 닿지 않는다(2026-09-27). 사용자에게 창을 앞으로 가져와 달라고 하고, 그동안은 스크립트로 읽은 파일 경로(쿼리 없는 것)를 navigate 로 열어 받는다. navigate 로 연 뒤에는 다운로드 폴더에 파일이 보인 뒤에 탭을 옮긴다.
    - SI 는 문서(PDF, Word)만 받는다. 동영상·음성, 결정 구조 파일(CIF 등), 압축 파일(zip 등), 스프레드시트(Excel, CSV 등)는 받지 않는다(2026-09-25 사용자 지시). 결정 구조와 대형 스프레드시트 데이터는 대개 zip 이나 Excel 로 온다. 링크 글자나 파일 이름으로 형식을 보고 누른다. 도구의 자동 경로도 설정 `si_skip_exts` 로 같은 형식을 거른다. Silverchair 사이트(AIP·ACS·RSC·Oxford)는 형식이 주소의 `/article-supplement/{번호}/{형식}/` 칸에 있다. `web_find.js` 가 pdf·docx·doc 가 아닌 것을 빼고 형식 칸을 보여 준다(2026-09-27 AIP zip 을 경로 끝만 보고 받음).
@@ -230,7 +230,7 @@ python scripts/sci_collect.py assist --kb-root <root>
    - PDF 를 받으며 열린 보조 탭(확인 단계 탭 등)은 닫는다.
 4. **정리**: 받은 뒤 `intake` 로 다운로드 폴더의 파일을 논문 폴더로 옮기고 반영한다(5.6.1). 출력에서 가리지 못한 파일이 있으면 무엇인지 확인한다. '여러 논문에 해당' 으로 남은 파일은 대개 같은 논문의 두 DOI 다. resolve 가 Angewandte 독일어판(ange)·국제판(anie) 쌍은 독일어판을 범위 밖으로 두고, 그 밖의 같은 제목은 알려 준다. 이미 받았다면 받은 탭을 알고 있으니 `papers/{id}/pdf/{id}.pdf`, `{id}_SI.pdf` 로 옮긴 뒤 status 를 돌린다.
    - 페이지가 구독 밖이면(Access through your institution, Purchase, Get access, 초록만 보임) 받지 말고 `mark --ids <paper_id> --status abstract_only --note "웹 확인: 구독 밖"` 으로 초록만 저장한다(웹 목록에서도 빠진다). 게재 전(accepted) 페이지는 `--note "웹 확인: 게재 전"` 으로 두고 게재 뒤 다시 받는다. status 가 이 사유를 함께 보인다.
-   - PDF 가 없는 웹 전용 글(Science Expert Voices 처럼 PDF 아이콘이 없고 본문이 웹에만 있는 글)은 초록만으로 두지 않고 웹 본문을 저장한다(2026-09-27 사용자 지시). `web_find.js` 를 돌린 같은 탭에서 `sciretrArticleStats()` 로 글자 수·문단 수·참고문헌 수·남은 소제목(heads)을 보고, 소제목에 관련·추천 논문, 뉴스, 지표 같은 것이 없으면 `sciretrSaveText('<paper_id>')` 로 `<paper_id>.sciretr.html` 을 내려받는다. 본문과 참고문헌만 담기고 관련·추천 논문, 지표·인용 수, 광고, 공유, 뉴스레터, 메뉴, 머리말·꼬리말은 빠진다. intake 가 이 파일로 source.md 를 만들고 원문상태를 '전문(웹 본문, PDF 없음)' 으로 둔다. 구독 밖이라 초록만 보이는 페이지에는 쓰지 않는다(글이 짧으면 ok false).
+   - PDF 가 없는 웹 전용 글(Science Expert Voices 처럼 PDF 아이콘이 없고 본문이 웹에만 있는 글)은 초록만으로 두지 않고 웹 본문을 저장한다(2026-09-27 사용자 지시). `web_find.js` 가 본문 후보 없이 끝난 같은 탭에 `references/web_text.js` 를 넣어 글자 수·문단 수·참고문헌 수·남은 소제목(heads)을 보고(요령 문서 2.5), 소제목에 관련·추천 논문, 뉴스, 지표 같은 것이 없으면 `sciretrSaveText('<paper_id>')` 로 `<paper_id>.sciretr.html` 을 내려받는다. 본문과 참고문헌만 담기고 관련·추천 논문, 지표·인용 수, 광고, 공유, 뉴스레터, 메뉴, 머리말·꼬리말은 빠진다. intake 가 이 파일로 source.md 를 만들고 원문상태를 '전문(웹 본문, PDF 없음)' 으로 둔다. 구독 밖이라 초록만 보이는 페이지에는 쓰지 않는다(글이 짧으면 ok false).
 5. **간격과 양**: 같은 출판사 안에서는 한 편씩 받고, 한 편이 끝나면 기다리지 않고 바로 다음 논문으로 간다. 출판사당 한 번에 수십 편 이내로 나눈다. 탭은 하나만 쓰고, 그 탭을 화면 앞에 둔 채 순서대로 받는다(2026-09-26 사용자 확정). 여러 탭이나 여러 창을 번갈아 쓰는 방식은 쓰지 않는다. 시험 결과 시간 이득이 18편에 1~3분에 그쳤고, 뒤쪽 탭에서는 클릭이 빗나가고 연결이 끊겼으며, 확장은 탭을 앞으로 가져오거나 창을 옮길 수 없다(references/web_download_playbook.md 4절).
 6. **마무리**: 작업이 끝나면 연 탭을 모두 닫는다.
 7. **중단 뒤 재개**: 탭이 닫혔거나 세션이 끊겼으면 `intake` → `status` → `assist` 순으로 돌린다. 받아 둔 파일이 정리되고 남은 논문만 목록에 남는다. 확장이 새로 만드는 Chrome 창은 뒤에 열리므로 사용자에게 앞으로 가져와 달라고 한 뒤 이어서 받는다(references/web_download_playbook.md 5절).
@@ -480,6 +480,7 @@ python scripts/sci_collect.py intake --kb-root D:/papers/my_topic
 
 - `references/publisher_matrix.md`: 맨 앞 ★ 절에 웹 경로 버튼 위치·파일 이름 규칙, 뒤에 출판사별 URL·방법·실측 이력. 공통 정책이 개별 절보다 우선한다.
 - `references/web_download_playbook.md`: 웹 경로 출판사별 요령과 교훈. 선택자, 기다릴 시간, 누르는 순서, 함정, 예상 시간.
+- `references/web_find.js`: 웹 경로에서 논문 페이지의 본문 PDF·SI 링크를 찾는 스크립트(요령 문서 2.4). 논문마다 다시 넣으므로 설명은 요령 문서에 두고 스크립트는 짧게 둔다. `references/web_text.js`: PDF 없는 웹 전용 글의 웹 본문 저장(요령 문서 2.5).
 - `references/safe_rate_policy.md`: 요청 간격의 현재 규칙과 근거(ScienceDirect 4월 일시 차단 기록, 규칙 변천).
 - `examples/sample_doi_input.csv`: 출판사별 실제 DOI 예시(2026-09-26 확인). 첫 실행 연습용.
 - `references/_history/`, `examples/_history/`: 옛 문서(2026-04~05 의 도구 창·Playwright·90초 간격 방식, 개인 기록). 현재 규칙과 다르므로 지침으로 읽지 않는다.

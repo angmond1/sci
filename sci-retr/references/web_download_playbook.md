@@ -53,7 +53,7 @@
 
 ### 2.2 한 편 처리 순서
 
-링크 찾기는 같은 폴더의 `web_find.js` 로 한다(세션에서 한 번 읽어 두고 페이지마다 javascript_tool 로 실행). 본문 PDF·SI 링크 후보를 번호와 좌표로 돌려주고, 클릭은 하지 않는다. 스크립트는 HTML 을 다 읽을 때까지(그림 등은 최대 3초 더) 기다린 뒤, 링크 후보가 나타날 때까지 1초 간격으로 스스로 확인하고 나타나는 즉시 돌려준다(합계 약 20초까지, `ms` 가 실제 기다린 시간). 다 읽기 전에 돌려주면 아래쪽 SI 가 아직 없고 좌표가 나중에 바뀐다(2026-09-27 AIP x 529→608). 좌표 x, y 는 `window.sciretrFocus(N)` 이 그 요소를 화면 가운데(상단 고정 막대 여백 아래)로 옮긴 뒤의 화면 좌표 예상이다. 페이지 맨 위·끝에서 가운데까지 못 가는 것도 반영한다. 그래서 페이지를 연 뒤 고정 시간을 기다리지 않고 바로 이 스크립트를 돌린다(2026-09-27 사용자 지적: 고정 대기는 빨리 뜨면 낭비, 늦게 뜨면 부족). 20초 뒤에도 비면 `title` 로 확인 화면인지 보고, 아니면 3절의 출판사별 선택자로 직접 찾는다. 2026-09-27 확인: RSC(SI `article-supplement`, 본문 `article-pdf`), ACS(`sifile1`, `Open PDF`), Wiley(접힌 "Supporting Information" 제목, `/doi/pdf/` Download PDF, 온라인 보기 `/doi/epdf/` 는 online 표시)에서 요령 문서와 같은 링크를 찾았다. 링크 후보를 매번 새 스크립트로 찾던 것을 이 스크립트 하나로 대신해 왕복과 판단을 줄인다.
+링크 찾기는 같은 폴더의 `web_find.js` 로 한다(세션에서 한 번 읽어 두고 페이지마다 javascript_tool 로 실행, 결과 형식과 함수는 2.4). 본문 PDF·SI 링크 후보를 번호와 좌표로 돌려주고, 클릭은 하지 않는다. 스크립트는 HTML 을 다 읽을 때까지(그림 등은 최대 3초 더) 기다린 뒤, 링크 후보가 나타날 때까지 1초 간격으로 스스로 확인하고 나타나는 즉시 돌려준다(합계 약 20초까지, `ms` 가 실제 기다린 시간). 다 읽기 전에 돌려주면 아래쪽 SI 가 아직 없고 좌표가 나중에 바뀐다(2026-09-27 AIP x 529→608). 좌표 x, y 는 `window.sciretrFocus(N)` 이 그 요소를 화면 가운데(상단 고정 막대 여백 아래)로 옮긴 뒤의 화면 좌표 예상이다. 페이지 맨 위·끝에서 가운데까지 못 가는 것도 반영한다. 그래서 페이지를 연 뒤 고정 시간을 기다리지 않고 바로 이 스크립트를 돌린다(2026-09-27 사용자 지적: 고정 대기는 빨리 뜨면 낭비, 늦게 뜨면 부족). 20초 뒤에도 비면 `title` 로 확인 화면인지 보고, 아니면 3절의 출판사별 선택자로 직접 찾는다. 2026-09-27 확인: RSC(SI `article-supplement`, 본문 `article-pdf`), ACS(`sifile1`, `Open PDF`), Wiley(접힌 "Supporting Information" 제목, `/doi/pdf/` Download PDF, 온라인 보기 `/doi/epdf/` 는 online 표시)에서 요령 문서와 같은 링크를 찾았다. 링크 후보를 매번 새 스크립트로 찾던 것을 이 스크립트 하나로 대신해 왕복과 판단을 줄인다.
 
 1. **열고 찾기 (호출 1번)**: 논문 주소 열기와 `web_find.js`(준비될 때까지 스스로 기다림). 스크린샷은 사이트의 첫 논문이나 결과가 이상할 때만 작게(0.3~0.4배) 찍는다.
 2. **누르기 (호출 1~2번)**: SI 먼저, 본문 나중. 한 호출에 `await sciretrFocus(N, x, y)` 와 (x, y) 클릭을 넣는다(sciretrFocus 는 async, await 가 없으면 결과가 {}). sciretrFocus 는 요소를 보이게 한 뒤 자리가 1초 동안 그대로일 때까지 기다리고(최대 3초) 좌표를 정한다 — 2026-09-27 ACS SI 링크가 가운데로 옮긴 뒤 1~3초 사이에 약 90 px 밀려 guard 0 인데도 두 번 빗나갔다. 한 호출에 클릭 두 개를 넣었는데 앞 클릭이 guard 로 막히면 뒤 클릭만 실행되므로(Elsevier 에서 SI 대신 View PDF 가 먼저 눌림), SI 와 본문은 앞 결과를 확인한 뒤 따로 누른다. 결과에서 guard 가 0 이고 hit 가 true 면 제대로 눌린 것이다. guard 가 1 이면 예상 자리에 그 요소가 없어 스크립트가 클릭을 막은 것이니(엉뚱한 곳은 눌리지 않는다) 돌려받은 x, y 로 다시 누른다. 확대 캡처나 스크린샷으로 자리를 확인하지 않는다. 2026-09-27 에 화면 가운데라고 가정한 클릭이 세 번 빗나갔다(ChemRxiv 페이지 끝 y 669, 상단 고정 막대 여백 108 px 때문에 y 522, AIP 옆 칸이 늦게 떠 x 529→608).
@@ -90,6 +90,38 @@
 - 다운로드 확인에 따로 `sleep` 을 두지 않는다. 확인 명령은 다음 논문 열기와 같은 차례에 보낸다(2026-09-27 따로 기다린 시간이 16편에 약 5분).
 - 큰 SI 는 `.crdownload` 가 사라질 때까지 기다린다. 30 MB 에 약 15초 걸렸다.
 - 정리는 묶음 끝에 intake 한 번이다. 먼저 `--dry-run` 으로 못 가린 파일을 본다. 한 시간 안에 받은 것만 보려면 `--hours 1`.
+
+### 2.4 web_find.js 결과와 함수
+
+`web_find.js` 에는 주석을 짧게 둔다. 에이전트가 논문마다 이 파일 전체를 javascript_tool 입력으로 다시 써 넣기 때문이다. 2026-09-27 전체 흐름 시험 1·2조에서 논문 사이 시간이 논문당 약 95초였고, 그 큰 몫이 18,089자(한글 약 2,000자)를 매번 쓰는 시간으로 보였다(2조 에이전트 제안). 머리 설명을 이 절로, 웹 본문 저장을 `web_text.js`(2.5)로 옮겨 8,761자가 됐다. 설명은 여기에 적고 스크립트에는 넣지 않는다.
+
+- 넣는 법: javascript_tool 에 파일을 그대로 넣는다. 맨 앞 `await` 가 없으면 결과가 `{}` 로 빈다. Codex 의 evaluate_script 는 함수를 받으므로 `async () => { return await (async () => { … })(); }` 로 감싼다.
+- 결과(JSON, 1,000자 안): `t` 제목 40자, `v` visibilityState, `w` innerWidth, `dpr` devicePixelRatio, `ms` 실제로 기다린 시간, `sih` SI 절 제목(h1~h4·summary·button)이 있으면 1, `min` 1 이면 창이 최소화됨(outerWidth 0, 2.1).
+- `s` 는 SI 후보, `m` 은 본문 후보다. 항목은 `[번호, 글자 24자, 경로 끝 36자, x, y]` 또는 `[번호, 글자, 경로, "접힘"]`.
+  - x, y 는 `sciretrFocus(번호)` 뒤의 화면 좌표 예상이다. 이미 화면 안에 보이고 가려지지 않았으면 지금 자리(스크롤 안 함, sticky 옆 막대 등, 2026-09-27 CCS 예상 469·실제 912 를 고침), 아니면 화면 가운데(상단 고정 막대 여백 scroll-padding-top 아래)로 옮긴 뒤의 자리다. 페이지 맨 위·끝에서 가운데까지 못 가는 것도 반영한다. 두 줄로 꺾인 링크는 첫 줄 글자 위다.
+  - 글자가 24자보다 길면 앞 11자…뒤 12자로 줄여 파일 이름의 형식(pdf·docx·7z)이 보이게 한다.
+  - "접힘" 은 화면에 안 보이는 링크다(접힌 절, 닫힌 메뉴, 틀에 가려 크기 0). 눌러 펼치거나, 파일 주소면 `sciretrGo(번호)` 로 받는다.
+  - Silverchair 사이트(AIP·ACS·RSC·Oxford)의 SI 는 경로 끝 대신 `{형식}/{코드}` 를 보인다. 형식 칸이 pdf·docx·doc 가 아닌 것은 뺀다(2026-09-27 AIP zip).
+  - m 항목 끝의 "online" 은 온라인 보기(epdf·reader)라 대개 누르지 않는다(Science 만 온라인 보기를 거친다).
+  - 경로가 빈 s 항목은 접힌 절의 제목(Wiley `a.accordion__control`)이나 누르면 목록이 열리는 버튼(IEEE "Supplemental Items")이다. 눌러 펼친 뒤 다시 돌린다.
+  - 경로가 "#"·"js" 인 항목은 목차 이동·메뉴다(AIP 는 SI 가 없어도 늘 있다). 진짜 후보 뒤에 둔다. SI 유무는 s 의 파일 링크와 `sih` 로 본다.
+  - 보이는 링크 → 접힘 → 목차·메뉴 순이고, 같은 주소가 여럿이면 앞의 것만 남는다(PNAS 화면 밖 옆 패널, IEEE 크기 0 복제본). 쿼리로 파일을 가리는 링크(`downloadSupplement?…&file=`)는 파일 이름(글자)까지 봐서 뭉치지 않게 한다(2026-09-27 CCS 3개→1개).
+- 기다림: HTML 을 다 읽을 때까지, 이어서 그림 등이 뜰 때까지(최대 3초) 기다린 뒤, 후보가 나타날 때까지 1초 간격(사용자 지정)으로 확인하고 나타나는 즉시 돌려준다(합계 약 20초까지). 끝내 비면 `t` 로 확인 화면("Just a moment…")인지 본다.
+- 거르는 것: 다른 사이트 링크(SI 파일 도메인 ars.els-cdn.com·silverchair-cdn.com·IOP S3 는 허용), 다른 논문 링크(주소에 이 논문 PII·DOI 가 없는 /pii/·/doi/ 링크, SI 포함, 2026-09-27 De Gruyter 관련 논문), 본문 속 'Figure S1'·'Table S2' 참조 링크, 호·권 링크(/vol/…/suppl/), 사이트 자료(/pb-assets/), 묶음 버튼('PDF and Supporting…'), 학회 초록집 호 이름(Oxford 'Supplement_1'), 'suppliers'·'/data-sharing-policy' 같은 바닥글, 규소 'Si'(대문자 SI 만 SI 로 본다), zip·7z·스프레드시트·동영상(.mpg 등)·데이터(.txt)·PowerPoint(경로 끝이나, 형식이 쿼리에만 있는 링크는 글자의 파일 이름으로 — Atypon downloadSupplement, MDPI 'ZIP-Document'). MDPI SI 주소 끝 `/s1` 은 SI 로 보되 숫자가 긴 Elsevier PII 주소(`/abs/pii/S0360…`)는 SI 가 아니다(2026-09-27 View Abstract 를 SI 로 잡음).
+- `window.sciretrFocus(번호, x, y)`(async): 한 호출(browser_batch)에 `await window.sciretrFocus(번호, x, y)` 와 그 좌표 클릭을 함께 넣는다(2.2 의 2). 요소가 이미 보이면 그대로, 아니면 화면 가운데로 옮기고, 자리가 멈출 때까지 1초 간격으로 확인한 뒤(최대 3초) 실제 화면 좌표(x, y)와 `hit`(그 좌표에 그 요소가 있는지, elementFromPoint)를 준다. 예상 좌표(x, y)를 함께 주면 그 자리에 이 요소가 없을 때 다음 클릭 한 번을 투명한 막으로 받아 버린다(`guard` 1, 8초 뒤 저절로 없어짐). guard 가 1 이면 돌려받은 x, y 로 다시 누른다. hit 가 false 면 다른 것에 덮인 것이니 그 좌표로 누르지 않는다. 창이 최소화돼 있으면 ok false 와 이유를 준다. 스크린샷 좌표계가 innerWidth 와 다르면 클릭 좌표에만 (스크린샷 폭 ÷ innerWidth) 를 곱하고, sciretrFocus 에는 이 스크립트의 좌표를 그대로 준다.
+- `window.sciretrGo(번호)`: 그 링크 주소로 탭을 옮긴다(링크를 누른 것과 같고, 주소는 출력하지 않는다). 틀·안내 창이 링크를 가리거나 "접힘" 인 파일 링크에 쓴다(T&F figshare 등). 같은 탭에서 두 번째 다운로드부터는 Chrome 의 '여러 파일 다운로드' 확인에 걸릴 수 있다. 저장되지 않으면 그 링크는 누른다.
+
+### 2.5 웹 전용 글의 웹 본문 (web_text.js)
+
+PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices")은 초록만으로 두지 않고 웹 본문을 저장한다(사용자 지시). 본문과 참고문헌만 담고, 관련·추천 논문, 지표·인용 수, 광고, 공유, 뉴스레터, 메뉴, 머리말·꼬리말은 뺀다.
+
+1. `web_find.js` 결과에 본문 후보가 없고(`m` 빈 목록, 약 20초 뒤) 페이지에 본문이 보이면, 같은 탭에 `web_text.js` 를 그대로 넣는다. 넣으면 통계를 돌려준다: `chars` 글자 수, `paras` 문단 수, `refs` 참고문헌 항목 수, `removed` 뺀 상자 수, `heads` 남은 소제목.
+2. `heads` 에 추천·관련 글, 뉴스, 지표 같은 소제목이 없으면 `window.sciretrSaveText('<paper_id>')` 로 `<paper_id>.sciretr.html` 을 내려받는다. 있으면 저장하지 말고 그 소제목을 보고한다.
+3. intake 가 이 파일을 `papers/{id}/html/{id}.html` 로 옮기고 source.md 를 만든다. 원문상태는 '전문(웹 본문, PDF 없음)' 이다.
+
+- 본문 상자는 문단 글이 가장 많은 상자와 거의 같은(90% 이상) article·main 중 가장 안쪽이다(main 보다 article, 글이 적은 추천 카드 article 은 빠짐). 본문만 든 상자(#bodymatter 등)는 초록·참고문헌이 밖에 있어 article·main 이 없을 때만 쓴다. 참고문헌이 본문 상자 밖에 있으면 따로 붙인다.
+- 구독 밖이라 초록만 보이면 쓰지 않는다. 글이 500자보다 짧으면 `sciretrSaveText` 가 ok false 를 준다. 그때는 `mark --status abstract_only --note "웹 확인: 구독 밖"`.
+- 시험(2026-09-27, 흉내 페이지): 머리 메뉴, 본문 밖 추천 카드, 공유 막대, 본문 속 지표 상자, "Recommended" 절, "Latest News" 절, 뉴스레터 가입 상자, 꼬리말을 모두 뺐고 제목·초록·본문 4문단·참고문헌 2개는 남았다.
 
 ## 3. 출판사별
 
@@ -168,7 +200,7 @@
 - SI "DOWNLOAD", 빨간 아이콘, 온라인 보기의 다운로드 아이콘은 한 호출에서 이어서 누를 수 있다. 빨간 아이콘 뒤 5초 기다리고, 다운로드 아이콘 자리를 확대 캡처로 남긴 뒤 누른다. 2차 시험 3편이 모두 40~45초였다.
 - SI 가 현재판과 원본판(v1) 두 개로 보이면 현재판만 받는다.
 - 파일: `science.{코드}.pdf`. SI 는 `science.{코드}_sm.pdf`, `science.{코드}_sm.v2.pdf`, `{코드}-{저자}-sm.pdf`, `{코드}_fu_sm.pdf` 처럼 여러 가지다.
-- PDF 가 없는 웹 전용 글(2026-09-27 E2E, Science "Expert Voices"): 빨간 PDF 아이콘·View Options 의 DOWNLOAD PDF 가 없고 본문이 웹에만 있다. 초록만으로 두지 않고 웹 본문을 저장한다(사용자 지시). `web_find.js` 뒤 같은 탭에서 `sciretrArticleStats()` 로 heads(남은 소제목)에 RECOMMENDED·관련 글·뉴스·지표가 없는지 보고, `sciretrSaveText('<paper_id>')` 로 `<paper_id>.sciretr.html` 을 받는다. intake 가 source.md 로 만든다(SKILL 5.5).
+- PDF 가 없는 웹 전용 글(2026-09-27 E2E, Science "Expert Voices"): 빨간 PDF 아이콘·View Options 의 DOWNLOAD PDF 가 없고 본문이 웹에만 있다. 초록만으로 두지 않고 웹 본문을 저장한다(사용자 지시). `web_find.js` 가 본문 후보 없이 끝나면 같은 탭에 `web_text.js` 를 넣어 heads(남은 소제목)에 RECOMMENDED·관련 글·뉴스·지표가 없는지 보고, `sciretrSaveText('<paper_id>')` 로 `<paper_id>.sciretr.html` 을 받는다. intake 가 source.md 로 만든다(2.5, SKILL 5.5).
 
 ### 3.7 Taylor & Francis (2026-09-26, 1편)
 
