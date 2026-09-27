@@ -5,9 +5,9 @@
 
 ## 0. sci-retr 이 무엇인가 (한 줄)
 
-논문 수집 skill `sci-retr` 과 색인 skill `sci-index` 두 개. DOI 목록을 받아 출판사별로 파이썬 API·직접 다운로드 또는 사용자의 Chrome("Claude in Chrome" 확장)으로 논문 PDF·SI 를 받아 폴더로 정리하고, `index.csv` 를 만든다. 자세한 것은 설치 뒤 `~/.claude/skills/sci-retr/SKILL.md`.
+논문 수집 skill `sci-retr`, 색인 skill `sci-index`, 한국어 한 줄 요약 skill `sci-tldr`(사용자가 원할 때만) 세 개. DOI 목록을 받아 출판사별로 파이썬 API·직접 다운로드 또는 사용자의 Chrome("Claude in Chrome" 확장)으로 논문 PDF·SI 를 받아 폴더로 정리하고, `index.csv` 를 만든다. 자세한 것은 설치 뒤 `~/.claude/skills/sci-retr/SKILL.md`.
 
-권장 모델: 설치와 첫 수집은 Opus. 색인 검수는 Sonnet.
+권장 모델: 설치와 첫 수집은 Opus. 색인은 LLM 없이 스크립트로 끝난다. 한 줄 요약은 전용 에이전트 `sci-tldr-writer`(sonnet, 추론 low)가 쓴다.
 
 ## 1. 설치 절차 (에이전트가 그대로 실행)
 
@@ -31,7 +31,7 @@
 - 교내 망(KIST IP)에서만 유료 논문이 열린다. 밖이면 KIST VPN 을 안내한다.
 
 ### Step 1 — 폴더 위치 정하기 + 패키지 확보
-1. 먼저 묻고 답을 기다린다: "프로그램 파일(수집 skill sci-retr, 색인 skill sci-index)을 어디에 둘까요? ① 기본 `C:\sci`(macOS/Linux `~/sci`) ② 다른 위치. 논문을 저장할 폴더는 수집할 때 따로 정합니다." 사용자가 기본이라고 하거나 원하는 곳이 따로 없다고 하면 기본 위치.
+1. 먼저 묻고 답을 기다린다: "프로그램 파일(수집 skill sci-retr, 색인 skill sci-index, 한 줄 요약 skill sci-tldr)을 어디에 둘까요? ① 기본 `C:\sci`(macOS/Linux `~/sci`) ② 다른 위치. 논문을 저장할 폴더는 수집할 때 따로 정합니다." 사용자가 기본이라고 하거나 원하는 곳이 따로 없다고 하면 기본 위치.
 2. 패키지를 그 폴더에 확보한다.
    - git 있으면 `git clone https://github.com/angmond1/sci.git <root>`.
    - git 없으면 GitHub 페이지에서 `Code ▾ → Download ZIP` 을 받아 그 폴더에 푼다. 공개 저장소라 로그인은 필요 없다.
@@ -45,7 +45,7 @@
 
 스크립트가 하는 일은 네 단계다.
 1. 필요한 프로그램 확인과 설치: Python 3.11 이상, Google Chrome (Step 0 표).
-2. `sci-retr`, `sci-index` 를 `~/.claude/skills/` 로 복사.
+2. `sci-retr`, `sci-index`, `sci-tldr` 를 `~/.claude/skills/` 로 복사하고, 한 줄 요약 전용 에이전트 `sci-tldr/agents/sci-tldr-writer.md` 를 `~/.claude/agents/` 로 복사(Codex 설치 때는 하지 않음).
 3. 파이썬 패키지(requests, pymupdf, truststore, beautifulsoup4, lxml, openpyxl, wiley-tdm, playwright) 설치. 권한 문제면 `--user` 로 다시 한다. macOS/Linux 에서 시스템 Python 에 pip 이 없거나(Ubuntu 24.04 기본 상태) 설치를 막으면 `~/.sci-retr/venv` 가상환경에 설치한다.
 4. 환경 점검(`doctor`) 실행. Claude in Chrome 확장이 없으면 Chrome 웹스토어 페이지를 연다.
 
@@ -66,7 +66,7 @@
 `python ~/.claude/skills/sci-retr/scripts/sci_collect.py doctor --kb-root <논문 폴더>` 를 돌려(가상환경에 설치했으면 `python` 대신 `~/.sci-retr/venv/bin/python`) "문제 0" 을 확인한다. 논문 폴더를 아직 정하지 않았으면 `--kb-root` 에 임시 폴더(예: `%TEMP%\sci-retr-check`, macOS/Linux `/tmp/sci-retr-check`)를 준다. 논문 폴더는 수집할 때 정한다(SKILL.md 5.0). 문제가 있으면 출력의 안내대로 고친 뒤 다시 돌린다. 키·토큰(선택)은 수집 목록에 Elsevier OA·Wiley 논문이 있을 때 안내한다(SKILL.md 3.2.1). 값은 사용자가 skill 폴더의 `token.txt` 에 직접 넣고, 채팅창에는 절대 적지 않게 한다.
 
 ## 2. 실행
-사용자가 DOI 목록이나 "논문 받아줘" 라고 하면 `sci-retr` skill 지침(SKILL.md)을 따른다. 수집 전에 저장 폴더를 묻고 확인하며(5.0), 수집이 끝나면 20편 이상일 때 색인 여부를 묻고 20편 미만이면 이유와 함께 생략을 알린다(5.7). 논문 PDF·링크를 주며 참고문헌 수집을 부탁하면 SKILL.md 5.10(`refs`).
+사용자가 DOI 목록이나 "논문 받아줘" 라고 하면 `sci-retr` skill 지침(SKILL.md)을 따른다. 수집 전에 저장 폴더를 묻고 확인하며(5.0), 수집이 끝나면 편수와 관계없이 색인(sci-index, 몇 초)을 바로 만들고, 한국어 한 줄 요약(sci-tldr)은 한 번 물어 원할 때만 한다(5.7). 논문 PDF·링크를 주며 참고문헌 수집을 부탁하면 SKILL.md 5.10(`refs`).
 
 ## 3. 갱신
 `<root>` 에서 `git pull` 한 뒤 Step 2 의 설치 스크립트를 다시 실행한다. 설정과 `.env` 는 논문 폴더에 있고, 설치 스크립트는 skill 폴더의 `token.txt` 를 남겨 두므로 영향이 없다. 논문은 기본으로 `<root>\papers\<주제>` 에 쌓이고 git 이 무시하므로 `git pull` 에도 그대로다. `<root>` 폴더를 지우고 다시 받지 않는다(논문이 함께 지워진다).

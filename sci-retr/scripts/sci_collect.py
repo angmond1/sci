@@ -1767,7 +1767,7 @@ def plan_block(ctx: Ctx) -> None:
 
 
 def report_block(ctx: Ctx) -> None:
-    """collect·intake·status 뒤: 상태별 편수(출판사별), SI 수, 실패 사유, 색인 판단, 머리표. SKILL.md 5.9 보고는 이 블록을 옮겨 적는다."""
+    """collect·intake·status 뒤: 상태별 편수(출판사별), SI 수, 실패 사유, 색인·한 줄 요약 안내, 머리표. SKILL.md 5.9 보고는 이 블록을 옮겨 적는다."""
     rows = [r for r in ctx.registry.values() if r.get("status") != "out_of_scope"]
     full = [r for r in rows if r.get("status") == "full"]
     absonly = [r for r in rows if r.get("status") == "abstract_only"]
@@ -1788,15 +1788,11 @@ def report_block(ctx: Ctx) -> None:
         say(f"  아직 시도 안 함 {len(todo)}편: {pub_counts(todo)}  → collect")
     say(f"  실패 {len(failed)}편" + (": " + "; ".join(f"{r['paper_id']} — {(r.get('note') or '')[:60]}" for r in failed[:8]) if failed else ""))
     n = len(full) + len(absonly)
-    idx = ctx.kb_root / "index.csv"
+    # 2026-09-27 사용자 결정: 색인(서지정보·검수)은 편수와 관계없이 항상 바로(몇 초, LLM 없음), 한국어 한 줄 요약은 물어서 원할 때만
     if web or todo:
-        say("  색인 판단: 받을 논문이 남아 있음 → 다 받은 뒤(intake) 판단")
-    elif idx.exists():
-        say('  색인 판단: index.csv 있음 → "새로 받은 논문을 기존 색인에 반영할까요?" 질문 (5.7)')
-    elif n >= 20:
-        say(f'  색인 판단: 수집 {n}편 ≥ 20 → "수집한 논문 {n}편의 서지정보를 색인화 하겠습니까?" 질문 (5.7)')
+        say("  색인: 받을 논문이 남아 있음 → 다 받은 뒤(intake) sci_index.py build")
     else:
-        say(f'  색인 판단: 수집 {n}편 < 20 → "수집 논문이 20편 미만이라 색인 과정은 생략하겠습니다. 원하시면 말씀해 주세요." 안내 (5.7)')
+        say(f"  색인: 지금 sci_index.py build (편수 무관, 묻지 않음, 몇 초) → 이어서 \"한국어 한 줄 요약(한줄요약 열)도 만들까요? {n}편\" 한 번 질문, 원하면 sci-tldr (5.7)")
     if failed:
         say("  머리표: 부분 완료 (실패가 남음)")
     elif web:

@@ -3,7 +3,7 @@
 #       powershell -ExecutionPolicy Bypass -File .\install.ps1 -Codex   (Codex: ~/.codex/skills)
 # 하는 일:
 #   1) 필요한 프로그램을 확인하고, 없으면 winget 으로 설치한다: Python 3.11 이상, Google Chrome
-#   2) sci-retr, sci-index 두 skill 폴더를 skills 폴더로 복사한다
+#   2) sci-retr, sci-index, sci-tldr 세 skill 폴더를 skills 폴더로 복사한다 (Claude 는 한 줄 요약 전용 에이전트 sci-tldr-writer 를 ~/.claude/agents 로)
 #   3) 파이썬 패키지를 설치한다
 #   4) 환경 점검(doctor)을 돌리고, Claude 용이면 Claude in Chrome 확장이 없을 때 웹스토어 페이지를 연다
 # -NoAutoInstall 을 주면 프로그램을 설치하지 않고 안내만 한다.
@@ -123,7 +123,7 @@ else { Write-Warning "Google Chrome 을 찾지 못했습니다. 웹 다운로드
 # 2) skill 복사
 Write-Host "=== 2. skill 설치 ($app)"
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
-foreach ($skill in @("sci-retr", "sci-index")) {
+foreach ($skill in @("sci-retr", "sci-index", "sci-tldr")) {
     $src = Join-Path $Root $skill
     if (-not (Test-Path (Join-Path $src "SKILL.md"))) { throw "skill 폴더가 없습니다: $src" }
     $to = Join-Path $Dest $skill
@@ -140,6 +140,14 @@ foreach ($skill in @("sci-retr", "sci-index")) {
     if ($LASTEXITCODE -ge 8) { throw "복사 실패: $skill (robocopy $LASTEXITCODE)" }
     Write-Host "설치: $to"
     if ($keepToken) { [IO.File]::WriteAllBytes($tokenPath, $keepToken); Write-Host "  키·토큰 파일(token.txt)은 그대로 두었습니다." }
+}
+if (-not $Codex) {
+    # 한 줄 요약 전용 에이전트: 도구 Read·Write, sonnet, 추론 low — 범용 에이전트보다 토큰·시간이 훨씬 적다 (sci-tldr 지침 6절)
+    # ~/.claude/agents 는 하위 폴더까지 읽으므로 이 파일 하나만 맨 위에 둔다 (백업 폴더를 만들지 않는다)
+    $agents = Join-Path $env:USERPROFILE ".claude\agents"
+    New-Item -ItemType Directory -Force -Path $agents | Out-Null
+    Copy-Item (Join-Path $Root "sci-tldr\agents\sci-tldr-writer.md") (Join-Path $agents "sci-tldr-writer.md") -Force
+    Write-Host "설치: $(Join-Path $agents 'sci-tldr-writer.md') (한 줄 요약 전용 에이전트, 새 대화부터 인식)"
 }
 
 # 3) 파이썬 패키지

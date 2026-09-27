@@ -1,23 +1,24 @@
 ---
 name: sci-index
-description: 수집한 논문 폴더(papers/{paper_id}/)에서 검색용 색인 index.csv 를 만들고, 결정적 검수와 sonnet 검수·한국어 한 줄 요약을 붙이는 도구. "색인 만들어", "논문 목록 정리해", "이 폴더에 무슨 논문 있어", "관련 논문 찾아줘" 에 사용. 평소 세션에서 로컬 논문을 찾는 진입점.
+description: 수집한 논문 폴더(papers/{paper_id}/)에서 서지정보(제목·저자·연도·저널·키워드·초록 등) 색인 index.csv 를 만들고 결정적 검수를 붙이는 도구. 스크립트만으로 몇 초에 끝나 편수와 관계없이 수집 뒤 항상 만든다(LLM 없음). 한국어 한 줄 요약은 사용자가 원할 때만 sci-tldr. "색인 만들어", "논문 목록 정리해", "이 폴더에 무슨 논문 있어", "관련 논문 찾아줘" 에 사용. 평소 세션에서 로컬 논문을 찾는 진입점.
 ---
 
 # sci-index — 논문 색인 지침서
 
-> 🐶 **리트리버 인사(정체성)**: 대화에서 아직 sci-retr·sci-index 인사를 하지 않았으면, 이 skill 을 시작할 때 첫 줄은 *"안녕하세요 🐶 sci-index 가 물어 온 논문을 정리할게요."* 한 줄, 그 다음부터는 평소 문체. sci-retr 에 이어 바로 색인할 때는 인사를 다시 하지 않는다. 작업 보고의 첫 줄은 sci-retr 과 같은 머리표를 쓴다: `🐶 완료 — sci-index`(색인과 요약_ko 를 다 채움) / `🐕 부분 완료 — sci-index`(일부만, 예: 요약_ko 30/42) / `🐕‍🦺 중단 — sci-index`(막혀서 멈춤). `sci_index.py` 의 build·apply 는 마지막 줄 끝에 `▼・ᴥ・▼` 를 찍는다. `index.csv`·`index_check.csv`·요약_ko·색인 폴더의 `README.md`·오류 문구에는 넣지 않는다.
+> 🐶 **리트리버 인사(정체성)**: 대화에서 아직 sci-retr·sci-index 인사를 하지 않았으면, 이 skill 을 시작할 때 첫 줄은 *"안녕하세요 🐶 sci-index 가 물어 온 논문을 정리할게요."* 한 줄, 그 다음부터는 평소 문체. sci-retr 에 이어 바로 색인할 때는 인사를 다시 하지 않는다. 작업 보고의 첫 줄은 sci-retr 과 같은 머리표를 쓴다: `🐶 완료 — sci-index`(색인을 만듦) / `🐕 부분 완료 — sci-index`(일부 폴더를 못 읽음 등) / `🐕‍🦺 중단 — sci-index`(막혀서 멈춤). `sci_index.py build` 는 마지막 줄 끝에 `▼・ᴥ・▼` 를 찍는다. `index.csv`·`index_check.csv`·색인 폴더의 `README.md`·오류 문구에는 넣지 않는다.
 
 ## 1. 무엇을 하는가
 
 - `sci-retr` 가 만든 `papers/{paper_id}/` 폴더와 `collection_registry.csv` 를 읽어 **한 편 = 한 행**인 `index.csv` 를 만든다. 논문이 무엇인지 빨리 파악하고 고르기 위한 단순 정보만 담는다.
-- 색인 생성은 파이썬(`sci_index.py build`)만으로 끝난다. LLM 은 그 뒤의 검수와 한 줄 요약(요약_ko) 1패스에만 쓴다. 모델은 sonnet.
+- 색인 생성과 검수는 파이썬(`sci_index.py build`)만으로 끝난다. LLM 을 쓰지 않고 96편에 1~3초, 648편에 3초다(2026-09-27 실측). 그래서 **편수와 관계없이 수집이 끝나면 항상 만든다**(2026-09-27 사용자 결정).
+- 한국어 한 줄 요약(한줄요약 열)은 이 skill 이 하지 않는다. 사용자가 원할 때만 `sci-tldr` 이 같은 index.csv 에 열을 하나 더 붙인다. build 는 그 열이 있으면 그대로 둔다.
 - 결과물은 CSV 하나다. 엑셀·DB·임베딩·MCP 서버는 만들지 않는다.
 
 ## 2. 원칙
 
 1. CSV 만 만든다. UTF-8 BOM 이라 엑셀에서 한글이 바로 열린다. 초록은 한 줄로 정리한다.
 2. 키워드는 논문 본문에 Keywords 줄이 있을 때만 넣는다. 외부에서 보강하지 않는다.
-3. 요약_ko 는 200자 이내 한 문장이다. 이 논문이 무엇을 했고 무엇을 찾았는지만 쓴다.
+3. LLM 이 논문을 파악할 때는 초록과 본문(`source.md`)을 읽는다. 색인은 고르기용이다.
 4. 색인을 읽고 몇 편을 볼지는 질문에 맞춰 판단한다. 읽는 수나 검색 폭을 강제하는 규칙은 두지 않는다.
 5. paper_id 는 sci-retr 가 부여한 값(`연도_저널약어_교신저자`)을 그대로 쓴다. 여기서 바꾸지 않는다.
 6. 개인 연구 결과나 특정 논문의 수치는 지침에 넣지 않는다.
@@ -30,17 +31,8 @@ description: 수집한 논문 폴더(papers/{paper_id}/)에서 검색용 색인 
 python <sci-retr>/scripts/sci_index.py build --kb-root <논문 폴더 root>
 ```
 
-```bash
-python <sci-retr>/scripts/sci_index.py prep --kb-root <논문 폴더 root> [--size 50]
-```
-
-```bash
-python <sci-retr>/scripts/sci_index.py apply --kb-root <논문 폴더 root> --gists "<root>/_collect/index_gists_*.csv"
-```
-
-- `build`: `index.csv`, `index_check.csv`(결정적 검수), `README.md`(에이전트용 5줄 사용법)를 만든다. 이미 채워진 요약_ko 와 검수 flag 는 보존한다. 648편에 2.5초(2026-09-27 실측). 옛 수집기 폴더(PDF 이름이 다르거나 DOI 칸이 틀린 것, 폴더 바로 아래 PDF 만 있는 것)도 읽는다.
-- `prep`: 요약 패스용 묶음 파일을 만든다(5.3).
-- `apply`: 에이전트가 만든 검수 결과(`paper_id, 요약_ko, check_flags`)를 index.csv 와 index_check.csv 에 병합한다. 여러 파일·와일드카드를 받는다.
+- `build`: `index.csv`, `index_check.csv`(결정적 검수), `README.md`(에이전트용 5줄 사용법)를 만든다. sci-tldr 이 붙인 한줄요약 열과 `LLM:` flag 는 보존한다(옛 열 이름 요약_ko 는 한줄요약으로 옮긴다). 옛 수집기 폴더(PDF 이름이 다르거나 DOI 칸이 틀린 것, 폴더 바로 아래 PDF 만 있는 것)도 읽는다.
+- 옛 명령 `prep`·`apply`(한 줄 요약)는 sci-tldr 로 옮겼다. 부르면 새 명령을 알려 주고 끝난다.
 
 ## 4. 열 정의
 
@@ -60,81 +52,47 @@ python <sci-retr>/scripts/sci_index.py apply --kb-root <논문 폴더 root> --gi
 | 수집일 | | source.json |
 | 수집 URL | 실제로 받은 페이지 | source.json |
 | 파일경로 | 본문 PDF 경로, 없으면 source.md | 폴더 |
-| 요약_ko | 검수 패스에서 채움 | apply |
+| 한줄요약 | 사용자가 원할 때만 sci-tldr 이 붙이는 열(없으면 열 자체가 없다) | sci-tldr |
 
 ## 5. 절차
 
 ### 5.1 build
 
-사용자가 색인을 원할 때 실행한다. sci-retr 는 수집 뒤 20편 이상이면 묻고, 20편 미만이면 이유와 함께 생략을 알린 뒤 요청을 기다린다(sci-retr 5.7). 출력의 세 줄을 읽는다.
+수집이 끝나면 편수와 관계없이 바로 실행한다(sci-retr 5.7). 묻지 않는다. 새로 받은 논문이 생길 때마다 다시 돌리면 된다(몇 초). 출력의 세 줄을 읽는다.
 
 - 상태별 편수 (전문 / 초록만 / PDF 없음 / 미수집 …)
 - flag 가 있는 논문 목록 (index_check.csv)
-- 요약_ko 채워진 수 (비어 있으면 5.3 으로)
+- 한줄요약 상태 (없음이면 sci-retr 5.7 대로 사용자에게 한 번 묻는다)
 
 ### 5.2 결정적 flag 조치
 
 | flag | 뜻 | 조치 |
 |---|---|---|
 | DOI 형식, DOI 중복 | 입력 목록 문제 | 중복은 한 편만 남기고 나머지는 폴더 삭제 대신 `sci_collect.py mark --status out_of_scope` 로 표시 |
-| 제목·연도·저널 누락 | Crossref 메타 부족 | 요약 패스에서 본문 첫 부분으로 보완하고 flag 유지. 프리프린트(ChemRxiv·arXiv·bioRxiv 등)는 build 가 서버 이름을 저널명으로 채운다(2026-09-27) |
+| 제목·연도·저널 누락 | Crossref 메타 부족 | 본문 첫 부분(source.md)으로 확인하고 flag 유지. 프리프린트(ChemRxiv·arXiv·bioRxiv 등)는 build 가 서버 이름을 저널명으로 채운다(2026-09-27) |
 | 연도 범위 | 연도가 비정상 | 확인 후 registry 수정은 하지 않고 flag 유지 |
 | 전문인데 단어수 < 1500 (PDF N쪽) | 본문이 잘렸을 가능성. 2~4쪽 PDF 에 쪽당 200 단어 이상이면 짧은 기사(뉴스·하이라이트·학회 초록)라 알리지 않는다(2026-09-27 연습 4편) | 한 쪽짜리면 첫 쪽만 온 것이니 sci-retr 로 재수집 (`collect --ids <id> --force`, 웹 경로 논문은 웹에서 다시). 쪽은 많은데 단어가 적으면 `reextract` |
 | PDF 없음 | 텍스트만 있고 PDF 미확보 | sci-retr 5.5 (사용자 확인 단계) 또는 5.6 (직접 저장) |
-| 초록 길이, 초록 없음 | Crossref·OpenAlex 에 초록 없음 또는 비정상(RSC 는 Crossref 초록이 짧은 소개 문구뿐일 때가 있다. Springer·Elsevier 는 OpenAlex 에 초록이 없다) | 요약 패스에서 본문 첫 부분을 읽어 요약. 2026-09-26 부터 resolve 가 Crossref·OpenAlex 중 긴 초록을 쓴다 |
-| 초록 본문에서 채움 | 초록 칸이 비어 build 가 본문의 초록 절(Abstract, A B S T R A C T, Abstract—)을 넣었다. 두 단 섞임·참고문헌 끼임·붙은 단어는 버리고 빈칸으로 둔다(2026-09-27 연습 12편 중 6편, 옛 KB 69편 중 8편 채움) | 조치 없음. 요약 패스가 제목과 맞는지 본다 |
+| 초록 길이, 초록 없음 | Crossref·OpenAlex 에 초록 없음 또는 비정상(RSC 는 Crossref 초록이 짧은 소개 문구뿐일 때가 있다. Springer·Elsevier 는 OpenAlex 에 초록이 없다) | 그대로 둔다(본문은 source.md 에 있다). build 가 본문의 초록 절에서 채울 수 있으면 채운다(아래 줄). 2026-09-26 부터 resolve 가 Crossref·OpenAlex 중 긴 초록을 쓴다 |
+| 초록 본문에서 채움 | 초록 칸이 비어 build 가 본문의 초록 절(Abstract, A B S T R A C T, Abstract—)을 넣었다. 두 단 섞임·참고문헌 끼임·붙은 단어는 버리고 빈칸으로 둔다(2026-09-27 연습 12편 중 6편, 옛 KB 69편 중 8편 채움) | 조치 없음. 궁금하면 제목과 맞는지 한 번 본다 |
 | 깨진 문자/합자 | PDF 텍스트의 합자·인코딩·제어 문자(NUL), 웹페이지를 잘못된 인코딩으로 읽은 글자(Ã©, Â°) | `sci_collect.py reextract --ids <id>` 로 다시 뽑는다(2026-09-26 부터 추출기가 제어 문자를 지우고, 2026-09-27 부터 웹페이지 인코딩을 바로 읽고 저장된 옛 페이지의 깨진 글자와 합자도 되돌린다: Copernicus·Beilstein 4편 시험). 그래도 남으면 flag 유지 |
 | 파일 경로 없음 | 폴더 이동됨 | 폴더 확인 후 build 재실행 |
 
-### 5.3 검수 + 요약 패스 (sonnet)
+### 5.3 한 줄 요약 (선택, sci-tldr)
 
-요약_ko 가 빈 행을 스크립트가 묶음 파일로 나눈다. 하위 에이전트는 묶음 파일 하나만 읽고 결과 CSV 하나를 쓴다. index.csv 나 source.md 를 따로 읽지 않는다(초록이 없거나 짧은 행은 본문 앞부분을 스크립트가 묶음 파일에 넣어 둔다).
-
-```bash
-python <sci-retr>/scripts/sci_index.py prep --kb-root <root> [--size 50] [--max-kb 50]
-```
-
-- 묶음 수는 편수(50편)와 크기(50KB) 기준 중 큰 쪽으로 정하고 크기를 고르게 나눈다. 긴 초록은 앞 1,500자만 넣는다(한 문장 요약에 충분). 2026-09-27 연습 코퍼스 96편은 50편 묶음이 72KB 로 커서, 지금은 34·29·33편(45KB 안팎) 세 묶음이 된다. 파일이 크면 에이전트가 나눠 읽어 같은 내용이 다시 들어가고, 묶음이 작으면 에이전트마다 드는 고정 토큰이 는다.
-- 아직 받지 않아 초록도 본문도 없는 행은 묶지 않는다(받은 뒤 prep 을 다시 돌리면 들어간다). 지금 요약하면 제목만으로 쓰게 되고 그 요약이 본문을 받은 뒤에도 남는다(2026-09-27 수집 중에 prep 을 돌려 4편). 요약 재료는 본문에서 이 논문 제목이 나오는 자리부터 자른다(Cell Press Preview 는 첫 쪽이 앞 기사의 끝으로 시작한다).
-- 출력: `_collect/index_batch_<n>.md`(묶음마다 결과 파일 경로가 적혀 있다). 이미 있는 결과 파일(`index_gists_<n>.csv`)의 다음 번호부터 붙여 덮어쓰지 않는다. 다시 돌리면 아직 빈 행만 묶는다.
-- 묶음 하나를 sonnet 하위 에이전트 하나에 맡기고, 묶음이 여럿이면 동시에 돌린다. 하위 에이전트 하나에는 내용과 관계없는 고정 비용이 약 10만 토큰 든다(2026-09-27: 4편 묶음도 11.7만 토큰·3.7분). 그래서 요약할 논문이 10편 미만이면(다시 요약 몇 편 등) 하위 에이전트를 띄우지 말고 메인이 묶음 파일을 한 번 읽고 결과 CSV 를 한 번 쓴다. 묶음은 적고 크게 나누는 편이 토큰이 적게 든다.
-- 실측(2026-09-27, 전 출판사 연습 코퍼스 96편, 초록이 긴 편): build 1.1~1.5초, prep 1초, 34·29·33편 세 묶음을 sonnet 셋에 동시에 맡겨 20.5분(묶음별 20.5·10.8·12.2분), 합계 50.3만 토큰(한 편 약 5.2천), 도구 호출은 묶음마다 2번(읽기 1·쓰기 1), apply 1초. 요약 96/96, 41~136자, 모두 마침표로 끝남. LLM 이 붙인 flag 는 초록 없음-본문으로 요약 14, 초록 잘림 4, 보일러플레이트 1, 제목-초록 불일치 1(Cell Press Preview: 첫 쪽이 앞 기사 끝 → 요약 재료를 제목 자리부터 자르도록 고침).
-- 실측(2026-09-27, 옛 KB 648편 중): 35편 묶음은 9.2분·16.2만 토큰(한 편 약 4.6천), 70편 묶음은 15.3분·19.9만 토큰(한 편 약 2.8천). 예전 방식(에이전트가 index.csv 와 source.md 를 직접 읽음)은 10편에 7분·14만 토큰(한 편 1.4만)이었다. 묶음이 클수록 한 편당 토큰이 준다.
-- 도구 호출이 늘수록 같은 내용이 다시 들어가 토큰이 는다. 프롬프트에 "읽기 한 번, 쓰기 한 번"을 적는다.
-- 판단: 제목과 초록이 같은 논문인가, 초록이 잘렸거나 보일러플레이트(저작권 문구·목차·다른 논문)인가, 원문상태와 본문 길이가 맞는가.
-- 출력: 묶음 파일에 적힌 `_collect/index_gists_<n>.csv`, 열은 `paper_id, 요약_ko, check_flags`. 문제가 없으면 check_flags 는 빈칸.
-- 하위 에이전트 프롬프트 골격:
-
-```
-논문 색인 검수·요약 묶음 하나를 처리한다. 도구 호출은 읽기 한 번(묶음 파일 전체), 쓰기 한 번(Bash 로 파이썬 csv 모듈)만 한다. 다른 파일은 읽지 않는다.
-입력: <묶음 파일 경로>. 출력: 묶음 파일 머리에 적힌 index_gists_<n>.csv.
-각 논문(## paper_id 블록)에 대해
-1) 요약_ko: 이 논문이 무엇을 했고 무엇을 찾았는지 한국어 한 문장(200자 이내, 마침표로 끝냄). 제목 번역이 아니다. 초록이 없으면 '본문 앞부분'을, 그것도 없으면 제목을 쓴다.
-2) check_flags: 제목-초록 불일치, 초록 잘림, 초록 보일러플레이트, 초록 없음-본문으로 요약, 초록·본문 없음-제목으로 요약. 없으면 빈칸, 여러 개면 `;`. 요약_ko 에는 판단 과정('초록이 부족하다' 등)을 쓰지 않고 문제는 check_flags 에만 적는다. 묶음 머리의 두 줄(스크립트가 자른 초록, 짧은 기사 판단)을 따른다.
-CSV 는 encoding="utf-8-sig", newline="" 로 쓰고 묶음의 모든 논문을 쓴다. 끝나면 쓴 행 수만 한 줄로 보고한다.
-```
-
-### 5.4 apply
-
-결과 파일을 한꺼번에 병합한다. 여러 파일·와일드카드를 받는다. UTF-8(BOM 있든 없든)과 cp949 를 모두 읽고, index.csv 에 없는 paper_id 는 건너뛰며 알린다. 아직 빈 행 수도 알려 준다.
-
-```bash
-python <sci-retr>/scripts/sci_index.py apply --kb-root <root> --gists "<root>/_collect/index_gists_*.csv"
-```
-
-index.csv 의 요약_ko 가 채워지고, check_flags 는 index_check.csv 에 `LLM:` 접두로 붙는다. build 를 다시 돌려도 요약_ko 와 `LLM:` flag 는 남는다. 같은 결과 파일을 다시 합쳐도 겹치지 않는다(논문마다 가장 나중 결과로 바뀐다). 다시 받은 논문이나 제목으로만 요약된 논문은 `prep --ids <paper_id …>` 로 다시 묶어 요약한다.
+한국어 한 줄 요약은 이 skill 이 만들지 않는다. 사용자가 원하면 `sci-tldr` 지침을 따른다. 사용자가 엑셀에서 한국어로 훑어볼 목록을 원할 때 쓰고, LLM 이 논문을 파악하는 데는 초록과 본문이 낫다(2026-09-27 사용자 결정: 편수와 관계없이 사용자에게 물어서 원할 때만).
 
 ### 5.5 보고
 
 사용자에게는 다음만 말한다.
 
 - 총 편수와 상태별 편수
-- 요약_ko 채운 수
 - 남은 flag 와 각 조치 (재수집 필요 / 사용자 확인 필요 / 그대로 둠)
+- 걸린 시간 (몇 초)
 
 ## 6. 평소 세션에서 색인 쓰는 법
 
-- 질문이 로컬 논문과 관련되면 `index.csv` 를 읽어 관련 행을 고른다. 본문은 `papers/{paper_id}/source.md`, PDF 는 `papers/{paper_id}/pdf/{paper_id}.pdf`, SI 는 같은 폴더의 `{paper_id}_SI*` 파일(pdf·docx 등)이다.
+- 질문이 로컬 논문과 관련되면 `index.csv` 에서 관련 행을 고른다. 논문이 많아 한 번에 읽기 어려우면 제목·초록·키워드를 Grep 한다. 본문은 `papers/{paper_id}/source.md`, PDF 는 `papers/{paper_id}/pdf/{paper_id}.pdf`, SI 는 같은 폴더의 `{paper_id}_SI*` 파일(pdf·docx 등)이다.
 - 키워드로 훑을 때는 `papers/*/source.md` 를 Grep 한다.
 - 몇 편을 읽을지는 질문에 맞춰 판단한다. 웹 검색이나 자체 지식과 자연스럽게 섞는다.
 - 색인에 없는 논문이 필요하면 DOI 를 정리해 `sci-retr` 수집을 제안한다. 수집은 사용자가 동의한 뒤에 한다.
@@ -149,8 +107,7 @@ index.csv 의 요약_ko 가 채워지고, check_flags 는 index_check.csv 에 `L
   README.md                  에이전트용 5줄 사용법 (build 가 생성)
   collection_registry.csv    sci-retr 레지스트리
   papers/{paper_id}/         source.md, source.json, pdf/, html/, xml/
-  _collect/index_batch_*.md  요약 패스 묶음 (prep 이 생성)
-  _collect/index_gists_*.csv 검수 패스 출력
+  _collect/tldr_*            한 줄 요약 묶음·결과 (sci-tldr, 사용자가 원할 때만)
 ```
 
 ## 8. 예시 (예시)
@@ -159,15 +116,11 @@ index.csv 의 요약_ko 가 채워지고, check_flags 는 index_check.csv 에 `L
 python <sci-retr>/scripts/sci_index.py build --kb-root D:/papers/my_topic
 ```
 
-출력 예시: `index.csv: 42행 — 전문 38, 초록만 3, 전문(PDF 없음, 재시도 대상) 1`, flag 5편, 요약_ko 0/42. `prep` 이 묶음 1개(42편)를 만들고, sonnet 하위 에이전트 1개가 `_collect/index_gists_1.csv` 를 쓰면 병합한다.
-
-```bash
-python <sci-retr>/scripts/sci_index.py prep --kb-root D:/papers/my_topic
-python <sci-retr>/scripts/sci_index.py apply --kb-root D:/papers/my_topic --gists "D:/papers/my_topic/_collect/index_gists_*.csv"
-```
+출력 예시: `index.csv: 42행 — 전문 38, 초록만 3, 전문(PDF 없음, 재시도 대상) 1`, flag 5편, `한줄요약: 없음 — 사용자가 원할 때만 sci-tldr`. 1초 안팎에 끝난다.
 
 ## 9. 하지 않는 것
 
 - 엑셀·DB·임베딩·MCP 서버 생성.
 - 키워드나 주제 태그를 LLM 으로 만들어 열에 추가.
-- 요약만 보고 본문 읽기를 생략하라는 규칙. 요약은 고르기용이다.
+- 한 줄 요약을 편수에 따라 자동으로 만드는 것(sci-tldr 은 사용자가 원할 때만).
+- 색인만 보고 본문 읽기를 생략하라는 규칙. 색인은 고르기용이다.

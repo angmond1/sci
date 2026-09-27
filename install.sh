@@ -5,7 +5,7 @@
 # 하는 일:
 #   1) 필요한 프로그램을 확인하고, 없으면 설치한다: Python 3.11 이상, Google Chrome
 #      (macOS 는 Homebrew 가 있으면 자동, Linux 는 관리자 권한이 필요해 안내만)
-#   2) sci-retr, sci-index 두 skill 폴더를 skills 폴더로 복사한다
+#   2) sci-retr, sci-index, sci-tldr 세 skill 폴더를 skills 폴더로 복사한다 (Claude 는 한 줄 요약 전용 에이전트 sci-tldr-writer 를 ~/.claude/agents 로)
 #   3) 파이썬 패키지를 설치한다 (시스템 Python 이 설치를 막으면 ~/.sci-retr/venv 가상환경에 설치)
 #   4) 환경 점검(doctor)을 돌린다
 # --no-auto-install 을 주면 프로그램을 설치하지 않고 안내만 한다.
@@ -89,7 +89,7 @@ fi
 
 echo "=== 2. skill 설치 ($APP)"
 mkdir -p "$DEST"
-for skill in sci-retr sci-index; do
+for skill in sci-retr sci-index sci-tldr; do
   src="$ROOT/$skill"
   [ -f "$src/SKILL.md" ] || { echo "skill 폴더가 없습니다: $src" >&2; exit 1; }
   KEEP=""
@@ -100,6 +100,12 @@ for skill in sci-retr sci-index; do
   echo "설치: $DEST/$skill"
   if [ -n "$KEEP" ]; then cp -p "$KEEP" "$DEST/$skill/token.txt"; rm -f "$KEEP"; echo "  키·토큰 파일(token.txt)은 그대로 두었습니다."; fi
 done
+if [ "$APP" = "Claude" ]; then
+  # 한 줄 요약 전용 에이전트 (도구 Read·Write, sonnet, 추론 low). ~/.claude/agents 는 하위 폴더까지 읽으므로 이 파일 하나만 맨 위에 둔다
+  mkdir -p "$HOME/.claude/agents"
+  cp "$ROOT/sci-tldr/agents/sci-tldr-writer.md" "$HOME/.claude/agents/sci-tldr-writer.md"
+  echo "설치: $HOME/.claude/agents/sci-tldr-writer.md (한 줄 요약 전용 에이전트, 새 대화부터 인식)"
+fi
 
 echo "=== 3. 파이썬 패키지 설치: $PY -m pip install ... (처음 설치면 1~2분 걸릴 수 있습니다)"
 PIP_LOG="${TMPDIR:-/tmp}/sci-retr-pip.log"

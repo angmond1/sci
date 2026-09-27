@@ -2,21 +2,18 @@
 # -*- coding: utf-8 -*-
 """sci_index.py — 수집 논문 검색용 색인 (CSV, LLM 없음).
 
-    python sci_index.py build --kb-root <dir>              # index.csv + index_check.csv + README.md
-    python sci_index.py prep  --kb-root <dir> [--size 35]  # 요약 패스용 묶음 파일(_collect/index_batch_<n>.md) — 에이전트는 이 파일만 읽는다
-    python sci_index.py apply --kb-root <dir> --gists <csv …> # 에이전트가 만든 요약_ko / 검수 flag 를 index.csv 에 병합 (여러 파일·와일드카드 가능)
+    python sci_index.py build --kb-root <dir>              # index.csv + index_check.csv + README.md (편수와 관계없이 몇 초)
 
 index.csv 열 (2026-09-18 확정): paper_id, DOI, 제목, 저자(6명 이하 전원 / 7명 이상 앞3+뒤3), 교신저자, 연도, 저널, 저널약어, 권, 호, 페이지,
-  초록, 키워드(있을 때만), 원문상태, 본문 단어수, SI 유무, 수집일, 수집 URL, 파일경로, 요약_ko
+  초록, 키워드(있을 때만), 원문상태, 본문 단어수, SI 유무, 수집일, 수집 URL, 파일경로
+  + 한줄요약: 사용자가 원할 때만 sci-tldr(sci_tldr.py)이 붙이는 열. build 는 있으면 그대로 두고, 옛 열 이름 요약_ko 는 한줄요약으로 옮긴다.
 재료: collection_registry.csv (resolve 메타) + papers/{id}/source.json + source.md + pdf/ 파일 실물. UTF-8 BOM (엑셀 한글 OK), 초록은 한 줄.
-검수 1단계(결정적): index_check.csv — DOI 형식/중복, 필수 항목 누락, 상태-단어수 정합, 파일 존재, 깨진 문자, 초록 길이, 연도 범위.
-검수 2단계(LLM, sonnet): Claude 가 제목-초록 정합·잘림·보일러플레이트 판단 + 요약_ko 생성 → apply 로 병합.
+검수(결정적): index_check.csv — DOI 형식/중복, 필수 항목 누락, 상태-단어수 정합, 파일 존재, 깨진 문자, 초록 길이, 연도 범위.
 """
 from __future__ import annotations
 
 import argparse
 import csv
-import glob
 import json
 import re
 import sys
@@ -27,7 +24,34 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 COLUMNS = ["paper_id", "DOI", "제목", "저자", "교신저자", "연도", "저널", "저널약어", "권", "호", "페이지", "초록", "키워드",
-           "원문상태", "본문 단어수", "SI 유무", "수집일", "수집 URL", "파일경로", "요약_ko"]
+           "원문상태", "본문 단어수", "SI 유무", "수집일", "수집 URL", "파일경로"]
+TLDR_COL = "한줄요약"          # sci-tldr 이 붙이는 열 (사용자가 원할 때만, 2026-09-27 사용자 결정)
+OLD_TLDR_COLS = ("요약_ko",)   # 옛 열 이름 — 읽을 때 한줄요약으로 옮긴다
+
+
+def read_index(path: Path) -> tuple[list[dict], bool]:
+    """index.csv 읽기. 옛 요약_ko 열은 한줄요약으로 옮긴다. (행, 한줄요약 열이 있었는지)"""
+    if not path.exists():
+        return [], False
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        rd = csv.DictReader(f)
+        fields = rd.fieldnames or []
+        rows = list(rd)
+    has = TLDR_COL in fields or any(c in fields for c in OLD_TLDR_COLS)
+    for r in rows:
+        if not r.get(TLDR_COL):
+            for c in OLD_TLDR_COLS:
+                if r.get(c):
+                    r[TLDR_COL] = r[c]
+        for c in OLD_TLDR_COLS:
+            r.pop(c, None)
+    return rows, has
+
+
+def write_index(path: Path, rows: list[dict], with_tldr: bool) -> None:
+    cols = COLUMNS + ([TLDR_COL] if with_tldr else [])
+    with open(path, "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore"); w.writeheader(); w.writerows(rows)
 STATUS_KO = {"full": "전문", "abstract_only": "초록만", "human_required": "미수집(사용자 확인 필요)", "failed": "실패", "resolved": "미수집", "": "미수집",
              "pdf_missing": "전문(PDF 없음, 재시도 대상)", "out_of_scope": "범위밖-미수집",
              "fulltext": "전문", "preview": "초록만(미리보기)"}   # 옛 수집기의 access_status (2026-09-27 옛 KB 시험)
@@ -103,6 +127,19 @@ def find_keywords(md: str) -> str:
         if len(parts) >= 15:
             break
     return "; ".join(dict.fromkeys(parts))[:300]
+
+
+BOILER_RE = re.compile(r"all rights reserved|publication history|opens in new window|accepted after revision|published online|"
+                       r"this article is distributed|creative commons|downloaded from|cookie|sign in|log in|purchase", re.I)
+
+
+def looks_boilerplate(ab: str) -> bool:
+    """초록 칸에 초록 대신 사이트 문구가 들어온 것 (2026-09-27 Thieme: 'All articles of this category … Publication History …
+    © 2023. Thieme. All rights reserved'). 문구 두 가지 이상이 있고 문장이 적으면 보일러플레이트로 본다."""
+    if not ab:
+        return False
+    hits = len(set(m.group(0).lower() for m in BOILER_RE.finditer(ab)))
+    return hits >= 2 and ab.count(". ") < 4
 
 
 def abstract_from_body(md: str) -> str:
@@ -218,11 +255,12 @@ def build_rows(kb_root: Path) -> tuple[list[dict], list[dict]]:
             "원문상태": STATUS_KO.get(status, status), "본문 단어수": words if status == "full" else "",
             "SI 유무": f"Y({len(si)})" if si else "N", "수집일": (sj.get("collected_at") or r.get("updated_at") or "")[:10],
             "수집 URL": sj.get("source_url") or r.get("landing_url") or "", "파일경로": str(pdf) if pdf.exists() else (str(d / "source.md") if md else ""),
-            "요약_ko": "",
         }
         if not row["저널"] and row["저널약어"] in PREPRINT_NAMES:
             row["저널"] = row["저널약어"]   # 프리프린트는 서버 이름이 저널명 (2026-09-27 ChemRxiv 4편 "저널 누락")
-        abs_from_body = False
+        abs_from_body = boiler = False
+        if looks_boilerplate(row["초록"]):
+            row["초록"], boiler = "", True   # 사이트 문구는 초록이 아니다 — 빼고 본문의 초록 절에서 채워 본다
         if not row["초록"] and status == "full" and md:
             row["초록"] = abstract_from_body(md)
             abs_from_body = bool(row["초록"])
@@ -254,8 +292,10 @@ def build_rows(kb_root: Path) -> tuple[list[dict], list[dict]]:
             flags.append(f"초록 길이 {len(row['초록'])}")
         if not row["초록"] and status in ("full", "abstract_only"):
             flags.append("초록 없음")
+        if boiler:
+            flags.append("초록 보일러플레이트(뺌)")
         if abs_from_body:
-            flags.append("초록 본문에서 채움")   # 요약 패스가 제목과 맞는지 본다
+            flags.append("초록 본문에서 채움")   # 두 단 섞임 등은 버렸다. 제목과 맞는지 한 번 보면 좋다
         if any(ch in (row["제목"] + row["초록"] + md[:50000]) for ch in BAD_CHARS):
             flags.append("깨진 문자/합자")
         if row["파일경로"] and not Path(row["파일경로"]).exists():
@@ -265,7 +305,7 @@ def build_rows(kb_root: Path) -> tuple[list[dict], list[dict]]:
 
 
 README_TEXT = """# 논문 색인 사용법 (에이전트용 5줄)
-1. `index.csv` 가 색인이다. 한 행이 논문 한 편이고 제목·저자·연도·저널·초록·원문상태·파일경로가 있다. 먼저 이 파일을 읽어 관련 논문을 고른다.
+1. `index.csv` 가 색인이다. 한 행이 논문 한 편이고 제목·저자·연도·저널·초록·키워드·원문상태·파일경로가 있다(사용자가 원했으면 한국어 한줄요약 열도 있다). 먼저 이 파일로 관련 논문을 고른다. 크면 제목·초록·키워드를 Grep 한다.
 2. 원문 텍스트는 `papers/{paper_id}/source.md` (본문), 원문 PDF 는 `papers/{paper_id}/pdf/{paper_id}.pdf`, SI 는 같은 폴더의 `{paper_id}_SI*` 파일(pdf·docx 등)이다.
 3. 키워드로 훑을 때는 `papers/*/source.md` 를 Grep 한다. 몇 편을 읽을지는 질문에 맞춰 판단한다 (강제 규칙 없음).
 4. 원문상태가 "초록만" 이면 구독 밖이라 초록만 있고, "미수집(사용자 확인 필요)" 는 사용자와 함께 `sci_collect.py assist` 로 받는다.
@@ -279,14 +319,11 @@ def cmd_build(args) -> None:
         print(f"논문 폴더가 아닙니다 (papers/ 나 collection_registry.csv 가 없음): {kb_root}"); raise SystemExit(1)
     rows, checks = build_rows(kb_root)
     out = kb_root / "index.csv"
-    existing = {}
-    if out.exists():   # 기존 요약_ko 보존
-        with open(out, encoding="utf-8-sig", newline="") as f:
-            for r in csv.DictReader(f):
-                if r.get("요약_ko"):
-                    existing[r["paper_id"]] = r["요약_ko"]
-    for r in rows:
-        r["요약_ko"] = existing.get(r["paper_id"], "")
+    old_rows, with_tldr = read_index(out)   # sci-tldr 이 붙인 한줄요약은 build 를 다시 해도 남긴다
+    existing = {r["paper_id"]: r.get(TLDR_COL, "") for r in old_rows if r.get(TLDR_COL)}
+    if with_tldr:
+        for r in rows:
+            r[TLDR_COL] = existing.get(r["paper_id"], "")
     chk_path = kb_root / "index_check.csv"
     if chk_path.exists():   # 검수 패스가 붙인 'LLM: …' flag 는 build 를 다시 해도 남긴다
         with open(chk_path, encoding="utf-8-sig", newline="") as f:
@@ -296,8 +333,7 @@ def cmd_build(args) -> None:
             if keep:
                 c["flags"] = "; ".join(x for x in [c["flags"]] + keep if x)
                 c["n_flags"] = len([x for x in c["flags"].split(";") if x.strip()])
-    with open(out, "w", encoding="utf-8-sig", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=COLUMNS); w.writeheader(); w.writerows(rows)
+    write_index(out, rows, with_tldr)
     with open(kb_root / "index_check.csv", "w", encoding="utf-8-sig", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["paper_id", "flags", "n_flags"]); w.writeheader(); w.writerows(checks)
     (kb_root / "README.md").write_text(README_TEXT, encoding="utf-8")
@@ -307,7 +343,10 @@ def cmd_build(args) -> None:
     flagged = [c for c in checks if c["n_flags"]]
     print(f"index.csv: {len(rows)}행 — " + ", ".join(f"{k} {v}" for k, v in st.items()))
     print(f"index_check.csv: flag 있는 논문 {len(flagged)}편" + (" → " + "; ".join(f"{c['paper_id']}: {c['flags']}" for c in flagged[:12]) if flagged else ""))
-    print(f"요약_ko 채움 {sum(1 for r in rows if r['요약_ko'])}/{len(rows)} (비어 있으면 검수·요약 패스 후 apply)  ▼・ᴥ・▼")
+    if with_tldr:
+        print(f"한줄요약 {sum(1 for r in rows if r.get(TLDR_COL))}/{len(rows)} — 빈 행은 사용자가 원할 때만 sci-tldr  ▼・ᴥ・▼")
+    else:
+        print("한줄요약: 없음 — 사용자가 원할 때만 sci-tldr 로 붙인다 (편수와 관계없이 물어본다)  ▼・ᴥ・▼")
 
 
 def body_excerpt(md: str, n: int = 1500, title: str = "") -> str:
@@ -328,156 +367,17 @@ def body_excerpt(md: str, n: int = 1500, title: str = "") -> str:
     return one_line(body)[:n]
 
 
-def cmd_prep(args) -> None:
-    """요약 패스 준비: 요약_ko 가 빈 행을 묶음 파일로 나눈다. 에이전트는 index.csv·source.md 를 따로 읽지 않고 이 파일만 읽는다 (LLM 사용량 절감, 2026-09-27)."""
-    kb_root = Path(args.kb_root).resolve()
-    out = kb_root / "index.csv"
-    if not out.exists():
-        print(f"index.csv 가 없습니다. 먼저 build: {out}"); raise SystemExit(1)
-    with open(out, encoding="utf-8-sig", newline="") as f:
-        rows = list(csv.DictReader(f))
-    chk_path = kb_root / "index_check.csv"
-    chk = {}
-    if chk_path.exists():
-        with open(chk_path, encoding="utf-8-sig", newline="") as f:
-            chk = {c["paper_id"]: c.get("flags", "") for c in csv.DictReader(f)}
-    redo = {i.strip() for i in (args.ids or [])}
-    todo = [r for r in rows if args.all or not r.get("요약_ko") or r["paper_id"] in redo]   # --ids: 다시 받은 논문 등 요약을 새로 쓸 행
-    if redo - {r["paper_id"] for r in rows}:
-        print(f"!! index.csv 에 없는 paper_id: {', '.join(sorted(redo - {r['paper_id'] for r in rows}))}")
-
-    def no_material(r: dict) -> bool:
-        """아직 받지 않아 초록도 본문도 없는 행. 지금 요약하면 제목만으로 쓰게 되고, 그 요약은 본문을 받은 뒤에도 남는다
-        (2026-09-27 수집 중에 prep 을 돌려 CCS·Renewables 4편이 제목으로만 요약됨). 받은 뒤 prep 에 다시 들어간다."""
-        if len(r.get("초록", "")) >= 200 or r.get("원문상태") in ("초록만", "범위밖-미수집"):
-            return False
-        return not (kb_root / "papers" / r["paper_id"] / "source.md").exists()
-
-    waiting = [r for r in todo if no_material(r)]
-    todo = [r for r in todo if not no_material(r)]
-    if waiting:
-        print(f"요약 재료(초록·본문)가 아직 없는 {len(waiting)}편은 뺐다 — 받은 뒤 prep 을 다시 돌리면 들어간다: "
-              + ", ".join(r["paper_id"] for r in waiting[:5]) + (" …" if len(waiting) > 5 else ""))
-    work = kb_root / "_collect"
-    work.mkdir(parents=True, exist_ok=True)
-    for old in work.glob("index_batch_*.md"):
-        old.unlink()
-    if not todo:
-        print("요약_ko 가 빈 행이 없습니다 (--all 이면 전체 다시)."); return
-    size, max_bytes = max(5, args.size), max(10, args.max_kb) * 1000
-
-    def entry(r: dict) -> str:
-        ab = r.get("초록", "")
-        shown = ab if len(ab) <= 1500 else ab[:1500] + " …(뒤 생략)"   # 한 문장 요약에는 앞 1,500자면 충분하다 (묶음 크기·토큰 절감)
-        lines = [f"## {r['paper_id']}", f"- 제목: {r['제목']}", f"- 연도·저널: {r['연도']} {r['저널']}",
-                 f"- 원문상태: {r['원문상태']} / 본문 단어수: {r['본문 단어수'] or '-'}",
-                 f"- 결정적 flag: {chk.get(r['paper_id']) or '없음'}", f"- 초록: {shown or '(없음)'}"]
-        if len(ab) < 200:
-            src = kb_root / "papers" / r["paper_id"] / "source.md"
-            ex = body_excerpt(src.read_text(encoding="utf-8", errors="ignore"), title=r.get("제목", "")) if src.exists() else ""
-            lines.append(f"- 본문 앞부분(초록 대신): {ex or '(본문 없음 — 제목으로만 요약하고 check_flags 에 초록·본문 없음-제목으로 요약 이라고 적는다)'}")
-        return "\n".join(lines) + "\n"
-
-    # 묶음 수는 편수(기본 50편)와 크기(기본 50KB) 기준 중 큰 쪽으로 정하고, 크기를 고르게 나눈다. 파일이 크면 하위 에이전트가
-    # 여러 번 나눠 읽어 같은 내용이 대화에 다시 들어가 토큰이 늘고, 묶음이 작으면 에이전트마다 드는 고정 토큰이 는다
-    # (2026-09-27: 초록이 긴 연습 코퍼스에서 50편 묶음이 72KB, 크기로만 자르면 30·25·29·12편으로 꼬리가 작게 남음)
-    entries = [entry(r) for r in todo]
-    nbytes = [len(e.encode("utf-8")) for e in entries]
-    n_batch = max(1, -(-sum(nbytes) // max_bytes), -(-len(entries) // size))
-    target = sum(nbytes) / n_batch
-    batches: list[list[str]] = [[]]
-    used = 0
-    for e, b in zip(entries, nbytes):
-        if batches[-1] and len(batches) < n_batch and (used + b / 2 > target or len(batches[-1]) >= size):
-            batches.append([]); used = 0
-        batches[-1].append(e); used += b
-    # 이미 있는 결과 파일(index_gists_N.csv)을 덮어쓰지 않게 그 다음 번호부터 붙인다 (병합 전에 prep 을 다시 돌려도 안전)
-    start = 1 + max([int(m.group(1)) for g in work.glob("index_gists_*.csv") if (m := re.fullmatch(r"index_gists_(\d+)\.csv", g.name))] or [0])
-    for bi, batch in enumerate(batches, start):
-        head = [f"# 색인 검수·요약 묶음 {bi} ({bi - start + 1}/{len(batches)}) — {len(batch)}편", "",
-                "각 논문의 요약_ko(한국어 한 문장, 200자 이내, 무엇을 했고 무엇을 찾았는지)와 check_flags 를 정해",
-                f"`{work / f'index_gists_{bi}.csv'}` 에 쓴다 (열: paper_id, 요약_ko, check_flags / UTF-8 BOM / 파이썬 csv 모듈).",
-                "초록 끝의 '…(뒤 생략)' 은 묶음을 줄이려고 스크립트가 자른 것이다. '초록 잘림' 으로 보지 않는다.",
-                "단어수가 짧은 기사인지는 스크립트가 PDF 쪽수로 이미 판단했다. '결정적 flag' 에 없으면 단어수를 문제 삼지 않는다.",
-                "요약_ko 에는 판단 과정('초록이 부족하다' 등)을 쓰지 않는다. 있는 글로 쓸 수 있는 만큼 내용을 쓰고, 문제는 check_flags 에만 적는다.", ""]
-        (work / f"index_batch_{bi}.md").write_text("\n".join(head) + "\n" + "\n".join(batch), encoding="utf-8")
-    sizes = ", ".join(f"{len(b)}편" for b in batches)
-    print(f"요약 대상 {len(todo)}편 → 묶음 {len(batches)}개 ({sizes}; 한 묶음 최대 {size}편·{max_bytes // 1000}KB): "
-          f"{work / f'index_batch_{start}.md'} … index_batch_{start + len(batches) - 1}.md")
-    print(f"하위 에이전트 하나가 묶음 파일 하나만 읽고 index_gists_<n>.csv 를 쓴다 (sci-index 지침 5.3). 다 되면: apply --kb-root <root> --gists \"{work / 'index_gists_*.csv'}\"")
-
-
-def read_gists(path: str) -> list[dict]:
-    """검수 결과 CSV. UTF-8(BOM 있든 없든), 안 되면 cp949 로 읽는다."""
-    for enc in ("utf-8-sig", "cp949"):
-        try:
-            with open(path, encoding=enc, newline="") as f:
-                return list(csv.DictReader(f))
-        except UnicodeDecodeError:
-            continue
-    return []
-
-
-def cmd_apply(args) -> None:
-    """gists csv: paper_id, 요약_ko[, check_flags] — Claude 가 작성. index.csv 의 요약_ko 채우고 flag 는 index_check 에 추가."""
-    kb_root = Path(args.kb_root).resolve()
-    out = kb_root / "index.csv"
-    if not out.exists():
-        print(f"index.csv 가 없습니다. 먼저 build: {out}"); raise SystemExit(1)
-    files = []
-    for g in args.gists:
-        files += sorted(glob.glob(g)) or ([g] if Path(g).exists() else [])
-    if not files:
-        print(f"검수 결과 파일이 없습니다: {' '.join(args.gists)}"); raise SystemExit(1)
-    with open(out, encoding="utf-8-sig", newline="") as f:
-        rows = list(csv.DictReader(f))
-    gists = {}
-    for fpath in files:
-        for r in read_gists(fpath):
-            if r.get("paper_id"):
-                gists[r["paper_id"].strip()] = r
-    known = {r["paper_id"] for r in rows}
-    unknown = sorted(set(gists) - known)
-    if unknown:
-        print(f"!! index.csv 에 없는 paper_id {len(unknown)}개는 건너뜀: {', '.join(unknown[:8])}")
-    n = 0
-    for r in rows:
-        g = gists.get(r["paper_id"])
-        if g and g.get("요약_ko"):
-            r["요약_ko"] = one_line(g["요약_ko"])[:200]; n += 1
-    with open(out, "w", encoding="utf-8-sig", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=COLUMNS); w.writeheader(); w.writerows(rows)
-    chk = kb_root / "index_check.csv"
-    if chk.exists():
-        with open(chk, encoding="utf-8-sig", newline="") as f:
-            checks = list(csv.DictReader(f))
-        for c in checks:
-            g = gists.get(c["paper_id"])
-            if g and g.get("요약_ko"):
-                # 이 논문의 LLM flag 는 가장 나중 결과로 바꾼다(덧붙이지 않는다). 와일드카드로 결과 파일을 다시 합쳐도 겹치지 않고,
-                # 다시 요약한 논문(prep --ids)은 새 판단만 남는다 (2026-09-27: 재적용하면 'LLM:' 이 두 번 붙던 것)
-                det = c["flags"].split("LLM:", 1)[0].strip().rstrip(";").strip()
-                llm = one_line(g.get("check_flags") or "")
-                c["flags"] = "; ".join(x for x in [det, "LLM: " + llm if llm else ""] if x)
-                c["n_flags"] = str(len([x for x in c["flags"].split(";") if x.strip()]))
-        with open(chk, "w", encoding="utf-8-sig", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=["paper_id", "flags", "n_flags"]); w.writeheader(); w.writerows(checks)
-    left = sum(1 for r in rows if not r.get("요약_ko"))
-    # 요약에 판단 과정이 섞인 행(2026-09-27 96편 중 1편: "제목은 …를 다루나, 제공된 초록은 …") — 다시 요약할 목록으로 알린다
-    meta = [r["paper_id"] for r in rows if re.search(r"(제공된|주어진)\s*(초록|본문|정보)|초록(은|이|에는|만으로)\s|제목(은|만으로)\s|본문 앞부분", r.get("요약_ko") or "")]
-    if meta:
-        print(f"!! 요약에 판단 과정이 섞인 행 {len(meta)}개 — prep --ids 로 다시 요약: {' '.join(meta[:10])}")
-    print(f"요약_ko 병합 {n}건 (파일 {len(files)}개) → {out}" + (f" — 아직 빈 행 {left}개 (prep 을 다시 돌리면 빈 행만 묶는다)" if left else "") + "  ▼・ᴥ・▼")
-
-
 def main() -> None:
     ap = argparse.ArgumentParser(description="sci_index — 논문 색인 CSV")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("build"); p.add_argument("--kb-root", required=True)
-    p = sub.add_parser("prep"); p.add_argument("--kb-root", required=True); p.add_argument("--size", type=int, default=50, help="묶음당 최대 편수"); p.add_argument("--max-kb", type=int, default=50, help="묶음 파일 최대 크기(KB). 넘으면 에이전트가 나눠 읽어 토큰이 는다"); p.add_argument("--all", action="store_true", help="요약이 있는 행도 다시"); p.add_argument("--ids", nargs="*", help="요약이 있어도 다시 묶을 paper_id (다시 받은 논문 등)")
-    p = sub.add_parser("apply"); p.add_argument("--kb-root", required=True); p.add_argument("--gists", required=True, nargs="+", help="검수 결과 CSV (여러 개·와일드카드 가능)")
+    for old in ("prep", "apply"):   # 2026-09-27 한 줄 요약은 sci-tldr 로 옮김 — 옛 명령을 부르면 새 명령을 알려 준다
+        p = sub.add_parser(old); p.add_argument("--kb-root"); p.add_argument("rest", nargs=argparse.REMAINDER)
     args = ap.parse_args()
-    {"build": cmd_build, "prep": cmd_prep, "apply": cmd_apply}[args.cmd](args)
+    if args.cmd in ("prep", "apply"):
+        print(f"한 줄 요약은 sci-tldr 로 옮겼다: python {Path(__file__).with_name('sci_tldr.py')} {args.cmd} --kb-root <root>  (sci-tldr 지침)")
+        raise SystemExit(2)
+    cmd_build(args)
 
 
 if __name__ == "__main__":
