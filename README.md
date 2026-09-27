@@ -62,7 +62,8 @@ https://github.com/angmond1/sci 설치해줘
 
 <br>
 
-※ **Claude 사용시 Chrome 브라우저 + 확장 프로그램 Claude in Chrome 설치 필요**
+※ **Claude 사용시**
+   * 대화창에 "chrome-devtools mcp 설치해서 사용가능하게 해줘" → 설치 후 claude 재시작
    * 확장 프로그램 Claude in Chrome 설치 https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn
 
    그러고 나서 Claude Desktop: 좌하단 이니셜 클릭 → "설정" 클릭 → 좌측 탭에서 "Claude in Chrome 설정" 클릭 → "Claude in Chrome 사용설정" 켜기.
