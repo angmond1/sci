@@ -51,6 +51,8 @@ https://github.com/angmond1/sci 설치해줘
 
    그리고 나서 codex app에서 좌하단 이니셜 클릭 → 설정 → 좌측 탭의 "컴퓨터 사용" → Google Chrome 사용
 
+<br>
+
 ※ **Claude 사용시 Chrome 브라우저 + 확장 프로그램 Claude in Chrome 설치 필요**
    * Chrome 브라우저 설치 https://www.google.com/chrome/
    * 확장 프로그램 Claude in Chrome 설치 https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn
