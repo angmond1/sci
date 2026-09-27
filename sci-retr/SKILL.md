@@ -480,7 +480,7 @@ python scripts/sci_collect.py intake --kb-root D:/papers/my_topic
 - `examples/sample_doi_input.csv`: 출판사별 실제 DOI 예시(2026-09-26 확인). 첫 실행 연습용.
 - `references/_history/`, `examples/_history/`: 옛 문서(2026-04~05 의 도구 창·Playwright·90초 간격 방식, 개인 기록). 현재 규칙과 다르므로 지침으로 읽지 않는다.
 - `references/credentials_setup.md`: 키·토큰 발급.
-- `scripts/README.md`: 옛 배치 스크립트(runner.py 등) 설명. 새 작업은 `sci_collect.py` 만 쓴다. runner.py 는 판정·검증 함수를 제공하는 라이브러리로 남아 있다.
+- `scripts/README.md`: scripts 폴더 안내. 명령은 `sci_collect.py`(수집)와 `sci_index.py`(색인)이고, runner.py·validate.py 는 sci_collect 가 불러 쓰는 판정·검증 함수다. 옛 배치 스크립트(split_assignment, elsevier_html_retry_safe, failure_classifier, manual_ingest, runner 의 배치 실행부)는 2026-09-27 에 뺐다.
 
 ## 12. 하지 않는 것
 

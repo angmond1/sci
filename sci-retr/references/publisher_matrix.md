@@ -354,7 +354,7 @@ junk_titles = re.compile(r'(recommend|cited.by|citation|publication.history|term
 
 배경: Elsevier 가 KIST 에 기관 토큰(X-ELS-Insttoken) 발급을 거절 (2026-09). API 키만으로는 구독 논문에 대해 `X-ELS-Status: WARNING - Response limited to first page because requestor not entitled` 로 **첫 페이지만** 온다. ScienceDirect 를 자동화 브라우저(Playwright)로 열면 **방문마다 Cloudflare Turnstile** 이 뜬다 (clearance 쿠키가 있어도 재확인, 2026-09-23 실측). 일반 `requests` HTML 경로(5월 224편 성공)는 현재 403.
 
-1. **API 먼저** (`X-ELS-APIKey` 만): OA 논문은 전문 PDF+XML 이 그대로 온다 → 자동. 응답 헤더 `X-ELS-Status` 에 "first page" / "not entitled" 가 있으면 preview 를 `pdf/{id}.pdf` 로 **저장하지 말고** `manual_pdf_dropbox/{id}/request.json` 에 사유 `Elsevier: API not entitled` 로 큐 등록 (runner.py `collect_elsevier`, `MANUAL_QUEUE_PUBLISHERS` 에 elsevier 포함).
+1. **API 먼저** (`X-ELS-APIKey` 만): OA 논문은 전문 PDF+XML 이 그대로 온다 → 자동. 응답 헤더 `X-ELS-Status` 에 "first page" / "not entitled" 가 있으면 preview 를 `pdf/{id}.pdf` 로 **저장하지 말고** `manual_pdf_dropbox/{id}/request.json` 에 사유 `Elsevier: API not entitled` 로 큐 등록 (당시 runner.py `collect_elsevier`, 2026-09-27 삭제. 지금은 sci_collect.py `h_elsevier` 가 OA 논문에만 API 를 부르고, 첫 페이지만 오면 ScienceDirect 밖 OA 사본을 찾은 뒤 웹 경로로 넘긴다).
 2. **OA 사본**: Unpaywall / OpenAlex `best_oa_location` 이 있으면 저자 원고·PMC 사본을 자동 수집 (`elsevier_oa_copy_*`).
 3. **사용자 확인 묶음** (나머지 구독 논문): 사용자가 자리에 있을 때 보이는 Chrome(수집 프로필 `chrome_profile_kistsso`) 으로 논문 페이지(`/science/article/pii/{PII}`, PII 는 Crossref `alternative-id`) 를 연다 → Turnstile 이 뜨면 **사용자가 클릭 (2026-09-23 실측: 서로 다른 저널 3편에 2회 — 첫 편은 반드시, 이후 편은 Cloudflare 점수에 따라 다시 뜰 수 있음; 저널과 무관, 도메인 공통 쿠키)** → 본문 `#aep-article-fulltext` 로드 확인 → `page.content()` 를 `write_html_source()` 로 저장 → 좌상단 'View PDF'(`a.accessbar-utility-component`) 링크를 같은 세션에서 요청(request → 페이지 안 fetch)해 PDF 가 정상적으로 내려오면 저장. **PDF 링크에 Elsevier 확인(JS)이 걸려 HTML 이 오면 우회하지 않는다** → 사용자가 창에서 'View PDF' 를 눌러 `papers/{id}/pdf/{id}.pdf` 로 직접 저장하면 `sci_collect.py status` 가 full 로 반영 (2026-09-24 실측: 구독 3편 모두 본문 HTML 은 자동, PDF 는 확인이 걸려 직접 저장 대상). 논문 간격 30초 (2026-09-24 실험: 3편 연속, 확인 창 첫 편 1회, 차단 문구 없음). 구현: `scripts/sci_collect.py` `a_elsevier`.
 4. 사용자 안내 문구: "Elsevier 구독 논문 N편은 사람 확인이 필요합니다. 창이 열리면 확인 체크박스를 눌러 주세요 (첫 논문에서 1회, 이후 논문에서도 뜰 수 있음; 30초 간격, 창 옆에 계셔 주세요). PDF 에 확인이 걸린 논문은 저장 경로를 알려 드리니 'View PDF' 로 직접 저장해 주세요."
@@ -524,11 +524,11 @@ KIST 도서관 → Elsevier에서 발급 가능한 institutional token. 받으�
 - 증거: 같은 DOI(10.1149/2.0561913jes) 가 첫 curl_cffi 요청에서는 PDF 1.45 MB 성공, 한 시간 뒤 같은 방법·headless Chrome·보이는 Chrome 모두 CAPTCHA. 그날 첫 IOP 요청(2024 DOI) 은 일반 requests 로도 성공.
 - 자동 재시도는 점수만 올린다.
 
-**규칙 (2026-09-24, runner.py `collect_ecs` / sci_collect.py `h_ecs`·`a_ecs`, 간격 90s)**:
+**규칙 (2026-09-24, sci_collect.py `h_ecs`·`a_ecs`, 간격 90s)**:
 1. 일반 요청으로 landing → `/pdf` 순서로 **1회만** 시도. TLS 지문 흉내(`curl_cffi`)·쿠키 복사·UA 위장은 하지 않는다(공통 정책).
-2. 응답이 `validate.perfdrive.com` 으로 가거나 본문에 Radware 표식이 있으면 **즉시 중단, 재시도 금지** → 사용자 확인 묶음(`assist`) / `manual_pdf_dropbox/{paper_id}/request.json` 큐.
+2. 응답이 `validate.perfdrive.com` 으로 가거나 본문에 Radware 표식이 있으면 **즉시 중단, 재시도 금지** → 웹 경로 대상으로 넘긴다(`assist` 가 만드는 `_collect/manual_download.csv`).
 3. 사용자가 보이는 Chrome(수집 프로필)에서 확인을 직접 통과하면 같은 창의 정상 세션에서 PDF 를 **페이지 안 `fetch(pdf_url, {credentials:'include'})`** 로 받는다 (2026-09-23 실측 1.46 MB). ⚠️ IOP 에서 `/pdf` 로 navigation 다운로드를 하면 Playwright 브라우저가 닫히는 현상이 있어 사용 금지. 정상 세션에서도 PDF 가 안 내려오면 사용자가 창에서 직접 저장 → `status` 반영.
-4. 최후 수단: 사용자가 KIST 망 Chrome 으로 직접 PDF 다운 → dropbox → `manual_ingest.py`.
+4. 최후 수단: 사용자가 KIST 망 Chrome 으로 직접 PDF 다운 → `intake`(다운로드 폴더에서 논문 폴더로 옮기고 반영). `papers/{id}/pdf/{id}.pdf` 로 직접 저장했으면 `status`.
 
 **검증**: 2026-09-23 3편 테스트 2/3 자동(일반 요청 1 + 당시 curl_cffi 1 — 이후 폐기), 1편 CAPTCHA → 사용자 클릭 후 페이지 안 fetch 로 완료.
 
@@ -538,7 +538,7 @@ KIST 도서관 → Elsevier에서 발급 가능한 institutional token. 받으�
 
 **배경**: 2022년부터 Elsevier ScienceDirect로 호스팅 이전.
 
-**절차**: ScienceDirect 직접 다운 → manual_pdf_dropbox → ingest. (C.1과 동일 절차, source URL만 다름)
+**절차**: ScienceDirect 직접 다운 → `intake`. (C.1과 동일 절차, source URL만 다름)
 
 **파일명 형식 (사용자 다운로드)**: `1-s2.0-S{ISSN_year_id}-main.pdf` (IJES eISSN 1452-3981 기반)
 
@@ -613,14 +613,13 @@ LLM extraction 단계에서 `abstract_only_resolution` 마크된 paper는 abstra
 
 새 publisher 만나면:
 1. DOI prefix 식별
-2. 자동 method 시도 (HTML-first → publisher-specific PDF)
-3. KIST 권한 + Cloudflare 통과 가능?
+2. 자동 method 시도 (일반 경로: 논문 페이지 → PDF 후보)
+3. KIST 권한 + 자동 요청을 막는지 (첫 요청이 403·202·확인 페이지면 웹 경로, 우회하지 않는다)
 4. 검증 결과에 따라 A/B/C/D 분류
 5. 이 문서 갱신
-6. `scripts/runner.py` 의 `MANUAL_QUEUE_PUBLISHERS` 또는 method dispatcher 갱신
+6. `scripts/sci_collect.py` 갱신: `PREFIX_PUBLISHER`(접두어 → 이름), 막히면 `DEFAULT_CONFIG["web_only_publishers"]` 와 `WEB_NOTE`, 미구독이면 `abstract_only_publishers`, 전용 처리가 필요할 때만 `collect_one` 에 `h_*` 함수
 
-가장 흔한 패턴 (낮은 비용 검증 우선):
-- `try_html_first()` 시도 (landing HTML body)
-- 본문 length ≥ 3000 + DOI/title match → success
-- 없으면 publisher-specific PDF URL 시도
-- 모두 실패 → manual queue
+가장 흔한 패턴 (낮은 비용 검증 우선) — `h_landing_generic`:
+- 논문 페이지(doi.org) HTML 의 본문 컨테이너 + `citation_pdf_url` 등 PDF 후보 (`runner.html_pdf_candidates`)
+- PDF 는 필수 보관, 텍스트는 XML > HTML > PDF 순, 본문 판정은 `runner.classify_content` (길이 ≥ 3000 + DOI/제목 일치)
+- 403·429·503·202·확인 페이지 → 같은 사이트의 나머지 논문은 요청하지 않고 웹 경로

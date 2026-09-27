@@ -5,10 +5,10 @@
 runner.py 는 classify_content(길이 3-tier)만 실행하던 정책-구현 괴리를 해소한다.
 
 호출 위치:
-  - runner.finish_result()      — 자동 batch success 마킹 직전
-  - manual_ingest.ingest_paper() — 수동 PDF ingest success 직전
+  - sci_collect.write_paper() — source.md 를 쓴 직후, full 판정 전 (자동 수집과 직접 저장 PDF 반영 모두)
+  (옛 호출처 runner.finish_result()·manual_ingest.ingest_paper() 는 2026-09-27 에 옛 배치 스크립트와 함께 뺐다)
 
-PDF 처리는 fitz(pymupdf) 로 통일 (runner.py 와 동일 — pypdf/pdfminer 추가 의존성 회피).
+PDF 처리는 fitz(pymupdf) 로 통일 (sci_collect.py 와 동일 — pypdf/pdfminer 추가 의존성 회피).
 
 검증 6종 (+ paywall fall-through):
   1. body length        (chars >= 5000 AND words >= 1500)
@@ -26,7 +26,7 @@ from pathlib import Path
 
 try:
     try:
-        import pymupdf as fitz  # runner.py 와 동일 엔진 (옛 이름 fitz 는 경고를 찍는다)
+        import pymupdf as fitz  # sci_collect.py 와 동일 엔진 (옛 이름 fitz 는 경고를 찍는다)
     except ImportError:
         import fitz
 except Exception:  # pragma: no cover

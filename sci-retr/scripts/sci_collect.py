@@ -225,7 +225,7 @@ def make_ctx(args) -> Ctx:
     adapter = HTTPAdapter(max_retries=Retry(total=3, connect=3, read=2, backoff_factor=2, status_forcelist=(502, 503, 504), allowed_methods=("GET", "HEAD")))
     ctx.session.mount("https://", adapter)
     ctx.session.mount("http://", adapter)
-    runner.configure({"kb_root": kb_root, "papers_root": kb_root / "papers", "work_root": work}, "sci_collect", CHROME_EXE)
+    runner.configure("sci_collect")
     for k, v in env.items():
         os.environ.setdefault(k, v)
     load_registry(ctx)
@@ -955,8 +955,9 @@ class Browser:
                 pass
         # 정책(2026-09-24): 봇 탐지 우회 금지. 확인 쿠키 복사·UA 위장·지문 흉내를 하지 않는다.
         # 확인 페이지가 나오면 재시도하지 않고 사용자에게 넘긴다 (사용자가 직접 통과하거나 직접 다운로드).
+        # 인증서 확인도 끄지 않는다 (ignore_https_errors 없음). Chrome 은 OS 인증서 저장소로 기관 망 재서명 인증서를 확인한다 (2026-09-27).
         kw = dict(user_data_dir=str(prof), executable_path=str(CHROME_EXE), headless=headless, accept_downloads=True,
-                  ignore_https_errors=True, args=["--no-first-run", "--window-size=1280,900"])
+                  args=["--no-first-run", "--window-size=1280,900"])
         self.ctx = self._pw.chromium.launch_persistent_context(**kw)
         self.page = self.ctx.new_page()
         self.headless = headless
