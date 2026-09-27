@@ -146,6 +146,29 @@ def looks_boilerplate(ab: str) -> bool:
     return hits >= 2 and ab.count(". ") < 4
 
 
+def looks_citation(ab: str, title: str, journal: str = "") -> bool:
+    """초록 칸에 서지 인용문이 들어온 것 (2026-09-27 Codex 검증: Oxford 3편이 '저자; 제목, National Science Review, , nwaf110,
+    https://doi.org/10.…' 155자). 짧고(600자 미만) 제목 앞부분이 그대로 있고 DOI 주소나 저널명이 함께 있으면 초록이 아니다."""
+    if not ab or len(ab) >= 600:
+        return False
+    norm = lambda s: re.sub(r"\W+", " ", s or "").strip().lower()
+    a, tt = norm(ab), norm(title)
+    if not tt or tt[:40] not in a:
+        return False
+    return bool(re.search(r"doi\.org/10\.|\bdoi:?\s*10\.", ab, re.I)) or (bool(journal) and norm(journal) in a)
+
+
+SHORT_KIND_RE = re.compile(r"(?m)^[ \t]*(RESEARCH HIGHLIGHTS?|HIGHLIGHTS?|NEWS (?:AND|&) VIEWS|EDITORIAL|COMMENTARY|PERSPECTIVE|VIEWPOINT|CORRESPONDENCE|BOOK REVIEW|IN BRIEF)[ \t]*$")
+
+
+def short_kind(md: str) -> str:
+    """짧은 기사 종류: 본문 첫머리(400자 안) 한 줄짜리 대문자 머리표 RESEARCH HIGHLIGHT·EDITORIAL 등 (2026-09-27 Oxford 1쪽 하이라이트). 없으면 ''.
+    초록 제목이 있으면 연구 논문이다 — 첫 쪽만 온 연구 논문을 짧은 기사로 보지 않는다."""
+    body = md.split("## Full Text", 1)[-1]
+    m = SHORT_KIND_RE.search(body[:400])
+    return m.group(1).title() if m and not ABS_HEAD_RE.search(body[:3000]) else ""
+
+
 def abstract_from_body(md: str) -> str:
     """초록 칸이 비었을 때 본문의 초록 절을 쓴다 (2026-09-27 연습: Springer·Elsevier 는 OpenAlex 에 초록이 없어 96편 중 12편이 빈칸).
     틀린 초록보다 빈칸이 낫다: 두 단이 섞였거나 참고문헌·각주가 끼었거나 단어가 붙은 추출본은 버린다 (옛 KB 648편 시험에서 가려냄)."""
@@ -266,9 +289,11 @@ def build_rows(kb_root: Path) -> tuple[list[dict], list[dict]]:
         row["웹페이지"] = f"https://doi.org/{row['DOI']}" if re.fullmatch(r"10\.\d{4,9}/\S+", row["DOI"] or "") else (r.get("landing_url") or "")
         if not row["저널"] and row["저널약어"] in PREPRINT_NAMES:
             row["저널"] = row["저널약어"]   # 프리프린트는 서버 이름이 저널명 (2026-09-27 ChemRxiv 4편 "저널 누락")
-        abs_from_body = boiler = False
+        abs_from_body = boiler = cite = False
         if looks_boilerplate(row["초록"]):
             row["초록"], boiler = "", True   # 사이트 문구는 초록이 아니다 — 빼고 본문의 초록 절에서 채워 본다
+        elif looks_citation(row["초록"], row["제목"], row["저널"]):
+            row["초록"], cite = "", True     # 서지 인용문도 초록이 아니다 (진짜 초록이 없으면 '초록 없음')
         if not row["초록"] and status in ("full", "web_text") and md:
             row["초록"] = abstract_from_body(md)
             abs_from_body = bool(row["초록"])
@@ -291,8 +316,12 @@ def build_rows(kb_root: Path) -> tuple[list[dict], list[dict]]:
             if words < 1500:
                 # 짧은 기사(뉴스·하이라이트·학회 초록, 2~4쪽)는 쪽당 단어가 정상이면 잘린 것이 아니다 (2026-09-27 연습 4편: 쪽당 250~700 단어).
                 # 한 쪽짜리(첫 쪽만 온 것)나 쪽당 단어가 적은 것(추출 실패)만 알린다.
+                # 첫머리에 RESEARCH HIGHLIGHT·EDITORIAL 같은 머리표가 있는 짧은 기사는 쪽수와 관계없이 종류만 알린다 (Codex 검증: Oxford 1쪽 하이라이트).
                 n_pages = pdf_pages(pdf, sj)
-                if not (2 <= n_pages <= 4 and words >= 200 * n_pages):
+                kind = short_kind(md)
+                if kind and words >= 200 * max(n_pages, 1):
+                    flags.append(f"짧은 기사({kind}" + (f", {n_pages}쪽)" if n_pages else ")"))
+                elif not (2 <= n_pages <= 4 and words >= 200 * n_pages):
                     flags.append(f"전문인데 단어수 {words}" + (f" (PDF {n_pages}쪽)" if n_pages else ""))
             if not pdf.exists():
                 flags.append("PDF 없음")
@@ -302,6 +331,8 @@ def build_rows(kb_root: Path) -> tuple[list[dict], list[dict]]:
             flags.append("초록 없음")
         if boiler:
             flags.append("초록 보일러플레이트(뺌)")
+        if cite:
+            flags.append("초록 아님(서지 인용문, 뺌)")
         if abs_from_body:
             flags.append("초록 본문에서 채움")   # 두 단 섞임 등은 버렸다. 제목과 맞는지 한 번 보면 좋다
         if any(ch in (row["제목"] + row["초록"] + md[:50000]) for ch in BAD_CHARS):

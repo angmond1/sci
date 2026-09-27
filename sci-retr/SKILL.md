@@ -208,6 +208,7 @@ python scripts/sci_collect.py collect --kb-root <root>
 - 레지스트리에서 아직 안 받은 논문(미수집·실패·PDF 없음)을 출판사별 스레드로 병렬 수집한다. 같은 출판사 안에서는 설정 간격을 지킨다.
 - 웹 전용 출판사(ACS·RSC·Science·ECS/IOP), 토큰 없는 Wiley, OA 가 아닌 Elsevier 구독 논문은 요청하지 않고 바로 웹 경로 대상으로 표시한다. 그 밖의 출판사도 첫 논문에서 막히면 나머지를 요청하지 않는다.
 - Elsevier OA 논문은 API 로 받는다. API 한도에 걸리면(429) 그 자리에서 멈추고 남은 논문은 다음 collect 로 미룬다.
+- API 경로의 SI: Elsevier API 는 XML 에 적힌 SI(`mmc`)를 같은 키로 받는다. 받지 못하면 논문 페이지를 웹 목록의 SI 행으로 올린다. 저장소 사본이나 Wiley TDM 으로 본문만 받았는데 본문에 SI 언급(Supporting Information, Figure S1 등)이 있으면 논문 페이지를 'SI 확인' 행으로 올린다(2026-09-27 Codex 검증: API 경로가 SI 를 찾지 않아 Wiley 1편의 SI 가 빠졌다). 이 행은 5.5 에서 SI 만 받거나, 없으면 `mark --si-none` 으로 닫는다.
 - `--input` 을 함께 주면 resolve 를 겸한다. `--ids` 또는 `--publishers elsevier,rsc` 로 범위를 좁힐 수 있고, `--force` 는 이미 받은 것도 다시 받는다.
 - 출력 한 줄이 논문 한 편이다. 표시: `OK` 전문, `ABS` 초록만, `USR` 웹 경로 대상, `NOPDF` 텍스트만 확보, `FAIL` 실패. 끝에 상태별 편수 요약과 `=== 보고용 요약 ===` 블록(출판사별 편수, SI 수, 실패 사유, 색인 판단, 머리표)이 나온다. 웹 경로 목록 `_collect/manual_download.csv` 도 이때 함께 만들어지므로 `assist` 를 따로 돌리지 않아도 된다.
 
@@ -230,12 +231,15 @@ python scripts/sci_collect.py assist --kb-root <root>
    - 확인 창이 계속 다시 뜨면 반복해서 누르지 않고 그 사이트는 멈춘다.
    - 창이 최소화되면(`web_find.js` 결과 `min: 1`, 스크립트로 본 outerWidth 0) 스크린샷이 되더라도 클릭이 페이지에 닿지 않는다(2026-09-27). 사용자에게 창을 앞으로 가져와 달라고 하고, 그동안은 스크립트로 읽은 파일 경로(쿼리 없는 것)를 navigate 로 열어 받는다. navigate 로 연 뒤에는 다운로드 폴더에 파일이 보인 뒤에 탭을 옮긴다.
    - SI 는 문서(PDF, Word)만 받는다. 동영상·음성, 결정 구조 파일(CIF 등), 압축 파일(zip 등), 스프레드시트(Excel, CSV 등)는 받지 않는다(2026-09-25 사용자 지시). 결정 구조와 대형 스프레드시트 데이터는 대개 zip 이나 Excel 로 온다. 링크 글자나 파일 이름으로 형식을 보고 누른다. 도구의 자동 경로도 설정 `si_skip_exts` 로 같은 형식을 거른다. Silverchair 사이트(AIP·ACS·RSC·Oxford)는 형식이 주소의 `/article-supplement/{번호}/{형식}/` 칸에 있다. `web_find.js` 가 pdf·docx·doc 가 아닌 것을 빼고 형식 칸을 보여 준다(2026-09-27 AIP zip 을 경로 끝만 보고 받음).
+   - **늦게 뜨는 SI**: `web_find.js` 는 본문 링크만 먼저 뜬 페이지에서 본문이 들어올 때까지(SI 절이나 참고문헌 제목) 최대 6초 더 보고, SI 절 제목만 있고 링크가 없으면 그 절로 스크롤해 최대 6초 더 본다. 그래도 없으면 `sx: 1` 이다 — 'SI 없음' 이 아니니 절을 펼치거나 한 번 보고 파일이 없을 때만 si-none. 받지 않는 형식(zip 등)뿐이면 `sk` 가 붙고 기다리지 않는다. Elsevier 는 첫 결과에 SI 가 없으면 View PDF 전에 같은 탭에서 `await sciretrScan()` 을 한 번 더 돌린다(스크립트를 다시 보내지 않는 짧은 호출, 2026-09-27 Codex 검증: 3편 모두 첫 결과에 SI 가 없었고 나중에 Word SI 가 있었다). figshare 에 둔 SI(AIP·Royal Society)도 후보로 나온다(끼운 화면은 "frame", 요령 문서 2.4·3.9).
+   - **받을 때 기록**: 파일에 논문 표시(첫 쪽의 DOI·제목)가 없을 것 같으면(ChemRxiv SI, figshare 파일, 이름이 숫자뿐인 SI) 받기가 끝난 직후 `record --id <paper_id> --slot si --latest --url <논문 페이지 주소>` 로 기록한다. ChemRxiv 본문은 판 주소(`…/v2`)를 남기려고 `--slot main` 으로 기록한다. `--latest` 는 방금 받은 파일을 이름 출력 없이 기록하고, 받는 중이거나 이미 기록한 파일이면 거절한다. intake 가 이 기록으로 가린다(5.6.1, 요령 문서 2.3).
+   - 파일 주소로 이동한 결과가 `net::ERR_ABORTED` 여도 저장됐을 수 있다. 다시 받기 전에 다운로드 폴더를 본다(2026-09-27 Codex 검증: RSC·PNAS).
    - 6절 표의 버튼으로 본문 PDF 와 SI 를 받는다. 누를 때는 한 호출에 `await sciretrFocus(N, x, y)`(x, y 는 `web_find.js` 가 준 좌표, async 라 await 를 붙인다)와 그 좌표 클릭을 넣는다. sciretrFocus 는 요소 자리가 멈출 때까지 1초 간격으로 기다린 뒤(최대 3초) 좌표를 정한다. 예상 자리에 그 요소가 없으면 sciretrFocus 가 클릭을 막고(guard 1) 실제 좌표를 돌려주므로 그 좌표로 다시 누른다. 화면 가운데를 가정하거나 스크린샷을 보고 좌표를 정하지 않는다(2026-09-27 세 번 빗나감, 요령 문서 2.2). 페이지 배치가 바뀌어 클릭이 추천 논문 링크에 떨어진 적도 있다.
    - 쿠키 동의 창은 누르지 않는다(사용자 결정). 쿠키 창이 페이지 클릭을 막으면 스크립트로 읽은 PDF·SI 링크 주소로 탭을 옮겨 받고, 그래도 안 되면 사용자에게 버튼을 직접 눌러 달라고 한다(요령 문서 2.2·3.14). 뉴스레터·추천 논문 안내 창은 닫기(X)만 누른다. 다른 논문을 여러 편 받는 버튼("Download (6) PDFs" 등)은 누르지 않는다.
    - PDF 를 받으며 열린 보조 탭(확인 단계 탭 등)은 닫는다.
 4. **정리**: 받은 뒤 `intake` 로 다운로드 폴더의 파일을 논문 폴더로 옮기고 반영한다(5.6.1). 출력에서 가리지 못한 파일이 있으면 무엇인지 확인한다. '여러 논문에 해당' 으로 남은 파일은 대개 같은 논문의 두 DOI 다. resolve 가 Angewandte 독일어판(ange)·국제판(anie) 쌍은 독일어판을 범위 밖으로 두고, 그 밖의 같은 제목은 알려 준다. 이미 받았다면 받은 탭을 알고 있으니 `papers/{id}/pdf/{id}.pdf`, `{id}_SI.pdf` 로 옮긴 뒤 status 를 돌린다.
    - 페이지가 구독 밖이면(Access through your institution, Purchase, Get access, 초록만 보임) 받지 말고 `mark --ids <paper_id> --status abstract_only --note "웹 확인: 구독 밖"` 으로 초록만 저장한다(웹 목록에서도 빠진다). 게재 전(accepted) 페이지는 `--note "웹 확인: 게재 전"` 으로 두고 게재 뒤 다시 받는다. status 가 이 사유를 함께 보인다.
-   - 웹 목록의 SI 행(본문은 이미 있음)을 열어 보니 그 논문에 SI 가 없으면 `mark --ids <paper_id> --si-none --note "웹 확인: SI 없음"` 으로 그 행을 닫는다. 상태는 그대로다. 보고 블록의 'SI 만 받을 행' 줄이 남은 SI 행 수다(2026-09-27).
+   - 웹 목록의 SI 행(본문은 이미 있음)을 열어 보니 그 논문에 SI 가 없으면 `mark --ids <paper_id> --si-none --note "웹 확인: SI 없음"` 으로 그 행을 닫는다. 상태는 그대로다. 보고 블록의 'SI 만 받을 행' 줄이 남은 SI 행 수다(2026-09-27). API 로 본문만 받은 논문의 'SI 확인' 행(5.4)도 같다. SI 가 받지 않는 형식뿐이면(`sk`) `--note "웹 확인: SI 는 받지 않는 형식뿐"`.
    - **PDF 받기 실패**: 한 번 실패로 웹 본문으로 넘어가지 않는다. 적어도 세 가지를 해 본다 — ① 요령 문서의 기본 버튼 ② 다른 길(스크립트가 읽은 PDF 경로를 navigate, `sciretrGo`, 온라인 보기의 다운로드) ③ 논문 페이지를 다시 열어 한 번 더(목록 끝에서 돌아와도 된다). 그래도 안 되고 페이지에 전문이 보이면 새 탭에서 `references/web_text.js` → `sciretrSaveText('<paper_id>', 'pdffail')` 로 웹 본문을 저장한다(2026-09-27 사용자 지시). 원문상태는 '전문(웹 본문, PDF 받기 실패)' 이고, 보고 블록에 그 논문과 논문 페이지 링크가 나온다(5.9). 확인 창과 구독 밖은 실패가 아니다(위 규칙대로).
    - PDF 가 없는 웹 전용 글(Science Expert Voices 처럼 PDF 아이콘이 없고 본문이 웹에만 있는 글)은 초록만으로 두지 않고 웹 본문을 저장한다(2026-09-27 사용자 지시). `web_find.js` 가 본문 후보 없이 끝난 같은 탭에 `references/web_text.js` 를 넣어 글자 수·문단 수·참고문헌 수·남은 소제목(heads)을 보고(요령 문서 2.5), 소제목에 관련·추천 논문, 뉴스, 지표 같은 것이 없으면 `sciretrSaveText('<paper_id>')` 로 `<paper_id>.sciretr.html` 을 내려받는다. 본문과 참고문헌만 담기고 관련·추천 논문, 지표·인용 수, 광고, 공유, 뉴스레터, 메뉴, 머리말·꼬리말은 빠진다. intake 가 이 파일로 source.md 를 만들고 원문상태를 '전문(웹 본문, PDF 없음)' 으로 둔다. 구독 밖이라 초록만 보이는 페이지에는 쓰지 않는다(글이 짧으면 ok false).
 5. **간격과 양**: 같은 출판사 안에서는 한 편씩 받고, 한 편이 끝나면 기다리지 않고 바로 다음 논문으로 간다. 출판사당 한 번에 수십 편 이내로 나눈다. 탭은 하나만 쓰고, 그 탭을 화면 앞에 둔 채 순서대로 받는다(2026-09-26 사용자 확정). 여러 탭이나 여러 창을 번갈아 쓰는 방식은 쓰지 않는다. 시험 결과 시간 이득이 18편에 1~3분에 그쳤고, 뒤쪽 탭에서는 클릭이 빗나가고 연결이 끊겼으며, 확장은 탭을 앞으로 가져오거나 창을 옮길 수 없다(references/web_download_playbook.md 4절).
@@ -261,13 +265,18 @@ python scripts/sci_collect.py intake --kb-root <root>
 ```
 
 - 다운로드 폴더에서 논문 PDF·SI 를 찾아, 어느 논문인지 가린 뒤 `papers/{id}/pdf/` 에 정해진 이름(`{id}.pdf`, `{id}_SI.pdf`, `_SI_2` …)으로 옮기고 본문 텍스트를 반영한다.
-- 가리는 근거: 파일 이름의 논문 코드(Elsevier PII, DOI 끝부분), PDF 앞 두 쪽의 DOI, 첫 쪽의 제목, PDF 뒤쪽의 DOI. 근거가 충분하고 한 논문에만 해당할 때만 옮긴다. 참고문헌에 다른 논문 DOI 가 있어도 그것만으로는 옮기지 않는다. Science·IOP PDF 는 첫 쪽에 DOI 글자가 없어 파일 이름과 제목으로 가린다. Word(.docx) SI 는 본문 앞부분의 제목·DOI 로도 가린다. IOP 옛 논문 SI 는 파일 이름이 `1960.docx` 처럼 숫자뿐이다.
+- 가리는 근거: 파일 이름의 논문 코드(Elsevier PII, DOI 끝부분), PDF 앞 두 쪽의 DOI, 첫 쪽의 제목, PDF 뒤쪽의 DOI. 근거가 충분하고 한 논문에만 해당할 때만 옮긴다. 참고문헌에 다른 논문 DOI 가 있어도 그것만으로는 옮기지 않는다. Science·IOP PDF 는 첫 쪽에 DOI 글자가 없어 파일 이름과 제목으로 가린다. Word SI 는 본문 앞부분의 제목·DOI 로도 가린다(.docx, 그리고 2026-09-27 부터 옛 형식 .doc 도 글을 읽는다 — Codex 검증 AIP .doc). IOP 옛 논문 SI 는 파일 이름이 `1960.docx` 처럼 숫자뿐이다.
 - SI 구분: 파일 이름 규칙(mmc, _suppl, _si_, -sup-, -sm, PNAS `.sapp` 등), 첫 쪽 맨 앞의 Supporting/Supplementary/Supplemental 문구(IEEE SI 는 논문 제목 이름으로 저장되고 첫 줄이 "Supplementary File" 이다), 첫 쪽이 SI 쪽 번호 "S1 " 로 시작하는 파일. ACS 본문 PDF 는 첫 쪽 중간에 "Supporting Information" 안내가 있어 맨 앞만 본다.
 - 이미 본문 PDF 가 있거나 같은 SI 가 있으면 옮기지 않는다. 가리지 못한 파일도 그대로 둔다. 파일을 지우지 않는다.
 - 한 논문에 본문 후보가 둘 이상이면(SI 가 본문처럼 보인 것) 옮기지 않고 "본문 후보 N개" 로 알린다. 미리보기(`--dry-run`)에도 같게 나온다. SI 쪽을 `papers/{id}/pdf/{id}_SI.pdf` 로 직접 옮긴 뒤 다시 intake 한다(2026-09-27 PNAS `.sapp.pdf` 는 이제 SI 로 가린다).
 - 같은 본문 PDF 가 두 번 받아졌으면(확인 창을 통과한 뒤 같은 PDF 가 한 번 더 저장됨, 2026-09-27 IOP) 글자가 같은 것을 알아보고 하나만 옮긴다. 나머지는 '같은 본문 중복' 으로 그대로 둔다.
 - 웹 본문 파일(`<paper_id>.sciretr.html`, 5.5 의 웹 전용 글)은 이름의 paper_id 로 가려 `papers/{id}/html/{id}.html` 로 옮기고 source.md 를 만든다(원문상태 '전문(웹 본문, PDF 없음)'). 이미 본문 PDF 가 있는 논문이면 그대로 둔다. 그 밖의 .html 파일은 보지 않는다.
 - 목록의 어떤 논문과도 근거가 없는 파일은 사용자 개인 파일일 수 있어 이름을 출력하지 않는다.
+- **받을 때 기록**(`record`, 5.5): 내용으로 가릴 수 없는 파일(첫 쪽에 DOI·제목 없는 ChemRxiv SI 등)은 받는 쪽이 남긴 기록(`_collect/download_map.tsv`)으로 가린다. 기록의 받은 주소는 source.json 에 남는다(ChemRxiv 판). 기록과 내용 판정이 다른 논문이나 다른 자리(본문/SI)를 가리키면 옮기지 않고 알린다. 시험(2026-09-27, Codex 검증 파일의 복사본 6개): 기록 없이 ChemRxiv SI 만 남음 → 기록 뒤 모두 맞는 자리, ChemRxiv 받은 주소 `/v2`, 본문을 SI 로 잘못 기록한 파일은 그대로 둠.
+
+```bash
+python scripts/sci_collect.py record --kb-root <root> --id <paper_id> --slot si --latest --url <논문 페이지 주소>
+```
 - 다운로드 폴더는 설정 `downloads_dir`, Chrome 설정의 다운로드 폴더, Windows 의 다운로드 폴더, `~/Downloads` 순으로 찾고 어느 근거인지 출력한다. 기본은 최근 24시간 안에 받은 파일만 본다(`--hours`). 다른 폴더는 `--downloads`. `--dry-run` 이면 옮기지 않고 판정만 보여 준다.
 - 판정 기록: `_collect/intake_log.csv`.
 - 시험 (2026-09-25): 여섯 출판사 실제 다운로드 이름 그대로 11개 파일 → 모두 맞는 논문·자리로 이동, 목록에 없는 논문 PDF 1개는 그대로 둠, 같은 파일을 다시 넣으면 옮기지 않음.

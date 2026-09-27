@@ -21,17 +21,22 @@ effort: medium
 - `web_find.js` 는 논문마다 파일 그대로 넣는다(맨 앞 await 포함). 누를 때는 한 호출에 `await sciretrFocus(N, x, y)` 와 그 좌표 클릭 하나만 넣는다. guard 가 1 이면 돌려받은 좌표로 다시 누른다.
 - SI 는 PDF·Word 만 받는다. 쿠키 동의 창은 누르지 않는다. 다운로드 폴더의 파일 이름은 보고에 적지 않는다(개수·확장자·크기만).
 - 다운로드 확인은 따로 기다리지 않고 다음 논문 열기와 같은 차례에 보낸다. `doi.org` 를 거치는 사이트의 첫 논문은 navigate 뒤 3초 기다린 다음 `web_find.js` 를 돌린다.
+- 파일 주소 이동이 `net::ERR_ABORTED` 로 끝나도 저장됐을 수 있다. 다시 받기 전에 다운로드 폴더를 본다.
+- 받은 파일에 논문 표시(첫 쪽 DOI·제목)가 없을 것 같으면(ChemRxiv SI, figshare 파일, 이름이 숫자뿐인 SI) 받기가 끝난 직후 `record --id <id> --slot si --latest --url <논문 페이지 주소>`. ChemRxiv 본문도 `--slot main --latest --url <판 주소>` 로 기록한다(판 주소를 남김). 거절되면(받는 중·이미 기록) 받기가 끝난 뒤 다시 한다.
 - 문서·스크립트는 고치지 않는다. 고칠 점은 보고에 제안한다. 파일을 지우지 않는다.
 
 ## 경우별 처리
 - 구독 밖(초록만 보임): `mark --ids <id> --status abstract_only --note "웹 확인: 구독 밖"`. 게재 전이면 `--note "웹 확인: 게재 전"`.
-- SI 만 받는 행인데 그 논문에 SI 가 없음: `mark --ids <id> --si-none --note "웹 확인: SI 없음"`.
+- SI 만 받는 행인데 그 논문에 SI 가 없음: `mark --ids <id> --si-none --note "웹 확인: SI 없음"`. reason 이 'SI 확인 …' 인 행(API 로 본문만 받은 논문)도 같다. SI 가 받지 않는 형식뿐이면(`s` 비고 `sk` 있음) `--note "웹 확인: SI 는 받지 않는 형식뿐"`.
+- `web_find.js` 결과에 `sx: 1`: SI 절 제목은 있는데 링크를 못 찾은 것이다(SI 없음이 아니다). 절을 펼치거나 스크린샷으로 한 번 보고 `await sciretrScan()`. 파일이 정말 없을 때만 si-none.
+- Elsevier 에서 `s` 가 비었으면 View PDF 전에 같은 탭에서 `await sciretrScan()` 을 한 번 돌린다(SI 목록이 늦게 들어온다).
+- figshare SI: 링크면 누른다. "frame" 항목이면 `sciretrGo(번호)` 로 figshare 화면을 열고 `web_find.js` 를 넣어 파일의 Download 를 누른다(PDF·Word 만). 받은 뒤 record.
 - PDF 가 없는 웹 전용 글: 새 탭에서 `web_text.js` → heads 확인 → `sciretrSaveText('<id>')` (요령 문서 2.5).
 - **PDF 받기 실패**: 한 번 실패로 넘기지 않는다. 적어도 세 가지를 해 본다. ① 요령 문서의 기본 버튼 ② 다른 길(스크립트가 읽은 PDF 경로를 navigate, `sciretrGo`, 온라인 보기의 다운로드) ③ 논문 페이지를 다시 열어 한 번 더(목록 끝에서 한 번 더 돌아와도 된다). 그래도 안 되고 페이지에 전문(여러 문단의 본문)이 보이면 새 탭에서 `web_text.js` → heads 확인 → `sciretrSaveText('<id>', 'pdffail')`. 확인 창과 구독 밖은 실패가 아니다(위 규칙대로).
 
 ## 끝나면
 1. 연 탭을 모두 닫는다.
-2. `intake --dry-run --hours 6` 로 판정을 본다. '본문 후보 N개' 가 있으면 첫 쪽을 보고 SI 는 `papers/{id}/pdf/{id}_SI.pdf` 로 옮긴다. 그다음 `intake --hours 6` → `status`.
+2. `intake --dry-run --hours 6` 로 판정을 본다. '본문 후보 N개' 가 있으면 첫 쪽을 보고 SI 는 `papers/{id}/pdf/{id}_SI.pdf` 로 옮긴다. '가리지 못해 그대로 둔 파일' 이 이름과 함께 보이고 어느 논문 것인지 알면 `record --id <id> --slot main|si --file <이름>` 뒤 다시 dry-run. 이름이 가려진 파일(목록과 무관)은 건드리지 않는다. 그다음 `intake --hours 6` → `status`.
 3. 보고(한국어). 첫 줄은 머리표다: `🐶 완료 — sci-retr` / `🐕 부분 완료 — sci-retr` / `🐕‍🦺 중단 — sci-retr`.
    - 시작·끝 시각. 논문별 표: paper_id | 결과 | 파일 수 | 걸린 시간 | 확인 창 | 헤맨 것.
    - status 의 `=== 보고용 요약 ===` 블록을 그대로 옮긴다. 'PDF 받기 실패 → 웹 본문 저장' 줄의 논문과 링크도 그대로 옮긴다.

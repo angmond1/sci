@@ -944,7 +944,7 @@ def si_name(pid: str, k: int, ext: str) -> str:
     return f"{pid}_SI.{ext}" if k == 1 else f"{pid}_SI_{k}.{ext}"
 
 
-def save_si(ctx: Ctx, pid: str, fetch, links: list[str]) -> int:
+def save_si(ctx: Ctx, pid: str, fetch, links: list[str], manual_url: str = "") -> int:
     """SI 를 받은 형식 그대로 pdf/ 폴더에 {pid}_SI*.{ext} 로 저장. 거부·빈 응답·HTML 이 온 링크는 우회하지 않고 직접 다운로드 목록에 올린다."""
     import hashlib
     d = paper_dir(ctx, pid) / "pdf"
@@ -999,8 +999,41 @@ def save_si(ctx: Ctx, pid: str, fetch, links: list[str]) -> int:
         (d / si_name(pid, n, ext)).write_bytes(data)
         time.sleep(2)
     if failed:
-        add_manual_si(ctx, pid, failed, start=n + 1)
+        if manual_url:   # API 주소처럼 브라우저로 열 수 없는 주소 — 논문 페이지에서 SI 를 받게 한다
+            add_si_check_row(ctx, pid, manual_url, "SI 받기 실패 (API) — 논문 페이지에서 SI 를 받거나, 없으면 mark --si-none")
+        else:
+            add_manual_si(ctx, pid, failed, start=n + 1)
     return n
+
+
+# 본문에 SI 가 있다는 흔적 (API 로 본문만 받았을 때 SI 확인이 필요한지 가린다)
+SI_MENTION_RE = re.compile(r"supporting information|supplementary (information|material|data|note|figure|table|file)|supplemental (information|material|data)"
+                           r"|electronic supplementary|\bfigures? S\d|\btables? S\d", re.I)
+
+
+def si_mentioned(ctx: Ctx, pid: str) -> bool:
+    """source.md 본문에 SI 언급이 있는가. 읽지 못하면 확인하게 둔다(참)."""
+    try:
+        text = (ctx.papers_root() / pid / "source.md").read_text(encoding="utf-8", errors="ignore").split("## Full Text", 1)[-1]
+    except Exception:
+        return True
+    return bool(SI_MENTION_RE.search(text))
+
+
+ELS_OBJ_RE = re.compile(rb'<object\b[^>]*\bref="(mmc\d+)"[^>]*>([^<]+)</object>')
+
+
+def elsevier_api_si(ctx: Ctx, row: dict, xml: bytes, hdr: dict) -> int:
+    """Elsevier API XML 의 SI 목록(<object ref="mmcN">, Object Retrieval API 주소)을 같은 키로 받는다.
+    XML 에 SI 가 없으면 SI 가 없는 논문이다. 받지 못한 것은 논문 페이지를 SI 확인 행으로 (2026-09-27 Codex 검증: API 경로가 SI 를 찾지 않음)."""
+    links = list(dict.fromkeys(htmlmod.unescape(u.decode("utf-8", "ignore")).strip() for _, u in ELS_OBJ_RE.findall(xml or b"")))
+    if not links:
+        return 0
+
+    def fetch(url: str) -> tuple[bytes, str]:
+        r = ctx.session.get(url, headers={**hdr, "Accept": "*/*"}, timeout=120)
+        return (r.content if r.status_code == 200 else b""), r.headers.get("content-type", "")
+    return save_si(ctx, row["paper_id"], fetch, links, manual_url=row.get("landing_url") or f"https://doi.org/{row['doi']}")
 
 
 def http_fetch(ctx: Ctx):
@@ -1186,7 +1219,10 @@ def h_elsevier(ctx: Ctx, row: dict) -> Outcome:
         if not limited and pdf.status_code == 200 and is_pdf(pdf.content):
             out = Outcome(method="elsevier_article_retrieval_api", pdf_data=pdf.content, page_url=ep,
                           xml_raw=xml.content if xml.status_code == 200 and xml.content.strip().startswith(b"<") else b"")
-            return write_paper(ctx, row, out)
+            res = write_paper(ctx, row, out)
+            if res.status == "full":
+                res.si_files = elsevier_api_si(ctx, row, out.xml_raw, hdr)
+            return res
         api_note = "API 본문 권한 없음(첫 페이지만)" if limited else f"API pdf status={pdf.status_code}"
     # ScienceDirect 밖의 OA 사본 (저자 원고 저장소, PMC 등). 출판사 사이트는 자동 요청을 막으므로 요청하지 않는다.
     oa_url = row.get("oa_pdf_url") or ""
@@ -1196,7 +1232,11 @@ def h_elsevier(ctx: Ctx, row: dict) -> Outcome:
         try:
             r = ctx.session.get(oa_url, timeout=120)
             if r.status_code == 200 and is_pdf(r.content):
-                return write_paper(ctx, row, Outcome(method="elsevier_oa_copy_pdf", pdf_data=r.content, page_url=oa_url))
+                res = write_paper(ctx, row, Outcome(method="elsevier_oa_copy_pdf", pdf_data=r.content, page_url=oa_url))
+                if res.status == "full" and si_mentioned(ctx, row["paper_id"]):
+                    add_si_check_row(ctx, row["paper_id"], row.get("landing_url") or f"https://doi.org/{row['doi']}",
+                                     "SI 확인 (저장소 사본으로 본문만 받음) — 논문 페이지에서 SI 를 받거나, 없으면 mark --si-none")
+                return res
         except Exception:
             pass
     return Outcome(status="human_required", requested=tried, note=f"{api_note} → 웹 경로")
@@ -1213,7 +1253,12 @@ def h_wiley(ctx: Ctx, row: dict) -> Outcome:
         r = ctx.session.get(f"https://api.wiley.com/onlinelibrary/tdm/v1/articles/{quote(row['doi'], safe='')}",
                             headers={"Wiley-TDM-Client-Token": token, "Accept": "application/pdf"}, timeout=180, allow_redirects=True)
         if r.status_code == 200 and is_pdf(r.content):
-            return write_paper(ctx, row, Outcome(method="wiley_tdm_api_pdf", pdf_data=r.content, page_url=row["landing_url"]))
+            res = write_paper(ctx, row, Outcome(method="wiley_tdm_api_pdf", pdf_data=r.content, page_url=row["landing_url"]))
+            # TDM API 는 본문 PDF 만 준다. 본문에 SI 언급이 있으면 논문 페이지를 SI 확인 행으로 (2026-09-27 Codex 검증: cssc.202300465 SI 누락)
+            if res.status == "full" and si_mentioned(ctx, row["paper_id"]):
+                add_si_check_row(ctx, row["paper_id"], row.get("landing_url") or f"https://doi.org/{row['doi']}",
+                                 "SI 확인 (TDM API 로 본문만 받음) — 논문 페이지에서 SI 를 받거나, 없으면 mark --si-none")
+            return res
         return Outcome(status="human_required", method="wiley_tdm_api", note=f"TDM API status={r.status_code} → 직접 다운로드 대상")
     except Exception as exc:
         return Outcome(status="human_required", method="wiley_tdm_api", note=f"TDM API {type(exc).__name__} → 직접 다운로드 대상")
@@ -2105,6 +2150,78 @@ def add_manual_si(ctx: Ctx, pid: str, urls: list[str], start: int = 1) -> Path:
     return update_manual_csv(ctx, new)
 
 
+def add_si_check_row(ctx: Ctx, pid: str, url: str, reason: str) -> None:
+    """본문은 받았지만 SI 는 확인하지 못한 논문: 논문 페이지를 SI 자리로 웹 목록에 올린다.
+    웹에서 SI 를 받거나(intake), 없으면 mark --si-none 으로 닫는다. 보고 블록의 'SI 만 받을 행' 에 잡힌다."""
+    d = paper_dir(ctx, pid) / "pdf"
+    if any(d.glob(f"{pid}_SI*")) or pid in read_si_none(ctx):
+        return
+    row = next((r for r in ctx.registry.values() if r.get("paper_id") == pid), {})
+    update_manual_csv(ctx, [{"paper_id": pid, "publisher": row.get("publisher", ""), "title": row.get("title", ""), "url": url,
+                             "save_to": str(d / si_name(pid, 1, "pdf")), "reason": reason}])
+    say(f"   [{pid}] 본문만 받았고 SI 는 논문 페이지에서 확인해야 합니다 — 웹 목록에 SI 확인 행을 올렸습니다.")
+
+
+def read_download_map(ctx: Ctx) -> dict:
+    """_collect/download_map.tsv (record 명령): 받는 쪽이 기록한 '파일 이름 → (paper_id, 자리, 받은 페이지)'."""
+    p = ctx.work / "download_map.tsv"
+    out: dict[str, tuple[str, str, str]] = {}
+    if p.exists():
+        for line in p.read_text(encoding="utf-8", errors="ignore").splitlines()[1:]:
+            parts = line.split("\t")
+            if len(parts) >= 3 and parts[0]:
+                out[parts[0]] = (parts[1], parts[2], parts[3] if len(parts) > 3 else "")
+    return out
+
+
+def apply_download_map(f: Path, m: dict, dmap: dict, by_id: dict) -> dict:
+    """내용 대조 결과(m)에 받을 때 기록을 더한다. 내용으로 못 가린 파일(첫 쪽에 DOI·제목 없는 SI, 옛 Word)은 기록대로,
+    내용이 다른 논문을 확실히 가리키면(점수 3 이상) 옮기지 않고 알린다 (2026-09-27 Codex 검증: ChemRxiv SI·AIP .doc 를 못 가림)."""
+    rec = dmap.get(f.name)
+    if not rec or rec[0] not in by_id:
+        return m
+    pid, slot, url = rec
+    if m.get("status") == "matched" and m.get("paper_id") != pid and m.get("score", 0) >= 3:
+        return {"status": "ambiguous", "reason": f"받을 때 기록({pid})과 내용 판정({m['paper_id']})이 다름"}
+    if m.get("status") == "matched" and m.get("paper_id") == pid and m.get("slot") != slot and m.get("score", 0) >= 3:
+        return {"status": "ambiguous", "reason": f"받을 때 기록({'본문' if slot == 'main' else 'SI'})과 내용 판정의 자리가 다름"}
+    same = m.get("status") == "matched" and m.get("paper_id") == pid
+    return {"status": "matched", "paper_id": pid, "row": by_id[pid], "slot": "main" if slot == "main" else "si",
+            "score": max(m.get("score", 0), 5), "reason": "받을 때 기록" + (" + " + m["reason"] if same else ""), "url": url}
+
+
+def cmd_record(args) -> None:
+    """웹에서 받은 파일이 어느 논문의 본문·SI 인지 기록한다. intake 가 내용으로 못 가린 파일에 쓴다 (파일 이름은 출력하지 않는다)."""
+    ctx = make_ctx(args)
+    if args.id not in {r["paper_id"] for r in ctx.registry.values()}:
+        say(f"!! 목록에 없는 paper_id: {args.id}"); return
+    p = ctx.work / "download_map.tsv"
+    name = Path(args.file).name if args.file else ""
+    if args.latest:
+        # 방금 받은 파일 (3분 안, 받는 중인 파일이 없을 때). 이름은 출력하지 않는다 (2026-09-27)
+        ddir, _ = find_downloads_dir(ctx.config, args.downloads)
+        now = time.time()
+        recent = [f for f in ddir.iterdir() if f.is_file() and now - f.stat().st_mtime <= 180] if ddir.exists() else []
+        if any(f.suffix.lower() in (".crdownload", ".tmp", ".part") for f in recent):
+            say("!! 아직 받는 중인 파일이 있습니다 — 받기가 끝난 뒤 다시 record"); return
+        cands = [f for f in recent if f.suffix.lower() in INTAKE_EXTS and f.suffix.lower() != ".html"]
+        if not cands:
+            say("!! 다운로드 폴더에 3분 안에 받은 파일이 없습니다 — 받기가 끝났는지 보고 다시 record"); return
+        f = max(cands, key=lambda x: x.stat().st_mtime)
+        if f.name in read_download_map(ctx):
+            say("!! 가장 최근 파일은 이미 기록했습니다 — 새 파일이 아직 오지 않았으면 끝난 뒤 다시 record"); return
+        name = f.name
+        say(f"방금 받은 파일: {f.suffix.lower().lstrip('.')} {f.stat().st_size / 1024:,.0f} KB")
+    if not name:
+        say("record: --file 이나 --latest 중 하나를 준다."); return
+    new = not p.exists()
+    with open(p, "a", encoding="utf-8", newline="") as fh:
+        if new:
+            fh.write("file\tpaper_id\tslot\turl\tat\n")
+        fh.write("\t".join([name, args.id, args.slot, (args.url or "").replace("\t", " "), utc_now()]) + "\n")
+    say(f"기록: {args.id} ({'본문' if args.slot == 'main' else 'SI'}) — 받은 파일 1개. intake 가 이 기록으로 가린다.")
+
+
 def cmd_mark(args) -> None:
     """범위 밖(out_of_scope) 표시 / 해제(resolved). Claude 의 사전 분류 결과를 registry 에 기록하는 유일한 경로 (CSV 직접 편집 금지)."""
     ctx = make_ctx(args)
@@ -2201,6 +2318,8 @@ def _content_sig(p: Path) -> str:
             text = _pdf_texts(p)[2] or ""
         elif p.suffix.lower() == ".docx":
             text = _docx_text(p) or ""
+        elif p.suffix.lower() == ".doc":
+            text = _doc_text(p) or ""
     except Exception:
         text = ""
     letters = re.sub(r"[^a-z]", "", text.lower())
@@ -2231,6 +2350,20 @@ def _docx_text(p: Path) -> str:
     return htmlmod.unescape(re.sub(r"<[^>]+>", "", x))
 
 
+def _doc_text(p: Path) -> str:
+    """옛 Word(.doc) 에서 읽을 수 있는 글자만 뽑는다(제목·DOI 대조와 중복 판정용, 구조는 보지 않음).
+    UTF-16 과 8비트 글자 둘 다 본다 (2026-09-27 Codex 검증: AIP .doc SI 를 못 가림)."""
+    try:
+        data = p.read_bytes()[:4_000_000]
+    except Exception:
+        return ""
+    runs = re.findall(r"[\x20-\x7e\u00a0-\u024f\u2010-\u2027]{12,}", data.decode("utf-16-le", errors="ignore"))
+    runs += re.findall(r"[\x20-\x7e]{12,}", data.decode("cp1252", errors="ignore"))
+    # 이진 부분이 글자처럼 풀린 조각('††††', 'Ĕ―')은 버린다: 영문자·숫자·공백이 대부분이고 낱말이 셋 이상인 것만
+    runs = [r for r in runs if len(r.split()) >= 3 and sum(c.isascii() and (c.isalnum() or c == " ") for c in r) >= 0.8 * len(r)]
+    return " ".join(runs)[:20000]
+
+
 def match_download(ctx: Ctx, f: Path) -> dict:
     """다운로드 파일 한 개를 레지스트리 논문과 대조. 반환: paper_id·slot(main|si)·score·reason·status(matched|ambiguous|unmatched)."""
     name_n = _alnum(f.stem)
@@ -2238,8 +2371,8 @@ def match_download(ctx: Ctx, f: Path) -> dict:
     p1 = p12 = full = ""
     if is_pdf_file:
         p1, p12, full = _pdf_texts(f)
-    elif f.suffix.lower() == ".docx":
-        full = _docx_text(f)
+    elif f.suffix.lower() in (".docx", ".doc"):
+        full = _docx_text(f) if f.suffix.lower() == ".docx" else _doc_text(f)
         p1, p12 = full[:3000], full[:6000]
     p1_n, p12_n, full_n = _alnum(p1), _alnum(p12), _alnum(full)
     scored = []
@@ -2348,7 +2481,7 @@ def cmd_intake(args) -> None:
     say(f"다운로드 폴더 {ddir} ({how}) — 최근 {args.hours}시간 안의 파일 {len([p for p in files if p.suffix.lower() != '.html' or WEBTEXT_RE.match(p.name)])}개 확인{' (미리보기, 옮기지 않음)' if args.dry_run else ''}")
     if skipped:
         say(f"  받지 않는 SI 형식(동영상, 결정 구조, 압축, 스프레드시트 등) {len(skipped)}개는 옮기지 않고 그대로 둠: " + ", ".join(p.name for p in skipped[:5]))
-    moved_main, results = 0, []
+    moved_main, results, page_urls = 0, [], {}
     planned: dict[str, list[tuple[str, str]]] = {}   # 이번 실행에서 정한 SI (이름, sha1) — 미리보기에서도 실제와 같은 이름·중복 판정 (2026-09-27)
     by_id = {r["paper_id"]: r for r in ctx.registry.values()}
     webtexts = [f for f in files if WEBTEXT_RE.match(f.name)]
@@ -2374,6 +2507,9 @@ def cmd_intake(args) -> None:
         say(f"  {f.name[:60]:60s} | {pid[:32]:32s} | web  | 웹 본문 파일                             | {action}")
         results.append((f.name, {"status": "matched" if row else "unmatched", "paper_id": pid, "slot": "web", "reason": "웹 본문 파일"}, action))
     matches = [(f, match_download(ctx, f)) for f in files]
+    dmap = read_download_map(ctx)   # record 명령으로 남긴 '파일 → 논문' (내용으로 못 가린 파일에 쓴다)
+    if dmap:
+        matches = [(f, apply_download_map(f, m, dmap, by_id)) for f, m in matches]
     main_cands: dict[str, int] = {}
     dup_main: dict[str, str] = {}   # 같은 본문이 두 번 받아진 파일 → 옮기지 않음 (값: 대신 옮길 파일 이름)
     by_pid: dict[str, list[Path]] = {}
@@ -2408,6 +2544,8 @@ def cmd_intake(args) -> None:
                     action = f"본문 PDF → {dst.name}"
                     if not args.dry_run:
                         shutil.move(str(f), str(dst)); moved_main += 1
+                        if m.get("url"):
+                            page_urls[pid] = m["url"]
             else:
                 digest = _content_sig(f)   # 바이트가 달라도 글이 같으면 같은 SI (내려받을 때마다 찍히는 표시)
                 existing = sorted(pdir.glob(f"{pid}_SI*"))
@@ -2440,9 +2578,18 @@ def cmd_intake(args) -> None:
         if moved_main:
             say(f"본문 PDF {moved_main}편을 옮겼습니다. 본문 텍스트를 뽑아 반영합니다.")
             ingest_manual_pdfs(ctx)
+            for pid, url in page_urls.items():   # 실제로 받은 페이지(판이 여럿인 ChemRxiv 등)를 남긴다
+                sjp = ctx.papers_root() / pid / "source.json"
+                try:
+                    sj = json.loads(sjp.read_text(encoding="utf-8"))
+                    sj["source_url"] = sj["downloaded_from"] = url
+                    sjp.write_text(json.dumps(sj, ensure_ascii=False, indent=2), encoding="utf-8")
+                except Exception:
+                    pass
     left = [r for r in results if r[1]["status"] != "matched"]
     if left:
-        say(f"논문을 가리지 못해 그대로 둔 파일 {len(left)}개 — 다른 파일이거나 레지스트리에 없는 논문입니다.")
+        say(f"논문을 가리지 못해 그대로 둔 파일 {len(left)}개 — 다른 파일이거나 레지스트리에 없는 논문입니다. "
+            "받은 논문을 알면 record --id <paper_id> --slot main|si --file <파일 이름> 로 기록한 뒤 다시 intake")
     if not args.dry_run and (ctx.work / "manual_download.csv").exists():
         update_manual_csv(ctx, [])   # 끝난 논문을 웹 경로 목록에서 뺀다 (중단 뒤 재개 때 남은 것만 보이게)
     summarize(ctx, header="intake 완료" if not args.dry_run else "intake 미리보기")
@@ -2665,6 +2812,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("intake", parents=[common]); p.add_argument("--downloads", default=None, help="다운로드 폴더 (기본: 설정 downloads_dir → Chrome 설정 → Windows 다운로드 폴더 → ~/Downloads)"); p.add_argument("--hours", type=float, default=24, help="최근 몇 시간 안에 받은 파일만"); p.add_argument("--dry-run", action="store_true", help="옮기지 않고 판정만 보기")
     p = sub.add_parser("reextract", parents=[common]); p.add_argument("--ids", nargs="*"); p.add_argument("--publishers", default=None)
     p = sub.add_parser("mark", parents=[common]); p.add_argument("--ids", nargs="+", required=True, help="paper_id 또는 DOI"); p.add_argument("--status", choices=["out_of_scope", "resolved", "abstract_only"], default=None, help="abstract_only: 웹에서 구독 밖으로 확인한 논문을 초록만 저장"); p.add_argument("--si-none", action="store_true", help="웹에서 SI 가 없다고 확인한 논문: 웹 목록의 SI 행만 닫는다 (상태는 그대로)"); p.add_argument("--note", default="")
+    p = sub.add_parser("record", parents=[common], help="웹에서 받은 파일이 어느 논문의 본문·SI 인지 기록 (intake 가 내용으로 못 가린 파일에 쓴다)")
+    p.add_argument("--id", required=True, help="paper_id"); p.add_argument("--slot", choices=["main", "si"], required=True)
+    p.add_argument("--file", default="", help="다운로드 폴더의 파일 이름"); p.add_argument("--latest", action="store_true", help="파일 이름 대신: 방금(3분 안) 받은 가장 최근 파일 (이름은 출력하지 않음)")
+    p.add_argument("--downloads", default=None, help="다운로드 폴더 (--latest 용, 기본은 intake 와 같음)"); p.add_argument("--url", default="", help="받은 페이지 주소 (판이 여럿인 ChemRxiv 등)")
     sub.add_parser("status", parents=[common])
     sub.add_parser("doctor", parents=[common], help="처음 쓰기 전 환경 점검 (읽기만 함)")
     p = sub.add_parser("refs", parents=[common], help="한 논문(PDF·링크·DOI·paper_id)의 참고문헌 DOI 목록 만들기 (수집은 하지 않음)")
@@ -2679,7 +2830,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
-    {"resolve": cmd_resolve, "collect": cmd_collect, "assist": cmd_assist, "mark": cmd_mark, "reextract": cmd_reextract, "intake": cmd_intake, "status": cmd_status, "doctor": cmd_doctor, "token": cmd_token, "refs": cmd_refs}[args.cmd](args)
+    {"resolve": cmd_resolve, "collect": cmd_collect, "assist": cmd_assist, "mark": cmd_mark, "reextract": cmd_reextract, "intake": cmd_intake, "status": cmd_status, "doctor": cmd_doctor, "token": cmd_token, "refs": cmd_refs, "record": cmd_record}[args.cmd](args)
 
 
 if __name__ == "__main__":

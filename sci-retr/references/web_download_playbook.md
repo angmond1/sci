@@ -85,6 +85,7 @@
 - 창이 작아도 된다. 1366×768 창(페이지 1355×586)에서 여섯 출판사 6편을 같은 절차로 받았다(2026-09-26). 여섯 사이트 모두 데스크톱 배치를 유지했고 버튼을 다시 찾은 일이 없었다. 작은 창에서 자리가 화면 기준인 버튼도 그대로였다. Wiley "열기"는 가운데 +45 px, Science 온라인 보기의 다운로드 아이콘은 오른쪽 끝에서 40 px 안쪽·위에서 30 px.
 - 스크립트가 'Inspected target navigated or closed' 로 끝나면 페이지가 한 번 다시 뜬 것이다. 사이트의 첫 논문에서 흔하고(2026-09-27 Science·T&F·PNAS 첫 편), `doi.org` 를 거쳐 여는 사이트는 그 뒤에도 난다(De Gruyter). `doi.org` 를 거치는 사이트의 첫 논문은 navigate 뒤 같은 묶음 안에서 3초 기다린 다음(computer wait) `web_find.js` 를 돌린다. 끊기면 스크립트를 다시 써야 해 약 55초가 더 든다(2026-09-27 4조: 3회 끊김, 3초 기다림을 넣은 뒤로는 0회).
 - navigate 로 파일 주소를 열면 도구가 다운로드 응답 전에 돌아온다. 다운로드 폴더에 그 파일이나 `.crdownload` 가 보인 뒤에 탭을 다음 논문으로 옮긴다(2026-09-27 12 MB PDF 1회 취소).
+- 파일 주소로 이동한 결과가 `net::ERR_ABORTED` 여도 실패가 아닐 수 있다. 페이지 이동이 다운로드로 바뀌면 이렇게 끝난다(2026-09-27 Codex 검증: RSC·PNAS 파일은 저장됨). 다시 받기 전에 다운로드 폴더에 새 파일(`.crdownload` 가 아닌 것)이 생겼는지 본다. 큰 파일은 `.crdownload` 가 사라질 때까지 기다린다.
 - 쿼리로 파일을 가리는 링크(Atypon `downloadSupplement?doi=…&file=…`)는 창이 보일 때 누른다. 주소를 결과로 받지 않는다(쿼리가 든 값은 가려진다). `web_find.js` 는 이런 링크를 파일 이름(글자)으로 나눠 보여 주고, 형식이 파일 이름에만 있으면(7z 등) 글자로 거른다.
 - 누르기 직전 확인은 스크린샷·확대 캡처 대신 `sciretrFocus` 결과의 `hit`(elementFromPoint)로 한다. 확인과 클릭을 한 호출에 넣을 수 있고 30초 시간 초과를 피한다(2026-09-27 PNAS 13~37초). 스크린샷은 사이트의 첫 논문을 연 직후나 결과가 이상할 때만 찍는다. 스크롤한 뒤나 무거운 페이지(T&F figshare 틀, PNAS 끝부분)의 스크린샷은 다섯 번 시간 초과가 났다.
 - 스크린샷이 시간 초과로 끝나면 보이는 영역이 축소 크기로 남기도 한다(2026-09-27 T&F innerWidth 1289→275, 모바일 배치). 스크립트의 `w` 가 갑자기 줄었으면 그 좌표로 누르지 말고 같은 주소로 다시 이동한다.
@@ -110,26 +111,32 @@
 - 다운로드 확인에 따로 `sleep` 을 두지 않는다. 확인 명령은 다음 논문 열기와 같은 차례에 보낸다(2026-09-27 따로 기다린 시간이 16편에 약 5분).
 - 큰 SI 는 `.crdownload` 가 사라질 때까지 기다린다. 30 MB 에 약 15초 걸렸다.
 - 정리는 묶음 끝에 intake 한 번이다. 먼저 `--dry-run` 으로 못 가린 파일을 본다. 한 시간 안에 받은 것만 보려면 `--hours 1`.
+- **받을 때 기록(record)**: 파일에 논문 표시(첫 쪽의 DOI·제목)가 없을 것 같으면 받기가 끝난 직후 `record --id <paper_id> --slot si --latest --url <논문 페이지 주소>` 로 어느 논문의 무엇인지 남긴다. ChemRxiv SI(`si0413.pdf` 처럼 첫 쪽에 DOI·제목 없음), figshare 에서 받은 파일, 이름이 숫자뿐인 SI 가 그렇다(2026-09-27 Codex 검증: ChemRxiv SI 와 AIP .doc 가 자동으로 가려지지 않음. .doc 는 이제 글을 읽어 제목으로 가린다). `--latest` 는 3분 안에 받은 가장 최근 파일을 이름 출력 없이 기록하고, 받는 중인 파일(`.crdownload`)이 있거나 가장 최근 파일을 이미 기록했으면 거절한다 — 앞 파일을 잘못 기록하지 않게 받기가 끝난 뒤에 돌린다. intake 는 이 기록(`_collect/download_map.tsv`)으로 가리고, `--url` 을 source.json 의 받은 주소로 남긴다. 기록과 내용 판정이 다른 논문이나 다른 자리(본문/SI)를 가리키면 옮기지 않고 알린다. intake 의 '가리지 못해 그대로 둔 파일' 에 이름이 보이면 `record --file <그 이름>` 으로도 된다.
 
 ### 2.4 web_find.js 결과와 함수
 
-`web_find.js` 에는 주석을 짧게 둔다. 에이전트가 논문마다 이 파일 전체를 javascript_tool 입력으로 다시 써 넣기 때문이다. 2026-09-27 전체 흐름 시험 1·2조에서 논문 사이 시간이 논문당 약 95초였고, 그 큰 몫이 18,089자(한글 약 2,000자)를 매번 쓰는 시간으로 보였다(2조 에이전트 제안). 머리 설명을 이 절로, 웹 본문 저장을 `web_text.js`(2.5)로 옮겨 8,761자가 됐다. 설명은 여기에 적고 스크립트에는 넣지 않는다. 가벼운 판으로 받은 4조는 논문 사이 간격 중앙값이 57초였다(1·2조 약 95초). 그래도 `web_find.js` 가 든 호출 하나를 쓰는 데 49~69초가 들어 브라우저 시간의 절반이었고, 짧은 클릭 호출은 5~8초였다. 스크립트에는 한글을 넣지 않는다(주석은 짧은 영어, 결과 문구만 한글). 넣는 호출 하나를 쓰는 시간이 한글 1,412자일 때 122초, 37자일 때 24초였다(1.2, 한글 한 글자 약 6토큰).
+`web_find.js` 에는 주석을 짧게 둔다. 에이전트가 논문마다 이 파일 전체를 javascript_tool 입력으로 다시 써 넣기 때문이다. 2026-09-27 전체 흐름 시험 1·2조에서 논문 사이 시간이 논문당 약 95초였고, 그 큰 몫이 18,089자(한글 약 2,000자)를 매번 쓰는 시간으로 보였다(2조 에이전트 제안). 머리 설명을 이 절로, 웹 본문 저장을 `web_text.js`(2.5)로 옮겨 8,761자가 됐다. 설명은 여기에 적고 스크립트에는 넣지 않는다. 가벼운 판으로 받은 4조는 논문 사이 간격 중앙값이 57초였다(1·2조 약 95초). 그래도 `web_find.js` 가 든 호출 하나를 쓰는 데 49~69초가 들어 브라우저 시간의 절반이었고, 짧은 클릭 호출은 5~8초였다. 스크립트에는 한글을 넣지 않는다(주석은 짧은 영어). 넣는 호출 하나를 쓰는 시간이 한글 1,412자일 때 122초, 37자일 때 24초였다(1.2, 한글 한 글자 약 6토큰). 2026-09-27 밤 늦은 SI 대기·figshare 를 넣으며 주석을 더 줄이고 결과 문구도 영어로 바꿔 10,657자, 한글 0자다('접힘' → 'hidden').
 
 - 넣는 법: javascript_tool 에 파일을 그대로 넣는다. 맨 앞 `await` 가 없으면 결과가 `{}` 로 빈다. Codex 의 evaluate_script 는 함수를 받으므로 `async () => { return await (async () => { … })(); }` 로 감싼다.
 - 결과(JSON, 1,000자 안): `t` 제목 40자, `v` visibilityState, `w` innerWidth, `dpr` devicePixelRatio, `ms` 실제로 기다린 시간, `sih` SI 절 제목(h1~h4·summary·button)이 있으면 1, `min` 1 이면 창이 최소화됨(outerWidth 0, 2.1).
-- `s` 는 SI 후보, `m` 은 본문 후보다. 항목은 `[번호, 글자 24자, 경로 끝 36자, x, y]` 또는 `[번호, 글자, 경로, "접힘"]`.
+- `sx` 1: SI 절 제목은 있는데 SI 링크를 끝내 못 찾았다(그 절로 스크롤해 6초 더 본 뒤). **'SI 없음' 이 아니다.** 절을 펼치거나 스크린샷으로 한 번 보고, 파일이 정말 없을 때만 SI 행을 `mark --si-none` 으로 닫는다.
+- `sk` N: 받지 않는 형식(zip·스프레드시트·동영상 등)이라 뺀 SI 링크 수다. `s` 가 비었고 `sk` 가 있으면 받을 SI 가 없는 것이다 — SI 행이면 `mark --si-none --note "웹 확인: SI 는 받지 않는 형식뿐"`. 이때는 기다리지 않고 `sx` 도 붙지 않는다.
+- `s` 는 SI 후보, `m` 은 본문 후보다. 항목은 `[번호, 글자 24자, 경로 끝 36자, x, y]` 또는 `[번호, 글자, 경로, "hidden"]`.
   - x, y 는 `sciretrFocus(번호)` 뒤의 화면 좌표 예상이다. 이미 화면 안에 보이고 가려지지 않았으면 지금 자리(스크롤 안 함, sticky 옆 막대 등, 2026-09-27 CCS 예상 469·실제 912 를 고침), 아니면 화면 가운데(상단 고정 막대 여백 scroll-padding-top 아래)로 옮긴 뒤의 자리다. 페이지 맨 위·끝에서 가운데까지 못 가는 것도 반영한다. 두 줄로 꺾인 링크는 첫 줄 글자 위다. 폭 0 인 빈 줄은 빼고 고른다(2026-09-27 APS SI 는 그림 하나만 감싼 링크라 첫 줄이 빈 줄이었고, 좌표가 그림 모서리 1 px 밖으로 나와 guard 가 막았다).
-  - 글자가 24자보다 길면 앞 11자…뒤 12자로 줄여 파일 이름의 형식(pdf·docx·7z)이 보이게 한다.
-  - "접힘" 은 화면에 안 보이는 링크다(접힌 절, 닫힌 메뉴, 틀에 가려 크기 0). 눌러 펼치거나, 파일 주소면 `sciretrGo(번호)` 로 받는다.
+  - 글자가 24자보다 길면 앞 11자..뒤 12자로 줄여 파일 이름의 형식(pdf·docx·7z)이 보이게 한다.
+  - "hidden" 은 화면에 안 보이는 링크다(접힌 절, 닫힌 메뉴, 틀에 가려 크기 0). 눌러 펼치거나, 파일 주소면 `sciretrGo(번호)` 로 받는다.
+  - 끝이 "frame" 인 s 항목은 페이지에 끼운 figshare 화면(iframe)이다. 안의 링크는 스크립트가 닿지 않는다. `sciretrGo(번호)` 로 위젯 화면을 열고 `web_find.js` 를 다시 넣으면 파일의 Download(`figshare.com/ndownloader/files/…`)가 s 로 나온다. 파일 이름으로 형식을 보고 PDF·Word 만 받는다. 받은 뒤 `record --slot si --latest`(2.3).
   - Silverchair 사이트(AIP·ACS·RSC·Oxford)의 SI 는 경로 끝 대신 `{형식}/{코드}` 를 보인다. 형식 칸이 pdf·docx·doc 가 아닌 것은 뺀다(2026-09-27 AIP zip).
   - m 항목 끝의 "online" 은 온라인 보기(epdf·reader)라 대개 누르지 않는다(Science 만 온라인 보기를 거친다).
   - 경로가 빈 s 항목은 접힌 절의 제목(Wiley `a.accordion__control`)이나 누르면 목록이 열리는 버튼(IEEE "Supplemental Items")이다. 눌러 펼친 뒤 다시 돌린다.
   - 경로가 "#"·"js" 인 항목은 목차 이동·메뉴다(AIP 는 SI 가 없어도 늘 있다). 진짜 후보 뒤에 둔다. SI 유무는 s 의 파일 링크와 `sih` 로 본다.
-  - 보이는 링크 → 접힘 → 목차·메뉴 순이고, 같은 주소가 여럿이면 앞의 것만 남는다(PNAS 화면 밖 옆 패널, IEEE 크기 0 복제본). 쿼리로 파일을 가리는 링크(`downloadSupplement?…&file=`)는 파일 이름(글자)까지 봐서 뭉치지 않게 한다(2026-09-27 CCS 3개→1개).
+  - 보이는 링크 → hidden → 목차·메뉴 순이고, 같은 주소가 여럿이면 앞의 것만 남는다(PNAS 화면 밖 옆 패널, IEEE 크기 0 복제본). 쿼리로 파일을 가리는 링크(`downloadSupplement?…&file=`)는 파일 이름(글자)까지 봐서 뭉치지 않게 한다(2026-09-27 CCS 3개→1개).
 - 기다림: HTML 을 다 읽을 때까지, 이어서 그림 등이 뜰 때까지(최대 3초) 기다린 뒤, 후보가 나타날 때까지 1초 간격(사용자 지정)으로 확인하고 나타나는 즉시 돌려준다(합계 약 20초까지). 끝내 비면 `t` 로 확인 화면("Just a moment…")인지 본다.
-- 거르는 것: 다른 사이트 링크(SI 파일 도메인 ars.els-cdn.com·silverchair-cdn.com·IOP S3 는 허용), 다른 논문 링크(주소에 이 논문 PII·DOI 가 없는 /pii/·/doi/ 링크, SI 포함, 2026-09-27 De Gruyter 관련 논문), 본문 속 'Figure S1'·'Table S2' 참조 링크, 호·권 링크(/vol/…/suppl/, /issue/ — 2026-09-27 Oxford `/mam/issue/27/S1` 이 MDPI SI 규칙에 걸림), 사이트 자료(/pb-assets/), 묶음 버튼('PDF and Supporting…'), 학회 초록집 호 이름(Oxford 'Supplement_1'), 'suppliers'·'/data-sharing-policy' 같은 바닥글, 규소 'Si'(대문자 SI 만 SI 로 본다), zip·7z·스프레드시트·동영상(.mpg 등)·데이터(.txt)·PowerPoint(경로 끝이나, 형식이 쿼리에만 있는 링크는 글자의 파일 이름으로 — Atypon downloadSupplement, MDPI 'ZIP-Document'). MDPI SI 주소 끝 `/s1` 은 SI 로 보되 숫자가 긴 Elsevier PII 주소(`/abs/pii/S0360…`)는 SI 가 아니다(2026-09-27 View Abstract 를 SI 로 잡음).
+- 늦게 뜨는 SI(2026-09-27 Codex 검증: Elsevier 3편 모두 첫 결과에 본문 링크만 있었고 나중 DOM 에 Word SI 가 있었다): 본문 링크만 먼저 뜨고 SI 절 제목도 참고문헌 제목(References·Notes and references·Bibliography 등)도 아직 없으면 본문이 들어오는 중으로 보고 최대 6초 더 본다. SI 절 제목은 있는데 링크가 없으면 그 제목으로 한 번 스크롤해 최대 6초 더 보고(스크롤해야 채워지는 목록) 스크롤을 되돌린다. 그래도 없으면 `sx: 1`. SI 가 있거나 참고문헌까지 들어온 페이지는 더 기다리지 않는다. 합계 26초를 넘지 않는다. 흉내 페이지 7가지로 확인했다(본문 3초 늦게 → 3.0초에 SI, 스크롤해야 뜸 → 2.0초, 링크 없음 → 6.1초 뒤 sx, zip 만 → 바로 sk, figshare 링크·위젯, SI 없음 → 바로, 목록 10초 뒤 → sciretrScan 으로 찾음). 기존 흉내 페이지 6개는 결과가 같았다(`sk` 만 더해짐).
+- 거르는 것: 다른 사이트 링크(SI 파일 도메인 ars.els-cdn.com·silverchair-cdn.com·IOP S3 와 figshare — figshare.com 의 articles·collections·ndownloader, DOI 10.6084·10.60893 — 는 허용, 'Powered by figshare' 같은 첫 화면 링크는 뺀다), 다른 논문 링크(주소에 이 논문 PII·DOI 가 없는 /pii/·/doi/ 링크, SI 포함, 2026-09-27 De Gruyter 관련 논문), 본문 속 'Figure S1'·'Table S2' 참조 링크, 호·권 링크(/vol/…/suppl/, /issue/ — 2026-09-27 Oxford `/mam/issue/27/S1` 이 MDPI SI 규칙에 걸림), 사이트 자료(/pb-assets/), 묶음 버튼('PDF and Supporting…'), 학회 초록집 호 이름(Oxford 'Supplement_1'), 'suppliers'·'/data-sharing-policy' 같은 바닥글, 규소 'Si'(대문자 SI 만 SI 로 본다), zip·7z·스프레드시트·동영상(.mpg 등)·데이터(.txt)·PowerPoint(경로 끝이나, 형식이 쿼리에만 있는 링크는 글자의 파일 이름으로 — Atypon downloadSupplement, MDPI 'ZIP-Document'). MDPI SI 주소 끝 `/s1` 은 SI 로 보되 숫자가 긴 Elsevier PII 주소(`/abs/pii/S0360…`)는 SI 가 아니다(2026-09-27 View Abstract 를 SI 로 잡음).
 - `window.sciretrFocus(번호, x, y)`(async): 한 호출(browser_batch)에 `await window.sciretrFocus(번호, x, y)` 와 그 좌표 클릭을 함께 넣는다(2.2 의 2). 요소가 이미 보이면 그대로, 아니면 화면 가운데로 옮기고, 자리가 멈출 때까지 1초 간격으로 확인한 뒤(최대 3초) 실제 화면 좌표(x, y)와 `hit`(그 좌표에 그 요소가 있는지, elementFromPoint)를 준다. 예상 좌표(x, y)를 함께 주면 그 자리에 이 요소가 없을 때 다음 클릭 한 번을 투명한 막으로 받아 버린다(`guard` 1, 8초 뒤 저절로 없어짐). guard 가 1 이면 돌려받은 x, y 로 다시 누른다. hit 가 false 면 다른 것에 덮인 것이니 그 좌표로 누르지 않는다. 창이 최소화돼 있으면 ok false 와 이유를 준다. 스크린샷 좌표계가 innerWidth 와 다르면 클릭 좌표에만 (스크린샷 폭 ÷ innerWidth) 를 곱하고, sciretrFocus 에는 이 스크립트의 좌표를 그대로 준다.
-- `window.sciretrGo(번호)`: 그 링크 주소로 탭을 옮긴다(링크를 누른 것과 같고, 주소는 출력하지 않는다). 틀·안내 창이 링크를 가리거나 "접힘" 인 파일 링크에 쓴다(T&F figshare 등). 같은 탭에서 두 번째 다운로드부터는 Chrome 의 '여러 파일 다운로드' 확인에 걸릴 수 있다. 저장되지 않으면 그 링크는 누른다.
+- `window.sciretrScan()`(async): 같은 탭에서 스크립트를 다시 보내지 않고 다시 찾는다(`await sciretrScan()` 한 줄, 최대 약 9초). 결과 형식은 같고 번호를 새로 매긴다. 첫 결과에 SI 가 없던 Elsevier 를 View PDF 전에 한 번 더 볼 때, 절을 펼친 뒤 다시 볼 때 쓴다. 페이지가 다시 떠서 함수가 없으면(오류) `web_find.js` 를 넣는다.
+- `window.sciretrGo(번호)`: 그 링크 주소로 탭을 옮긴다(링크를 누른 것과 같고, 주소는 출력하지 않는다). 틀·안내 창이 링크를 가리거나 "hidden" 인 파일 링크에 쓴다(T&F figshare 등). figshare 위젯("frame")이면 위젯 화면으로 옮긴다. 같은 탭에서 두 번째 다운로드부터는 Chrome 의 '여러 파일 다운로드' 확인에 걸릴 수 있다. 저장되지 않으면 그 링크는 누른다.
 
 ### 2.5 웹 전용 글의 웹 본문 (web_text.js)
 
@@ -158,6 +165,7 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 - News & Views·Preview 같은 짧은 기사는 SI 가 없고 두 쪽이라 intake 가 본문 길이 경고를 낸다. 정상이다.
 - SI: 부록 "Appendix A. Supplementary material/data" 의 "Download: Download …(크기)" 링크. 선택자는 `a[href*="mmc"]` 가운데 글자가 "Download" 로 시작하는 것이다. 오른쪽 목록의 "Multimedia component 1" 도 같은 파일을 가리켜 먼저 잡힐 수 있다. 리뷰 논문은 SI 가 없기도 하다.
 - SI 가 여럿일 수 있다(Word 와 동영상 등). 받을 SI 를 모두 먼저 받고 View PDF 는 마지막에 누른다.
+- SI 목록이 View PDF 보다 늦게 들어온다(2026-09-27 Codex 검증 3편). `web_find.js` 가 본문이 들어올 때까지 최대 6초 더 보지만, 그래도 `s` 가 비었으면 View PDF 를 누르기 전에 같은 탭에서 `await sciretrScan()` 을 한 번 돌린다. 그래도 없으면 SI 가 없는 논문으로 본다(`sx` 면 부록을 한 번 본다).
 - 동영상(mp4) SI 는 받지 않는다(2026-09-25 사용자 지시). 누르면 새 탭에서 재생만 되고, 저장하려면 재생기 ⋮ 메뉴를 거쳐 70초쯤 더 든다. 부록의 "Download all supplementary files" 는 동영상까지 묶어 받을 수 있어 쓰지 않는다.
 - 본문: SI 로 내려간 뒤에는 상단 고정 막대의 "View PDF" 를 누른다. 바로 오른쪽 "Download full issue"(호 전체)는 누르지 않는다. SI 가 없으면 제목 아래 "View PDF"(`a.accessbar-utility-component`).
 - "View PDF" 글자는 태그가 나뉘어 있다. 글자로 찾을 때는 공백을 정리한 뒤 `/view\s*pdf/i` 로 찾고, 화면 위쪽(y 60 이하)에 보이는 것을 고른다.
@@ -175,7 +183,7 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 - 주소 `https://onlinelibrary.wiley.com/doi/{DOI}`. Chemistry Europe 저널은 `chemistry-europe.onlinelibrary.wiley.com`, Advanced 계열은 `advanced.onlinelibrary.wiley.com` 에서 열린다.
 - 페이지가 늦게 뜰 때가 있다(대개 8초 안, 1차 시험에 1분 넘게, 2차 시험에 약 45초 늦게 뜬 편이 하나씩). 고정 시간을 기다리지 않고 `web_find.js` 를 돌린다. 링크가 나타나는 즉시 돌아오고, 20초 뒤에도 비면 한 번 더 돌린다. Cloudflare "Verification successful. Waiting…" 에서 멈추면 새로고침한다.
 - 아래쪽 "AI Companion" 안내는 무시한다. 다만 이 안내 창이 펼친 SI 링크 자리를 덮을 수 있다. 그러면 SI 링크를 화면 가운데로 다시 스크롤한 뒤 누른다. SI 링크가 두 줄이면 사각형 가운데가 글자 밖일 수 있으니 첫 줄 글자 위를 누른다.
-- SI 제목은 주소가 없는 `a.accordion__control` 이다. `web_find.js` 가 경로 없는 s 항목으로 내고, 펼치기 전 파일 링크는 "접힘" 으로 낸다. 제목을 눌러 펼친 뒤 스크립트를 다시 돌린다(2026-09-27).
+- SI 제목은 주소가 없는 `a.accordion__control` 이다. `web_find.js` 가 경로 없는 s 항목으로 내고, 펼치기 전 파일 링크는 "hidden" 으로 낸다. 제목을 눌러 펼친 뒤 `await sciretrScan()` 으로 다시 본다(2026-09-27).
 - 저자 사진이 있는 기사(Concept·Review)는 사진이 늦게 떠서 끝부분 Download PDF 가 수백 px 밀린다. 가운데로 스크롤 → 1.5초 → `sciretrFocus` 로 한 번 더 스크롤한 뒤 좌표를 읽는다.
 - SI 파일 이름은 `-sup-0001-SuppMat.pdf` 와 `-supp-0001-SuppMat.docx` 두 가지가 있다.
 - SI: 본문 끝 접힌 "Supporting Information"(h2)을 화면 가운데로 스크롤한 뒤 그 자리를 눌러 펼친다. 펼친 뒤 `a[href*="downloadSupplement"]`(`…-sup-0001-SuppMat.pdf`, `.docx`, `misc_information.pdf` 등)의 좌표를 읽고 누른다. 새 탭 없이 저장된다. 파일 이름이 .pdf·.doc·.docx 로 끝나는 것만 누른다. 리뷰는 SI 가 없기도 하다.
@@ -253,7 +261,8 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 
 ### 3.9 AIP (2026-09-26, 1편)
 
-- 2026-09-27 연습(4편): 본문 "PDF" 를 누르면 새 탭("Untitled")이 열렸다 저절로 닫히며 4~15초 뒤 저장된다(6 MB 에 11~15초). SI 는 본문 끝 "Supplementary Material" 절의 링크이고 형식이 주소의 형식 칸(`/article-supplement/{번호}/{형식}/`)에 있다. pdf·docx 일 때만 누른다(`web_find.js` 가 나머지를 뺀다. 경로 끝만 보고 zip 을 받은 적이 있다). 목차의 "SUPPLEMENTARY MATERIAL"(`#`)과 Views 메뉴의 "Supplementary Material"(`js`)은 SI 가 없는 논문에도 있어 SI 유무 판단에 쓰지 않는다. 4편 중 SI 는 1편(zip)뿐이었다. `sih` 가 1 인데 s 에 파일 링크가 없으면 SI 가 받지 않는 형식(zip 등)이라 거른 것이다(2026-09-27 전체 흐름 시험 1편).
+- 2026-09-27 연습(4편): 본문 "PDF" 를 누르면 새 탭("Untitled")이 열렸다 저절로 닫히며 4~15초 뒤 저장된다(6 MB 에 11~15초). SI 는 본문 끝 "Supplementary Material" 절의 링크이고 형식이 주소의 형식 칸(`/article-supplement/{번호}/{형식}/`)에 있다. pdf·docx 일 때만 누른다(`web_find.js` 가 나머지를 뺀다. 경로 끝만 보고 zip 을 받은 적이 있다). 목차의 "SUPPLEMENTARY MATERIAL"(`#`)과 Views 메뉴의 "Supplementary Material"(`js`)은 SI 가 없는 논문에도 있어 SI 유무 판단에 쓰지 않는다. 4편 중 SI 는 1편(zip)뿐이었다. `sih` 가 1 인데 s 에 파일 링크가 없으면 SI 가 받지 않는 형식(zip 등)이라 거른 것이다(2026-09-27 전체 흐름 시험 1편). 이제 `sk` 로 그 수를 알린다.
+- figshare SI(2026-09-27 Codex 검증, 10.1063/5.0228172): SI 가 figshare 에 있었고 `web_find.js` 가 놓쳤다. Codex 는 페이지의 'Open in figshare' 로 figshare 에서 .doc 를 받았다. 그 링크가 페이지에 바로 있었는지 끼워진 figshare 화면(iframe) 안에 있었는지는 기록에 없다. `web_find.js` 는 이제 두 경우를 모두 낸다 — figshare 링크는 s 항목, 끼운 화면은 "frame" 항목. 링크면 누르고, "frame" 이면 `sciretrGo(번호)` 로 figshare 화면을 연 뒤 `web_find.js` 를 다시 넣어 파일의 Download 를 누른다. .doc·.docx·.pdf 만 받고, 받은 뒤 `record --slot si --latest --url <논문 페이지>`. 실제 페이지 구조는 아직 Claude 가 보지 못했다(내장 브라우저로 한 번 열었을 때 Cloudflare 대기 화면이 저절로 넘어가지 않아 누르지 않고 닫음). 다음 AIP 논문에서 확인해 이 줄을 고친다.
 
 - 주소는 `https://doi.org/{DOI}` 로 열면 `pubs.aip.org/aip/{저널}/article/…` 로 넘어간다(RSC 와 같은 Silverchair). 확인 창 없이 뜬다. 쿠키 동의 창은 누르지 않는다. 아래쪽 버튼을 가리면 가운데로 스크롤한다.
 - 본문: 제목 아래 도구 막대의 "PDF"(`a.article-pdfLink`, 새 탭). 가운데로 스크롤해 누르면 새 탭이 잠깐 열렸다 닫히며 저장된다(3~4초).
@@ -287,10 +296,11 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 - 본문: 페이지 안의 PDF 미리보기 틀(어두운 상자, "열기" 버튼)은 쓰지 않고, 그 바로 아래의 "Download PDF"(`a[href*="/doi/pdf/"]`, 글자 "Download PDF")를 누른다. 새 탭 없이 바로 저장된다.
 - SI: "Supplementary materials" 절의 링크(이번 논문에는 없었음).
 - 파일: `chemrxiv.{번호}_v{판}.pdf`.
+- 판(2026-09-27 Codex 검증 3편): 기본 DOI 는 최신 판(`…/v2`)으로 넘어가고, 판마다 제목이 바뀌기도 한다(레지스트리 제목과 v2 PDF 제목이 달랐다). 본문을 받은 뒤 `record --id <paper_id> --slot main --latest --url <지금 탭의 판 주소>` 로 판 주소를 남긴다(intake 가 source.json 의 받은 주소로 쓴다). SI 는 첫 쪽에 DOI·제목이 없어(`/doi/suppl/{DOI}/v2/suppl_file/si0413.pdf`) 내용으로 가려지지 않는다. 받은 직후 `record --slot si --latest --url <판 주소>`.
 
 ### 3.13 MDPI (2026-09-27, 1편)
 
-- 2026-09-27 연습(4편, 창 최소화 중): "Download PDF" 는 닫힌 메뉴 속이라 `web_find.js` 가 "접힘" 으로 낸다. 첫 편은 `sciretrGo` 로 25초, 나머지는 경로 `/{ISSN}/{권}/{호}/{번호}/pdf` 를 navigate 로 열어 13초에 받았다. SI 는 "Supplementary Materials" 절의 "ZIP-Document"(`…/s1`)라 4편 중 2편이 zip(받지 않음), 2편은 SI 가 없었다. PDF SI 는 "PDF-Document"(`…/s2` 등)로 보인다.
+- 2026-09-27 연습(4편, 창 최소화 중): "Download PDF" 는 닫힌 메뉴 속이라 `web_find.js` 가 "hidden"(옛 판 "접힘") 으로 낸다. 첫 편은 `sciretrGo` 로 25초, 나머지는 경로 `/{ISSN}/{권}/{호}/{번호}/pdf` 를 navigate 로 열어 13초에 받았다. SI 는 "Supplementary Materials" 절의 "ZIP-Document"(`…/s1`)라 4편 중 2편이 zip(받지 않음), 2편은 SI 가 없었다. PDF SI 는 "PDF-Document"(`…/s2` 등)로 보인다.
 
 - 주소는 `https://doi.org/{DOI}` 로 열면 `www.mdpi.com/{저널 번호}/{권}/{호}/{번호}` 로 넘어간다. 확인 창 없이 뜬다. 자동 경로가 막혔던 논문도 사용자 Chrome 에서는 바로 열렸다.
 - 본문: 제목 왼쪽 위 "Download ▾" 를 누르면 메뉴가 열린다. 그 안의 "Download PDF" 를 누른다. 바로 아래 "Download PDF with Cover" 는 표지가 붙은 판이라 누르지 않는다. 새 탭 없이 저장된다.
@@ -347,7 +357,7 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 - `https://doi.org/{DOI}` 는 `royalsocietypublishing.org/{저널}/article/…` 로 간다. Silverchair 구조(AIP·Oxford 와 같음)이고 확인 창 없이 열렸다. 아래쪽 쿠키 창은 누르지 않는다.
 - 본문: 도구 막대 "PDF"(`a.article-pdfLink`, 경로 `/article-pdf/doi/10.1098/{코드}/{번호}/{코드}.pdf`). 누르면 "Untitled" 탭이 잠깐 열렸다 닫히며 3~6초에 저장된다. 첫 편은 보조 탭이 Cloudflare "Just a moment…" 로 남았고(체크박스 없음, 누르지 않음) 약 2.5분 뒤 저절로 통과해 같은 PDF 를 한 번 더 저장했다(intake 가 하나만 옮긴다). 파일이 이미 왔으면 보조 탭을 닫고 다음 논문으로 간다.
 - SI ①: 본문 끝 "Supplementary data"(`#supplementary-data`, `.dataSuppLink`)의 `/article-supplement/{번호}/{형식}/…`. 형식 칸으로 판단한다(zip 은 `web_find.js` 가 뺀다).
-- SI ② figshare: 본문 문구 "Electronic supplementary material is available online at https://doi.org/10.6084/m9.figshare.c.{N}". 다른 사이트라 `web_find.js` 에 보이지 않으므로 `a[href*=figshare]` 로 본다. 컬렉션 페이지 → 항목(`a[href*="/articles/"]`) → 항목 페이지의 파일 이름으로 형식을 확인하고, PDF·Word 만 `https://rs.figshare.com/ndownloader/files/{번호}` 를 navigate 로 연다(2초). xlsx·zip 은 받지 않는다. "clear version" 과 "with revised section highlighted" 가 함께 있으면 clear version 만 받는다. figshare 쿠키 창은 누르지 않는다.
+- SI ② figshare: 본문 문구 "Electronic supplementary material is available online at https://doi.org/10.6084/m9.figshare.c.{N}". `web_find.js` 가 이제 이 링크를 s 로 낸다(2026-09-27 밤, 전에는 다른 사이트라 보이지 않아 `a[href*=figshare]` 로 찾았다). 컬렉션 페이지 → 항목(`a[href*="/articles/"]`) → 항목 페이지의 파일 이름으로 형식을 확인하고, PDF·Word 만 `https://rs.figshare.com/ndownloader/files/{번호}` 를 navigate 로 연다(2초). 받은 뒤 `record --slot si --latest`(2.3). xlsx·zip 은 받지 않는다. "clear version" 과 "with revised section highlighted" 가 함께 있으면 clear version 만 받는다. figshare 쿠키 창은 누르지 않는다.
 - Views 메뉴의 "Supplementary Material"(js)은 SI 가 없어도 있다. SI 유무는 `#supplementary-data` 와 figshare 링크로 본다.
 
 ## 4. 여러 탭 동시 진행 시험 (2026-09-25, 두 차례)
