@@ -18,7 +18,7 @@ LLM이 다루기 쉬운 markdown 파일로 자동 변환 및 색인화
 |-------|------|------|:--------:|
 | **sci-retr** | 수집, 변환 | 본문·SI PDF 다운로드, 본문 text를 md 파일로 변환 | Opus |
 | **sci-index** | 색인 | 서지 정보(제목 저널 저자 연도 키워드 초록 등)를 csv 파일로 정리 | Sonnet |
-| **sci-tldr** | 한줄요약 | 논문마다 한국어 한 줄 요약을 만들어 색인 csv에 추가 (원할 때만) | Sonnet |
+| **sci-tldr** | 한줄요약 (선택사항) | 한국어 한 줄 요약 생성, csv에 추가 | Sonnet |
 
 <br>
 
@@ -29,8 +29,6 @@ claude code (claude 데스크탑 앱에서 code), codex 대화창에
 ```
 https://github.com/angmond1/sci 설치해줘
 ```
-
-(에이전트는 저장소의 CLAUDE.md, CODEX.md 설치 절차를 따릅니다)
 
 <br>
 
