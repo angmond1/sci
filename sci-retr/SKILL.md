@@ -17,7 +17,7 @@ description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결
   - **웹 경로**: 자동 요청을 막는 출판사는 사용자가 평소 쓰는 Chrome 에서 받는다. Claude 가 Claude in Chrome 확장으로 논문 페이지를 열어 PDF·SI 를 받고, `intake` 명령이 다운로드 폴더의 파일을 논문 폴더로 정리한다.
 - Claude 가 하는 일: 수집 범위 판단(사전 분류), review 논문의 인용 follow-up 선별, 웹 경로 수집, 사용자와의 확인.
 - 짝이 되는 skill 은 `sci-index`(서지정보 색인, 수집 뒤 항상)와 `sci-tldr`(한국어 한 줄 요약, 사용자가 원할 때만)이다(5.7).
-- 하위 에이전트가 필요한 LLM 작업(사전 분류, 색인 검수)은 sonnet 으로 돌린다.
+- 하위 에이전트가 필요한 LLM 작업(큰 목록 사전 분류, 사용자가 원할 때의 한국어 한 줄 요약 `sci-tldr`)은 sonnet 으로 돌린다. 색인(`sci-index`)은 LLM 을 쓰지 않는다.
 
 ## 2. 원칙
 
@@ -484,7 +484,7 @@ python scripts/sci_collect.py intake --kb-root D:/papers/my_topic
 
 ## 12. 하지 않는 것
 
-- 별도 agent 파일. skill 과 CLI 로 충분하다. LLM 은 사전 분류, follow-up 선별, 색인 검수에만 쓴다.
+- 수집용 별도 agent 파일. skill 과 CLI 로 충분하다. LLM 은 사전 분류와 follow-up 선별에만 쓴다(한국어 한 줄 요약은 `sci-tldr` 과 그 전용 에이전트 `sci-tldr-writer`).
 - 임베딩·DB 구축. 색인은 CSV 다.
 - 자동화 표시 숨김, 쿠키 옮겨 쓰기, 연결 방식 흉내 같은 우회 기능, 차단 직전 간격을 찾는 시험.
 - 쿠키 동의, 약관 동의, 로그인. 필요하면 사용자에게 맡긴다.
