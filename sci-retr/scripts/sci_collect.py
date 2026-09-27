@@ -2191,6 +2191,22 @@ def _file_sha1(p: Path) -> str:
     return h.hexdigest()
 
 
+def _content_sig(p: Path) -> str:
+    """같은 파일인지 볼 때 쓰는 값: PDF·Word 는 본문 글자(영문자만)의 sha1, 그 밖은 파일 sha1.
+    ACS 등은 내려받을 때마다 받은 시각·기관이 찍혀 바이트가 달라진다 (2026-09-27 같은 SI 가 _SI·_SI_2 로 두 번 저장됨)."""
+    import hashlib
+    text = ""
+    try:
+        if p.suffix.lower() == ".pdf":
+            text = _pdf_texts(p)[2] or ""
+        elif p.suffix.lower() == ".docx":
+            text = _docx_text(p) or ""
+    except Exception:
+        text = ""
+    letters = re.sub(r"[^a-z]", "", text.lower())
+    return "t" + hashlib.sha1(letters.encode()).hexdigest() if len(letters) > 200 else _file_sha1(p)
+
+
 def _pdf_texts(p: Path) -> tuple[str, str, str]:
     """(첫 쪽, 앞 두 쪽, 전체) 텍스트. PDF 가 아니거나 읽기 실패면 빈 문자열."""
     try:
@@ -2393,10 +2409,10 @@ def cmd_intake(args) -> None:
                     if not args.dry_run:
                         shutil.move(str(f), str(dst)); moved_main += 1
             else:
-                digest = _file_sha1(f)
+                digest = _content_sig(f)   # 바이트가 달라도 글이 같으면 같은 SI (내려받을 때마다 찍히는 표시)
                 existing = sorted(pdir.glob(f"{pid}_SI*"))
                 mine = planned.setdefault(pid, [])
-                if any(_file_sha1(e) == digest for e in existing) or any(d == digest for _, d in mine):
+                if any(_content_sig(e) == digest for e in existing) or any(d == digest for _, d in mine):
                     action = "같은 SI 이미 있음 — 그대로 둠"
                 else:
                     ext = (f.suffix.lower().lstrip(".") or "bin")[:5]
