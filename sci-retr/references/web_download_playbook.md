@@ -67,8 +67,8 @@
 - 단 `outerWidth` 가 0 이면(`web_find.js` 결과에 `min: 1`, `sciretrFocus` 가 ok false) 창이 최소화된 것이다. 스크린샷이 되더라도 클릭이 페이지에 닿지 않는다(2026-09-27 4묶음: 캡처 리스너 이벤트 0건, guard 로도 알 수 없었다). 바로 사용자에게 창을 앞으로 가져와 달라고 한다. 기다리는 동안은 스크립트로 읽은 파일 경로(쿼리 없는 것)를 navigate 로 연다(주소창에 친 것과 같다, 다섯 출판사 13개 저장). 페이지 스크립트 이동(`sciretrGo`)은 같은 탭의 두 번째 다운로드부터 Chrome '여러 파일 다운로드' 확인에 걸려 저장되지 않았다.
 - 확장이 새로 만드는 Chrome 창은 대개 뒤에(최소화 상태로) 열린다(2026-09-26 두 번 확인. 2026-09-27 에는 처음부터 앞에 열린 적도 있다). 탭을 만든 뒤 스크립트로 `document.visibilityState` 와 `outerWidth` 를 읽어, hidden 이거나 0 일 때만 사용자에게 그 창을 앞으로 가져와 달라고 한다. 탭 그룹이 사라져 다시 만들 때도 같다.
 - 새 탭 그룹 하나로 진행하고, 받는 탭은 화면 앞에 둔다. 한 창에서 앞에 나와 있지 않은 탭(이 문서에서 '뒤쪽 탭', `document.visibilityState` 가 hidden)은 Chrome 이 화면을 그리지 않아 스크린샷이 하얗거나 시간 초과가 난다. Chrome 창을 최소화하거나 다른 창에 완전히 덮여도 그렇게 될 수 있다. 그러면 사용자에게 그 탭을 앞으로 가져와 달라고 한다.
-- 받을 논문과 파일(본문, SI)을 출판사별로 한 번에 알리고 확인을 받는다.
-- 확인 창(Cloudflare "Just a moment…", Radware 등)이 뜬 탭은 닫거나 다른 주소로 옮기지 않고 확인을 통과할 때까지 둔다. 그동안 다른 출판사는 새 탭에서 받고, 통과하면(탭 제목이 논문으로 바뀜) 그 탭에서 이어 받는다(2026-09-27 6편 시험: RSC SI·IOP·Science 세 곳에서 확인 창이 떴는데 탭을 닫거나 다음 논문으로 옮겨 확인 화면이 사라졌다). 같은 시험에서 목록을 한 바퀴 돈 뒤 다시 가자 RSC SI 와 Science 본문은 확인 창 없이 받혔다. 확인 창 탭 제목이 계속 'Just a moment…'·Radware 로 보여도 파일은 이미 받아졌을 수 있다(IOP·ACS 본문) — 탭 제목만 보지 말고 다운로드 폴더를 확인한다. 같은 파일이 두세 번 받아지면 intake 가 글 내용으로 가려 하나만 옮긴다.
+- 최초의 sci-retr 논문 수집 명령은 웹 다운로드와 CAPTCHA·확인 창 처리까지 포함한 승인이다. 받을 논문과 파일(본문, SI)은 출판사별 진행 상황으로 알릴 수 있지만 답을 기다리지 않는다. CAPTCHA가 나타나면 화면의 지시와 현재 문제를 읽고 정상 UI로 직접 풀며, 중간에 승인이나 대리 클릭을 요청하지 않는다. 외부 풀이 서비스·토큰 추출·응답 위조는 쓰지 않는다.
+- 확인 창(Cloudflare "Just a moment…", Radware 등)이 뜬 탭은 닫거나 다른 주소로 옮기지 않고 직접 통과를 시도한다. DOM에서 조작할 수 없으면 Codex는 같은 사용자 Chrome의 Computer Use로 화면을 읽고 클릭한다. 그동안 다른 출판사는 새 탭에서 받고, 통과하면(탭 제목이 논문으로 바뀜) 그 탭에서 이어 받는다(2026-09-27 6편 시험: RSC SI·IOP·Science 세 곳에서 확인 창이 떴는데 탭을 닫거나 다음 논문으로 옮겨 확인 화면이 사라졌다). 같은 시험에서 목록을 한 바퀴 돈 뒤 다시 가자 RSC SI 와 Science 본문은 확인 창 없이 받혔다. 확인 창 탭 제목이 계속 'Just a moment…'·Radware 로 보여도 파일은 이미 받아졌을 수 있다(IOP·ACS 본문) — 탭 제목만 보지 말고 다운로드 폴더를 확인한다. 같은 파일이 두세 번 받아지면 intake 가 글 내용으로 가려 하나만 옮긴다. 반복해도 통과하지 못하면 해당 DOI와 시도 결과를 남기고 나머지를 끝낸 뒤 최종 보고한다.
 
 ### 2.2 한 편 처리 순서
 
@@ -92,7 +92,7 @@
 - 틀·안내 창이 링크를 가려 누르기 어려우면 `sciretrGo(N)` 으로 그 링크 주소로 탭을 옮긴다(누른 것과 같다). 첨부 파일 주소면 탭은 논문 페이지에 남고 몇 초 안에 저장된다.
 - javascript_tool 결과는 약 1,000자에서 잘린다. `web_find.js` 는 그 안에 맞춰 짧게 낸다. 다른 스크립트도 결과를 짧게 받는다(항목 몇 개, 글자 수십 자).
 - 수천 px 를 순간 스크롤한 직후의 스크린샷·확대 캡처는 하얗게 나올 수 있다. 1~2초 뒤 다시 찍고, 하얗게 나온 채로는 같은 호출에서 누르지 않는다.
-- 쿠키 동의 창이 배경막으로 페이지 전체 클릭을 막으면(Thieme 의 OneTrust) 쿠키 창을 누르지 말고, 스크립트로 읽은 PDF·SI 링크의 경로로 탭을 옮겨 받는다(3.14). 그래도 안 되면 사용자에게 그 페이지의 다운로드 버튼을 직접 눌러 달라고 한다.
+- 쿠키 동의 창이 배경막으로 페이지 전체 클릭을 막으면(Thieme 의 OneTrust) `Reject all`·필수 쿠키만·닫기 순으로 직접 처리하고 페이지를 다시 읽는다. DOM에서 버튼을 찾지 못하면 Codex는 같은 사용자 Chrome의 Computer Use를 쓴다. 그래도 안 되면 스크립트로 읽은 PDF·SI 링크의 경로로 탭을 옮겨 받는다(3.14).
 - 사이트별 확대(Chrome 의 사이트 설정)가 100% 가 아니면 스크린샷 좌표계가 달라진다(2026-09-27 Elsevier 125%: 페이지 폭 882). 아래의 `innerWidth` 비율 규칙으로 처리한다. 사용자 PC 마다 다를 수 있다.
 - 확장의 둥근 배지(별 모양)가 페이지 왼쪽 아래에 떠서 버튼을 가릴 수 있다. Elsevier "View PDF" 의 왼쪽 절반을 가렸다(2026-09-26). 버튼의 오른쪽 부분을 누른다.
 - 스크린샷 좌표계와 페이지 폭(`innerWidth`)이 다르면 스크립트 좌표에 그 비율을 곱한다. 2차 시험 창은 스크린샷 1316, 페이지 1343 이라 0.98 을 곱했다. 곱하지 않으면 오른쪽 버튼일수록 어긋난다.
@@ -161,6 +161,7 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 - 주소 `https://www.sciencedirect.com/science/article/pii/{PII}`. KIST 망에서 확인 창 없이 3초 안에 뜬다.
 - SI 파일은 다른 도메인(`ars.els-cdn.com/content/image/1-s2.0-{PII}-mmc{n}.{확장자}`)에 있다. `web_find.js` 가 이 도메인을 허용하고, 추천·인용 논문의 View PDF(다른 PII)는 뺀다(2026-09-27).
 - 사이트 확대가 125% 인 PC 에서는 뜬 직후 좌표가 확대 전 값으로 나온다. 누르기 직전에 `sciretrFocus` 로 좌표를 다시 읽고 (스크린샷 폭 ÷ innerWidth) 를 곱한다. View PDF 뒤 확인 단계 탭(pdfft)이 앞으로 나와 논문 탭 스크린샷이 하얗게 나오는 것은 정상이다.
+- **Codex에서는 View PDF 링크에 `downloadMedia()`를 쓰지 않는다.** ScienceDirect의 View PDF는 원 논문 탭의 직접 다운로드가 아니라 `pdfft` 중간 탭을 연다. 원 논문 탭의 다운로드 이벤트를 기다리면 파일이 받아져도 잘못된 탭에서 제한 시간까지 대기할 수 있다(2026-09-28 실제 수집에서 119초 시간 초과). SI의 직접 파일 링크에는 `downloadMedia()`를 쓸 수 있지만, 본문 View PDF와 같은 호출에 묶지 않는다.
 - 새 배치(2026년 논문)는 상단 고정 막대의 View PDF 가 왼쪽이고 바로 오른쪽 약 160 px 에 "Download full issue" 가 붙어 있다. 누르지 않는다.
 - News & Views·Preview 같은 짧은 기사는 SI 가 없고 두 쪽이라 intake 가 본문 길이 경고를 낸다. 정상이다.
 - SI: 부록 "Appendix A. Supplementary material/data" 의 "Download: Download …(크기)" 링크. 선택자는 `a[href*="mmc"]` 가운데 글자가 "Download" 로 시작하는 것이다. 오른쪽 목록의 "Multimedia component 1" 도 같은 파일을 가리켜 먼저 잡힐 수 있다. 리뷰 논문은 SI 가 없기도 하다.
@@ -169,14 +170,14 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 - 동영상(mp4) SI 는 받지 않는다(2026-09-25 사용자 지시). 누르면 새 탭에서 재생만 되고, 저장하려면 재생기 ⋮ 메뉴를 거쳐 70초쯤 더 든다. 부록의 "Download all supplementary files" 는 동영상까지 묶어 받을 수 있어 쓰지 않는다.
 - 본문: SI 로 내려간 뒤에는 상단 고정 막대의 "View PDF" 를 누른다. 바로 오른쪽 "Download full issue"(호 전체)는 누르지 않는다. SI 가 없으면 제목 아래 "View PDF"(`a.accessbar-utility-component`).
 - "View PDF" 글자는 태그가 나뉘어 있다. 글자로 찾을 때는 공백을 정리한 뒤 `/view\s*pdf/i` 로 찾고, 화면 위쪽(y 60 이하)에 보이는 것을 고른다.
-- 누르면 확인 단계 탭(`pdfft`)이 열리고 3~5초 안에 저장된다. 그 탭은 따로 닫는다.
+- 본문을 누르기 전에 다운로드 폴더의 최근 파일 상태를 기억한다. View PDF는 일반 클릭으로 한 번 누르고, 새 `pdfft` 탭 또는 새 `*-main.pdf`가 생기는지 확인한다. `pdfft` 탭에 CAPTCHA·Cloudflare가 나오면 그 탭을 유지한 채 Computer Use로 직접 통과한다. 새 PDF가 생기고 `.crdownload`가 사라지면 성공이며, 그 뒤 `pdfft` 탭을 닫는다. 30초 안에 파일이 없을 때만 탭 상태를 다시 읽고 재시도한다. 파일이 이미 생겼으면 다시 누르지 않는다.
 - SI 와 View PDF 는 한 호출에 넣지 않는다. SI 클릭이 guard 로 막히면 View PDF 가 먼저 눌려 추천 창이 SI 를 덮는다(2026-09-27 전체 흐름 시험). SI 저장을 확인한 뒤 View PDF 를 누른다.
-- View PDF 를 누른 뒤 탭 목록에 pdfft 탭이 없으면 추천 창을 X 로 닫고 View PDF 를 한 번 더 누른다(2026-09-27 1회).
+- View PDF 를 누른 뒤 탭 목록에 pdfft 탭도 없고 다운로드 폴더에 새 본문 PDF도 없으면 추천 창을 X 로 닫고 좌표를 다시 읽어 View PDF 를 한 번 더 누른다(2026-09-27 1회). 먼저 파일을 확인해 빈 pdfft 탭과 중복 다운로드를 쌓지 않는다.
 - Int. J. Electrochem. Sci.(10.20964, 지금은 Elsevier 가 펴냄)는 View PDF 가 늦게 나타나 `web_find.js` 가 20초 가까이 걸리기도 한다(2026-09-27).
 - View PDF 뒤 추천 논문 창이 페이지를 덮는다. X 만 누른다. 안의 "Download (N) PDFs" 는 다른 논문들이다. 창을 닫으면 배치가 바뀌므로 좌표를 다시 읽는다.
 - 파일: `1-s2.0-{PII}-main.pdf`, `1-s2.0-{PII}-mmc1.pdf` 또는 `.docx`, 동영상은 `-mmc2.mp4`. 리뷰 본문은 30 MB 를 넘기도 한다.
 - 링크 글자에 형식이 나온다("Download Acrobat PDF file", "Download Word document", "Download zip file", "Download video"). PDF 와 Word 만 누르고, zip·스프레드시트·동영상은 누르지 않는다.
-- 확인 창이 계속 반복되면 멈추고 몇 시간 뒤 다시 한다(2026-09-24 에 한 번, 몇 시간 뒤 풀림).
+- 확인 창이 계속 반복되면 같은 화면을 무한 클릭하지 않는다. 탭을 보존하고 다른 출판사를 처리한 뒤 대기 후 새 문제를 읽어 다시 시도한다(2026-09-24 에 한 번, 몇 시간 뒤 풀림). CAPTCHA 클릭 승인이나 대리 처리를 중간에 다시 묻지 않는다.
 
 ### 3.2 Wiley (TDM 토큰이 없을 때)
 
@@ -218,7 +219,7 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 
 - 2026-09-27 연습(4편): SI 는 "Supplementary data" 버튼을 누르는 대신 탭을 `https://iopscience.iop.org/article/{DOI}/data` 로 옮긴다. 버튼은 그래픽 초록이 늦게 떠서 좌표를 읽은 뒤 약 290 px 밀렸다. /data 페이지의 파일 링크(IOP S3 서명 주소, `web_find.js` 가 허용)는 좌표로 누른다. SI 3편이 모두 Word(`jes{코드}supp1.docx`·`.doc`)였다.
 
-- 주소 `https://iopscience.iop.org/article/{DOI}`. 쿠키 동의 창은 누르지 않는다. 2026-09-27 전체 흐름 시험에서 첫 PDF 클릭으로 열린 새 탭이 Radware 확인 창(탭 제목 'Radware Bot Manager Captcha')에 멈췄다. 확인 창은 클릭 뒤 탭 목록에 뜬 새 탭 제목으로 알아본다. 사용자가 통과시킨 뒤 같은 PDF 가 두 번 저장됐다(intake 가 같은 본문 중복으로 보고 하나만 옮긴다). 이후 2편은 확인 창 없이 3~4초에 저장됐다.
+- 주소 `https://iopscience.iop.org/article/{DOI}`. 쿠키 동의 창은 누르지 않는다. 2026-09-27 전체 흐름 시험에서 첫 PDF 클릭으로 열린 새 탭이 Radware 확인 창(탭 제목 'Radware Bot Manager Captcha')에 멈췄다. 확인 창은 클릭 뒤 탭 목록에 뜬 새 탭 제목으로 알아본다. 확인 창을 통과한 뒤 같은 PDF 가 두 번 저장됐다(intake 가 같은 본문 중복으로 보고 하나만 옮긴다). 이후 2편은 확인 창 없이 3~4초에 저장됐다.
 - 본문 먼저: "PDF" 버튼(`a[href$="/pdf"]`, 새 탭). 내려간 뒤에는 오른쪽 위 고정 "PDF". 새 탭이 잠깐 열렸다 닫히며 3~4초 안에 저장된다.
 - SI 나중: 초록 아래 "Supplementary data" 버튼(`a[href$="/data"]`)을 누르면 SI 목록 페이지(`/article/{DOI}/data`)로 간다. 거기서 파일 링크("Supplemental Material" 등)를 누른다. PDF·Word 만 받고 README, zip, 스프레드시트는 받지 않는다.
 - "Supplementary data" 버튼 가장자리를 누르면 넘어가지 않는다. 가운데를 누르고 주소가 `/data` 로 바뀌었는지 본다.
@@ -327,7 +328,7 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 - SI: "Supplemental material" 절의 링크(review 는 없기도 하다).
 - 2026-09-27 전체 흐름 시험(2편): "PDF download" 는 예상 y(441)와 실제 y(855~856)가 달라 2편 모두 guard 1 이었다. 엉뚱한 곳은 눌리지 않았으니 돌려받은 좌표로 바로 다시 누른다. SI 는 목록 페이지에서 `web_find.js` 를 한 번 더 돌려 Word 를 받았다.
 - 같은 논문이 온라인 먼저 판(`ccschem.025…`)과 최종판(`ccschem.026…`) 두 DOI 로 오기도 한다. 하나를 `mark --status out_of_scope` 로 두면 intake 가 남은 쪽으로 가린다(2026-09-27 고침, 전에는 '여러 논문에 해당' 으로 남았다).
-- 처음 보는 사이트는 이 순서로 본다: ① `a[href*="/doi/pdf/"]` 또는 `citation_pdf_url` 메타 ② 글자가 "Download PDF"·"PDF download" 인 링크 ③ 그래도 없으면 사용자에게 버튼을 직접 눌러 달라고 한다.
+- 처음 보는 사이트는 이 순서로 본다: ① `a[href*="/doi/pdf/"]` 또는 `citation_pdf_url` 메타 ② 글자가 "Download PDF"·"PDF download" 인 링크 ③ 시각 버튼이면 Codex의 Computer Use로 화면을 읽고 직접 누른다. 반복해도 안 되면 해당 DOI와 시도 결과를 남기고 나머지를 끝낸다.
 
 ### 3.16 De Gruyter (2026-09-27, 4편)
 

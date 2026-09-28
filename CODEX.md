@@ -8,6 +8,8 @@
 
 `sci-retr` 는 DOI 목록이나 WoS·Scopus 검색 결과로 논문 PDF·본문 텍스트·SI 를 수집하고, `refs` 로 원 논문의 참고문헌 DOI 목록도 만든다. 수집이 끝나면 **편수와 관계없이 `sci-index` 로 색인을 바로 만든다.** 색인 생성 여부는 묻지 않는다. 한국어 한 줄 요약은 그 뒤 한 번 물어 사용자가 원할 때만 `sci-tldr` 로 만든다.
 
+사용자가 “sci-retr 스킬로 논문을 수집해줘”처럼 수집을 명령하면 자동 경로와 웹 다운로드뿐 아니라 CAPTCHA·확인 창의 클릭과 문제 풀이까지 포함해 요청 범위를 끝까지 처리하라는 승인이다. Codex는 웹 다운로드 목록이나 CAPTCHA 처리 여부를 중간에 다시 묻지 않는다. 정상 화면의 UI를 직접 사용하고, 외부 CAPTCHA 풀이 서비스·토큰 추출·응답 위조는 쓰지 않는다. 반복해도 현재 도구로 통과할 수 없는 DOI만 시도 결과와 함께 최종 보고하고, 나머지 목록은 계속 처리한다.
+
 세 skill 을 함께 설치한다. 세 CLI 는 모두 **`sci-retr/scripts/`** 에 있다.
 
 | skill | CLI | 역할 |
@@ -148,6 +150,8 @@ args = ["-y", "chrome-devtools-mcp@latest", "--autoConnect"]
 4. 클릭이 안 되고 페이지에 실제 다운로드 링크가 있으면 **그 페이지에서 확인한 주소**로 같은 탭을 이동하는 방법을 검토한다. Elsevier SI·View PDF, ACS/RSC 의 `/article-pdf/`·`/article-supplement/`, IOP 본문 `/pdf` 는 Claude 쪽 주소 이동 사례다. Codex 성공을 보장하는 목록은 아니다.
 5. IOP SI 의 서명 링크는 `/data` 목록에서 클릭한다. Science 본문은 playbook 의 온라인 보기 또는 View Options 경로를 쓴다. 주소를 추측하거나 토큰을 떼어 새 다운로드 요청을 만들지 않는다.
 
+Elsevier 본문의 `View PDF`에는 `downloadMedia()`를 쓰지 않는다. 이 링크는 원 논문 탭에서 직접 다운로드하지 않고 `pdfft` 중간 탭을 열기 때문에 원 탭의 다운로드 이벤트를 기다리면 제한 시간까지 멈출 수 있다(2026-09-28 실제 수집에서 119초). 다운로드 폴더 상태를 먼저 보고, View PDF를 일반 클릭한 뒤 새 `pdfft` 탭이나 새 `*-main.pdf`를 확인한다. CAPTCHA·Cloudflare가 나오면 그 `pdfft` 탭을 유지한 채 3.2의 Computer Use로 직접 통과한다. 파일이 생기고 `.crdownload`가 사라진 뒤 보조 탭을 닫으며, 파일이 이미 있으면 다시 클릭하지 않는다. SI 직접 파일 링크는 본문과 별도 동작으로 처리한다.
+
 링크 후보 찾기는 설치본의 [references/web_find.js](sci-retr/references/web_find.js)를 세션에서 한 번 읽어 재사용한다. 머리의 짧은 영어 주석 한 줄 뒤 첫 코드 줄은 `await (async () => { … })();` 이며 **JSON 문자열을 반환**한다. `evaluate_script`의 `function`에 넣을 때는 `async () => { return await (async () => { … })(); }`로 감싼다. 첫 코드의 `await`를 `return await`로 바꿔 바깥 async 함수 안에 넣고, 실제 파일 본문을 쓴다(`…`는 예시다). 결과와 함수의 자세한 규격은 [playbook 2.4](sci-retr/references/web_download_playbook.md#24-web_findjs-결과와-함수)에 둔다. 스크립트에 긴 설명이나 한글을 다시 넣지 않는다. `pageId`는 작업 탭이다. 스크립트가 준비 상태를 기다리므로 별도 고정 대기를 겹치지 않는다.
 
 - 스크립트는 HTML 로딩, 그림 등 최대 3초, 후보가 나타날 때까지 1초 간격으로 약 20초까지 기다린다. 본문만 먼저 뜨고 SI·참고문헌 절이 아직 없으면 최대 6초 더 보고, SI 절 제목은 있으나 링크가 없으면 그 절로 스크롤해 최대 6초 더 본다. 전체 대기는 26초를 넘지 않는다. 끝내 후보가 없으면 제목 `t`와 playbook의 선택자로 확인한다. 이 스크립트만 실행해서 파일이 다운로드되지는 않는다.
@@ -169,7 +173,7 @@ PDF 가 없는 웹 전용 글 또는 5절의 PDF 실패 처리에는 [references
 
 Wiley·IEEE의 “열기/Open”, Science 온라인 보기의 다운로드 아이콘, Chrome의 여러 파일 다운로드 권한과 CAPTCHA는 일반 페이지 DOM만으로 조작하기 어려울 수 있다. `take_snapshot`에 실제 요소가 나오면 최신 `uid`로 누르고, 나오지 않으면 ChatGPT Chrome 확장으로 연결된 Computer Use를 사용한다. 두 방법 모두 **같은 사용자 Chrome 창**의 최신 화면을 기준으로 한다.
 
-- CAPTCHA가 나타나면 화면과 문제 지시를 읽고 해당 UI를 직접 풀어 확인 상태와 제출 결과를 확인한 뒤 원래 다운로드로 돌아간다. 외부 CAPTCHA 풀이 서비스, 토큰 추출, 응답 위조는 쓰지 않는다. 실패하면 새 문제를 읽어 다시 시도하며, 다른 출판사를 처리한 뒤 남은 탭으로 돌아올 수 있다.
+- CAPTCHA가 나타나면 화면과 문제 지시를 읽고 해당 UI를 직접 풀어 확인 상태와 제출 결과를 확인한 뒤 원래 다운로드로 돌아간다. 최초 논문 수집 명령이 이 작업까지 승인하므로 중간에 다시 허락을 묻거나 사용자에게 대신 눌러 달라고 하지 않는다. 외부 CAPTCHA 풀이 서비스, 토큰 추출, 응답 위조는 쓰지 않는다. 실패하면 새 문제를 읽어 다시 시도하며, 다른 출판사를 처리한 뒤 남은 탭으로 돌아올 수 있다.
 - 2026-09-27 Sol Medium 검증에서는 IOP DOI `10.1149/2162-8777/ac7417`의 Radware hCaptcha가 실제로 나타났다. 첫 이미지 문제 뒤 두 번째 문제를 풀어 `I am human` 확인과 Submit을 완료했고, 본문 PDF가 intake에서 정상 식별됐다. 이 한 유형의 성공을 모든 CAPTCHA 유형의 보장으로 확대하지 않는다.
 - “여러 파일을 다운로드하도록 허용할까요?”가 뜨면 허용하고 실제 새 파일을 확인한다. 반복되면 `chrome://settings/content/automaticDownloads`에서 해당 출판사 사이트의 자동 다운로드를 허용한다. 전역 무조건 허용으로 바꾸지 않는다.
 - 쿠키 배너가 클릭을 가리면 `Reject all`·필수 쿠키만·닫기 순으로 처리한 뒤 snapshot과 `sciretrScan()`을 새로 받는다. 쿠키 설정만으로 사이트 자체 동의 배너가 자동으로 사라진다고 가정하지 않는다.
@@ -216,7 +220,7 @@ resolve 결과에 Elsevier OA·Wiley 논문이 있고 해당 키·토큰이 없�
 1. 1.3 에 따라 **저장 폴더를 확인받은 뒤** 새 폴더는 `doctor`, 이어서 `resolve` 를 실행한다. `resolve` 끝의 **`=== 다음 단계 … ===`** 블록에 나온 경로별 편수·review·키 질문·주제 확인·다음 명령을 안내에 옮긴다. 숫자나 경로 분류를 따로 다시 계산하지 않는다.
 2. 주제 확인은 **30편 초과**일 때만 하며, 이미 주제를 받았으면 다시 묻지 않는다. 30편 이하는 WoS·Scopus 입력이어도 목록 그대로 진행한다. review 는 제목 추정 대신 출력의 `[review]` 와 registry `doc_type` 을 쓴다. 문서 유형은 WoS `DT`·Scopus `Document Type`, 없으면 OpenAlex 유형이다. review follow-up·해당 키 발급 질문은 한 메시지에 묶는다. 신규 논문의 연도·paper_id 는 인쇄 연도 우선이며 기존 id 는 바꾸지 않는다. Angewandte 의 ange/anie 두 판은 `resolve` 가 독일어판을 범위 밖으로 처리한다.
 3. 사용자가 요청한 수집 범위에서 **답과 무관한 자동 수집은 먼저 진행**한다. 키 발급 질문이 있으면 해당 출판사만 `collect --exclude-publishers elsevier,wiley` 로 빼고, 없으면 `collect` 를 쓴다. 제외 목록은 실제로 답을 기다리는 출판사만 넣는다. 주제 답에 의존하는 분류·수집이나 추가 참고문헌 수집은 답을 받은 뒤 한다. 자동 결과와 남은 질문을 함께 알린다.
-4. **`collect`가 `_collect/manual_download.csv`도 만든다.** 웹 경로를 처음 시작할 때 `assist`를 반복할 필요가 없다. 목록을 다시 만들거나 중단 뒤 재개할 때만 `assist`를 쓴다(`--exclude-publishers`도 지원). 초록만·범위 밖 논문과 이미 저장된 파일 항목은 목록에서 제외된다. 목록은 설정 `web_first_publishers` 순으로 확인 창이 잦은 사이트를 앞에 둔다. 출판사별 논문·본문/SI 목록을 알리고 확인받은 뒤, **Codex 주 에이전트가 목록 순서대로 끝까지** 처리한다. [playbook](sci-retr/references/web_download_playbook.md)의 순서를 이 문서 3절 도구로 수행하고, `.crdownload`가 사라져 파일이 완성되기 전에 다음 논문으로 이동하지 않는다. Elsevier는 첫 결과에 SI가 없으면 View PDF 전에 `sciretrScan()`을 한 번 더 부른다. `sx`면 SI 절을 확인하고, `sk`만 있으면 받는 형식의 SI가 없는 것으로 기록한다. 파일 자체에 DOI·제목이 없을 것 같으면 다운로드 직후 `record --id <paper_id> --slot main|si --latest --url <현재 판 주소>`로 연결한다.
+4. **`collect`가 `_collect/manual_download.csv`도 만든다.** 웹 경로를 처음 시작할 때 `assist`를 반복할 필요가 없다. 목록을 다시 만들거나 중단 뒤 재개할 때만 `assist`를 쓴다(`--exclude-publishers`도 지원). 초록만·범위 밖 논문과 이미 저장된 파일 항목은 목록에서 제외된다. 목록은 설정 `web_first_publishers` 순으로 확인 창이 잦은 사이트를 앞에 둔다. 출판사별 논문·본문/SI 목록은 진행 상황으로 알릴 수 있지만 답을 기다리지 않고, **Codex 주 에이전트가 목록 순서대로 끝까지** 처리한다. [playbook](sci-retr/references/web_download_playbook.md)의 순서를 이 문서 3절 도구로 수행하고, `.crdownload`가 사라져 파일이 완성되기 전에 다음 논문으로 이동하지 않는다. Elsevier는 첫 결과에 SI가 없으면 View PDF 전에 `sciretrScan()`을 한 번 더 부른다. `sx`면 SI 절을 확인하고, `sk`만 있으면 받는 형식의 SI가 없는 것으로 기록한다. 파일 자체에 DOI·제목이 없을 것 같으면 다운로드 직후 `record --id <paper_id> --slot main|si --latest --url <현재 판 주소>`로 연결한다.
 5. SI 는 PDF·Word 문서만 받는다. 동영상·음성·결정 구조·압축·스프레드시트·Science MDAR 체크리스트는 받지 않는다. “Download full issue”, 다른 논문 묶음, 모든 SI 압축 다운로드도 쓰지 않는다.
 6. `intake --dry-run`으로 매칭을 보고 `intake`로 옮긴다. 파일명은 바꿀 필요가 없다. 못 가린 파일은 그대로 두고 DOI·제목을 확인하며, 어느 논문인지 알면 `record --id <paper_id> --slot main|si --file <파일 이름>`으로 기록한 뒤 다시 실행한다. 기록과 내용 판정이 다른 논문이나 다른 자리를 가리키면 억지로 옮기지 않는다. `status`의 **`=== 보고용 요약 … ===`에서 `색인` 줄**을 따른다. 받을 논문이 남았으면 웹 수집·intake를 마치고, 끝났으면 편수와 관계없이 6.1의 `build`를 바로 실행한다. 한 줄 요약만 6.2에 따라 사용자에게 한 번 묻는다.
 
@@ -226,7 +230,7 @@ Windows 실행 예시 — 1절에서 확인한 폴더·Python 을 이어 쓴다.
 & $retrPython "$collectScript" resolve --kb-root "$kbRoot" --input "$kbRoot\dois.txt"
 # '다음 단계' 안내에 따라 자동 수집. 웹 경로 목록도 생성된다
 & $retrPython "$collectScript" collect --kb-root "$kbRoot"
-# 출판사별 파일 목록 확인을 받고, 사용자 Chrome 에서 다운로드 완료 뒤
+# 웹 목록을 진행 상황으로 알리고, 답을 기다리지 않고 사용자 Chrome 에서 다운로드 완료 뒤
 & $retrPython "$collectScript" intake --kb-root "$kbRoot" --hours 1 --dry-run
 & $retrPython "$collectScript" intake --kb-root "$kbRoot" --hours 1
 & $retrPython "$collectScript" status --kb-root "$kbRoot"
@@ -241,7 +245,7 @@ Windows 실행 예시 — 1절에서 확인한 폴더·Python 을 이어 쓴다.
 - `intake` 는 `<paper_id>.sciretr.html` 을 해당 논문의 `html/{paper_id}.html` 로 옮겨 `source.md` 를 만든다. PDF 가 중복 저장돼도 본문 글이 같으면 하나만 옮기고, SI 도 글 내용으로 중복을 가린다. 동일 논문의 두 DOI 중 하나가 범위 밖이면 남은 논문에 맞춘다. 웹 본문을 나중에 PDF 로 보완하면 해당 PDF 를 `intake` 해 상태를 갱신한다.
 - 웹에서 구독 밖·게재 전을 확인했으면 `mark --ids <paper_id> --status abstract_only --note "웹 확인: 구독 밖"` 또는 `--note "웹 확인: 게재 전"` 으로 남긴다. `status` 는 그 사유를 함께 보여 준다. 코드가 “구독 밖일 수 있음”이라고 한 것만으로 확정하지 않는다.
 - 본문은 이미 있고 웹 목록에 SI만 남은 논문에서 SI가 없음을 확인했으면 `mark --ids <paper_id> --si-none --note "웹 확인: SI 없음"`으로 그 행을 닫는다. `SI 확인` 행에도 같은 명령을 쓰며, `sk`가 있는 경우에는 `--note "웹 확인: SI 는 받지 않는 형식뿐"`으로 남긴다. 논문 상태는 바꾸지 않는다.
-- 확인 창이나 CAPTCHA 탭은 닫거나 다른 주소로 옮기지 않는다. 3.2에 따라 화면을 처리하고, 오래 걸리면 다른 출판사를 새 탭에서 진행한 뒤 돌아온다. 한 차례 실패했다고 사용자에게 넘기거나 전체 수집을 종료하지 않는다. 같은 문제가 반복돼 현재 도구로 풀 수 없을 때만 해당 DOI와 시도 결과를 남기고 나머지 목록을 끝까지 처리한다.
+- 확인 창이나 CAPTCHA 탭은 닫거나 다른 주소로 옮기지 않는다. 3.2에 따라 화면을 직접 처리하고, 오래 걸리면 다른 출판사를 새 탭에서 진행한 뒤 돌아온다. 한 차례 실패했다고 사용자에게 넘기거나 승인·대리 클릭을 요청하거나 전체 수집을 종료하지 않는다. 같은 문제가 반복돼 현재 도구로 풀 수 없을 때만 해당 DOI와 시도 결과를 남기고 나머지 목록을 끝까지 처리한다.
 - PDF 가 한 번 안 받아졌다고 웹 본문으로 넘기지 않는다. ① 출판사별 기본 버튼 ② 페이지에서 확인한 다른 경로(`navigate_page` 로 PDF 주소 열기, `sciretrGo`, 온라인 보기의 다운로드) ③ 논문 페이지 재방문 후 재시도를 한다. 그래도 PDF 를 받지 못했고 페이지에 전문이 보일 때만 3.1 의 `web_text.js` 를 **새 탭에서** 실행해 `sciretrSaveText('<paper_id>', 'pdffail')` 로 저장한다. 확인 창과 구독 밖은 PDF 실패로 분류하지 않는다. PDF 자체가 없는 웹 전용 글은 `sciretrSaveText('<paper_id>')` 를 쓴다.
 - `assist --window`는 쓰지 않는다. 설정 `web_only_publishers`를 줄여 자동 요청을 시도하지 않는다. Elsevier API는 키가 있는 OA 논문에만, Wiley 자동 경로는 **개인 TDM 토큰**이 있을 때 쓴다. Elsevier API는 XML의 PDF·Word SI를 같은 키로 받고, 저장소 사본·Wiley TDM으로 본문만 받았으나 본문에 SI 언급이 있으면 웹 목록의 `SI 확인` 행으로 올린다. 미구독 출판사도 OA 논문은 자동 경로로 한 번 시도하고 실패하면 웹 경로로 넘긴다. 자동 요청의 User-Agent는 `sci-retr/0.2.1 (+https://github.com/angmond1/sci)`이며 브라우저로 위장하지 않는다.
 - playbook의 96편·81편·6편 기록은 Claude 실측이다. Codex는 2026-09-27 Sol Medium으로 21개 출판사 63편의 웹 경로를 검증했다. 페이지 준비는 `web_find.js`의 기다림·결과로 확인하고, 웹은 한 편이 끝나면 다음 편으로 가며 자동 경로는 설정 간격을 유지한다.
@@ -339,7 +343,7 @@ $sourcePdf = 'C:\papers_inbox\source_paper.pdf'
 - `refs`, `reextract`, WoS·Scopus의 모든 내보내기 형식, 대규모 사전 분류, `sci-tldr` 한 줄 요약은 이번 최신 웹 전용 시험에 포함하지 않았다.
 - 새 설치 스크립트의 Windows PowerShell 5.1·7, PATH/winget 누락, Git Bash 위임, WSL Ubuntu 24.04 가상환경 시험은 Claude 쪽 인계 기록이다. macOS는 그 기록에서도 미시험이다.
 - Claude 전용 요약 에이전트의 처리 시간·토큰 수치를 Codex의 예상 시간이나 비용으로 쓰지 않는다. Codex 주 에이전트의 `sci-tldr` 처리 시간·비용은 미측정이다.
-- 실제 다운로드 시험은 사용자에게 출판사별 대상 논문과 본문/SI 목록을 제시하고 확인받은 뒤 한다. 확인된 출판사·날짜·도구·파일 검증 결과만 추가한다.
+- 실제 다운로드 시험도 사용자가 sci-retr 수집·검증을 명령한 범위라면 출판사별 대상 논문과 본문/SI 목록을 진행 상황으로 알리고 바로 수행한다. 확인된 출판사·날짜·도구·파일 검증 결과만 추가한다.
 
 ### 7.3 갱신
 
