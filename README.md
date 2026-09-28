@@ -90,7 +90,8 @@ https://github.com/angmond1/sci 설치해줘
 | Wiley | TDM 토큰 없음 | 웹 다운로드 | 40초 |
 | Elsevier | API key 있음 + Open access 논문<br>[API key 발급 페이지](https://dev.elsevier.com/) | 파이썬 API | 3초 |
 | Elsevier | 유료 논문 또는 API key 없음 | 웹 다운로드 | 30초 |
-| Springer, Nature, MDPI, Frontiers, PLOS, Beilstein, Copernicus, APS, Cambridge | - | 파이썬 | 2-15초 |
+| Springer, Nature, Frontiers, PLOS, Beilstein, Copernicus, APS, Cambridge | - | 파이썬 | 2-15초 |
+| MDPI | - | 웹 다운로드 | 본문·SI 완료 후 다음 편 |
 | ACS, RSC, IOP, Science, Taylor & Francis, PNAS, AIP, Oxford, IEEE, ChemRxiv | - | 웹 다운로드 | 20초 |
 
 ⚠️ 웹 다운로드 수집시 claude code는 captcha 클릭 불가능, 사용자가 대신 눌러줘야 합니다. codex(chatgpt) 사용권장.<br>

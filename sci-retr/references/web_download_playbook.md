@@ -303,6 +303,8 @@ PDF 가 없고 본문이 웹에만 있는 글(2026-09-27 Science "Expert Voices"
 
 ### 3.13 MDPI (2026-09-27, 1편)
 
+- 2026-09-28 부터 기본 수집 경로는 웹 다운로드다(`web_only_publishers`). 본문·SI 완료 뒤 별도 대기 없이 다음 편으로 간다. 다운로드 버튼은 한 번 누른 뒤 완성 파일과 `.crdownload`를 확인하고, 파일이 없을 때만 다시 누른다. Chrome의 여러 파일 다운로드 허용 팝업은 같은 사이트에서 서로 다른 논문 PDF나 본문·SI를 이어 받을 때도 뜰 수 있으므로, 팝업만으로 중복 클릭이라고 판단하지 않는다.
+
 - 2026-09-27 연습(4편, 창 최소화 중): "Download PDF" 는 닫힌 메뉴 속이라 `web_find.js` 가 "hidden"(옛 판 "접힘") 으로 낸다. 첫 편은 `sciretrGo` 로 25초, 나머지는 경로 `/{ISSN}/{권}/{호}/{번호}/pdf` 를 navigate 로 열어 13초에 받았다. SI 는 "Supplementary Materials" 절의 "ZIP-Document"(`…/s1`)라 4편 중 2편이 zip(받지 않음), 2편은 SI 가 없었다. PDF SI 는 "PDF-Document"(`…/s2` 등)로 보인다.
 
 - 주소는 `https://doi.org/{DOI}` 로 열면 `www.mdpi.com/{저널 번호}/{권}/{호}/{번호}` 로 넘어간다. 확인 창 없이 뜬다. 자동 경로가 막혔던 논문도 사용자 Chrome 에서는 바로 열렸다.

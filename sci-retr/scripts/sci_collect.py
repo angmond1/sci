@@ -24,6 +24,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import threading
 import time
 import unicodedata
@@ -79,7 +80,8 @@ DEFAULT_CONFIG = {
     "abstract_only_publishers": ["thieme", "world_scientific", "csj", "bentham", "royal_society"],
     # 자동 요청을 막는 것이 확인된 출판사 (2026-09-24 실측) → 자동 단계에서 요청하지 않고 바로 웹 경로. 사정이 바뀌면 여기서 뺀다.
     # 2026-09-26 추가: tandf(Taylor & Francis)·pnas·aip·oup(Oxford)·ieee·chemrxiv 는 첫 요청부터 403/202 로 막힘 (섞인 목록 실측).
-    "web_only_publishers": ["acs", "rsc", "science", "ecs", "tandf", "pnas", "aip", "oup", "ieee", "chemrxiv"],
+    # 2026-09-28: MDPI 첫 자동 요청 403 확인 뒤 사용자 요청으로 기본 웹 경로로 변경.
+    "web_only_publishers": ["acs", "rsc", "mdpi", "science", "ecs", "tandf", "pnas", "aip", "oup", "ieee", "chemrxiv"],
     # 웹 목록에서 먼저 받을 출판사: 확인 창이 잦은 곳을 앞에 두면 사용자가 누르는 동안 다른 출판사를 받는다 (2026-09-27 사용자 결정)
     "web_first_publishers": ["rsc", "ecs", "science", "royal_society", "pnas", "oup", "acs"],
     # 받지 않는 SI 형식 (2026-09-25 사용자 지시: 동영상, 결정 구조 정보, 결정 구조·대형 스프레드시트 데이터가 담기는 zip·Excel 은 받지 않는다).
@@ -92,7 +94,7 @@ DEFAULT_CONFIG = {
     # elsevier 30s (2026-09-24 사용자 실험값): 기록된 차단은 13s 간격 + PDF 후보 다수 probe (2026-05, 29편/6분20초). 90s 는 7배 안전계수였고 60s 차단 기록 없음.
     # 논문당 요청은 본문 1회 + PDF 1회로 제한하고, throttle 문구 감지 시 그 사이트 묶음을 즉시 중단(30분 후 재실행)한다.
     "intervals": {"elsevier": 30, "elsevier_api": 3, "rsc": 15, "wiley": 5, "acs": 45, "science": 30, "nature": 15,
-                  "springer": 2, "mdpi": 2, "ecs": 90, "thieme": 2, "generic": 5},
+                  "springer": 2, "mdpi": 5, "ecs": 90, "thieme": 2, "generic": 5},
     "assist_wait_seconds": 300,
     "crossref_mailto": "",
 }
@@ -110,6 +112,7 @@ WEB_NOTE = {   # 웹 경로(평소 쓰는 Chrome) 목록 안내 — 2026-09-25 �
     "wiley": "Wiley 는 TDM 토큰이 없거나 API 가 실패한 논문을 평소 쓰시는 Chrome 에서 받아야 합니다.",
     "acs": "ACS 는 자동 요청을 막아 평소 쓰시는 Chrome 에서 받아야 합니다 (확인 창은 직접 눌러 주세요).",
     "rsc": "RSC 는 자동 요청을 막아 평소 쓰시는 Chrome 에서 받아야 합니다.",
+    "mdpi": "MDPI 는 기본 웹 다운로드 경로입니다 (첫 자동 요청 403 확인).",
     "science": "Science 는 자동 요청을 막아 평소 쓰시는 Chrome 에서 받아야 합니다.",
     "ecs": "ECS/IOP 는 자동 요청을 막아 평소 쓰시는 Chrome 에서 받아야 합니다.",
     "tandf": "Taylor & Francis 는 자동 요청을 막아 평소 쓰시는 Chrome 에서 받아야 합니다.",
@@ -258,13 +261,25 @@ def load_registry(ctx: Ctx) -> None:
 def save_registry(ctx: Ctx) -> None:
     with _log_lock:
         p = registry_path(ctx)
-        tmp = p.with_suffix(".csv.tmp")
-        with open(tmp, "w", encoding="utf-8-sig", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=REG_FIELDS, extrasaction="ignore")
-            w.writeheader()
-            for row in ctx.registry.values():
-                w.writerow({k: row.get(k, "") for k in REG_FIELDS})
-        tmp.replace(p)
+        # 다른 CLI 프로세스의 임시 파일과 충돌하지 않도록 고유한 이름을 쓴다.
+        fd, name = tempfile.mkstemp(prefix=p.name + ".", suffix=".tmp", dir=p.parent)
+        tmp = Path(name)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8-sig", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=REG_FIELDS, extrasaction="ignore")
+                w.writeheader()
+                for row in ctx.registry.values():
+                    w.writerow({k: row.get(k, "") for k in REG_FIELDS})
+            for attempt in range(4):
+                try:
+                    tmp.replace(p)
+                    return
+                except PermissionError:
+                    if attempt == 3:
+                        raise
+                    time.sleep(0.2 * (2 ** attempt))  # Windows의 일시적인 파일 잠금
+        finally:
+            tmp.unlink(missing_ok=True)
 
 
 def log_row(ctx: Ctx, row: dict) -> None:
@@ -1552,11 +1567,24 @@ def cmd_collect(args) -> None:
     for r in rows:
         groups.setdefault(r["publisher"], []).append(r)
     say(f"수집 시작: {len(rows)}편, publisher {len(groups)}개 병렬 → {', '.join(f'{k}:{len(v)}' for k, v in groups.items())}")
-    threads = [threading.Thread(target=run_group, args=(ctx, pub, rs), name=pub, daemon=True) for pub, rs in groups.items()]
+    errors: list[tuple[str, Exception]] = []
+    def run_checked(pub: str, rs: list[dict]) -> None:
+        try:
+            run_group(ctx, pub, rs)
+        except Exception as exc:
+            with _log_lock:
+                errors.append((pub, exc))
+
+    threads = [threading.Thread(target=run_checked, args=(pub, rs), name=pub, daemon=True) for pub, rs in groups.items()]
     for t in threads:
         t.start()
     for t in threads:
         t.join()
+    if errors:
+        for pub, exc in errors:
+            say(f"[{pub}] 수집 그룹 미완료: {type(exc).__name__}: {exc}")
+        say("수집이 끝나지 않았습니다. 파일 잠금·동시 실행을 확인하고 status 로 저장 상태를 확인하세요.")
+        raise SystemExit(1)
     summarize(ctx, header="collect 완료")
     write_web_list(ctx)   # assist 를 따로 돌리지 않아도 웹 경로 목록이 생긴다
     report_block(ctx)

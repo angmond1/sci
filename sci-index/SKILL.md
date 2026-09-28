@@ -66,6 +66,8 @@ python <sci-retr>/scripts/sci_index.py build --kb-root <논문 폴더 root>
 - flag 가 있는 논문 목록 (index_check.csv)
 - 한줄요약 상태 (없음이면 sci-retr 5.7 대로 사용자에게 한 번 묻는다)
 
+`index.csv` 를 Excel 에서 연 채 `build` 하면 Windows 에서 `PermissionError` 가 날 수 있다. 이때 기존 색인이 갱신됐다고 보고하지 않는다. 파일이 닫힌 것을 확인한 뒤 다시 실행하고, 새 `index.csv` 의 행 수·수정 시각을 확인한다.
+
 ### 5.2 결정적 flag 조치
 
 | flag | 뜻 | 조치 |

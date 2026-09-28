@@ -74,7 +74,7 @@ bash "$package_root/install.sh" --codex
 
 ### 1.3 논문 폴더와 점검
 
-논문 저장 위치를 묻고 확인받은 뒤 `resolve` 나 `refs` 를 시작한다. 추천은 Windows **`C:\sci\papers\<주제>`**, macOS/Linux **`~/sci/papers/<주제>`** 다. 공용 지침에 따라 패키지를 다른 곳에 설치했어도 추천 경로는 같다. 사용자가 요청에서 경로를 이미 정했거나 원 논문이 기존 수집 폴더에 있으면 그 경로를 한 줄로 확인하고 이어간다.
+논문 저장 위치를 묻고 확인받은 뒤 `resolve` 나 `refs` 를 시작한다. 추천은 Windows **`C:\sci\papers\<주제>`**, macOS/Linux **`~/sci/papers/<주제>`** 다. 공용 지침에 따라 패키지를 다른 곳에 설치했어도 추천 경로는 같다. 사용자가 요청에서 경로를 이미 정했으면 그 경로를 한 줄로 확인하고 이어간다. 참고문헌 수집은 원 논문 PDF 가 기존 수집 폴더에 있더라도 5.1 의 새 원 논문별 폴더를 쓴다.
 
 기본 설치에서는 논문 폴더가 패키지 안에 있고 `/papers/` 는 git 이 무시한다. `--kb-root` 는 주제 폴더다. 예를 들어 `C:\sci\papers\my_topic` 아래에 `papers/{paper_id}/`, 목록과 색인이 생긴다. 색인의 `README.md` 는 주제 폴더에 쓰므로 저장소 README 와 겹치지 않는다. **저장소 루트나 설치된 skill 폴더를 `--kb-root` 로 주지 않는다.**
 
@@ -114,7 +114,7 @@ command = "npx"
 args = ["-y", "chrome-devtools-mcp@latest", "--autoConnect"]
 ```
 
-3. MCP 도구가 나타나는지 확인한다. 설정 변경이 반영되지 않으면 Codex를 재시작한다. `list_pages`로 탭 목록을 읽고 사용자의 평소 Chrome에 연결됐는지 확인한다. 여러 프로필 중 어느 것인지 불분명하면 사용자에게 확인한다. `list_pages`는 프로필 선택 도구가 아니다. Computer Use를 쓸 때도 같은 Chrome 프로필을 선택한다.
+3. MCP 도구가 나타나는지 확인한다. 설정 변경이 반영되지 않으면 Codex를 재시작한다. `list_pages`로 탭 목록을 읽고 사용자의 평소 Chrome에 연결됐는지 확인한다. 여러 프로필 중 어느 것인지 불분명하면 사용자에게 확인한다. `list_pages`는 프로필 선택 도구가 아니다. Computer Use를 쓸 때도 같은 Chrome 프로필을 선택한다. `DevToolsActivePort` 오류는 MCP 등록 성공과 별개로 Chrome 연결이 없다는 뜻이다. Edge 만 보인다고 Chrome 대신 선택하지 않는다. 로컬 원 논문의 `file://` PDF 탭은 참고문헌 추출용 파일이지 웹 다운로드 탭이 아니다. 연결된 Chrome 에서 `https://doi.org/...` 페이지를 열 수 있을 때만 웹 수집을 진행하고, 브라우저 도구가 URL 정책으로 조작을 거부하면 해당 차단을 따르고 정확한 사유를 보고한다.
 4. `doctor` 가 읽은 프로필·다운로드 폴더가 연결된 Chrome 과 일치하는지 확인한다. 설정이 맞지 않을 때만 사용자가 `chrome://settings/content/pdfDocuments` 에서 “PDF 다운로드”를 선택하고, `chrome://settings/downloads` 에서 “다운로드 전에 각 파일의 저장 위치 확인”을 끄게 안내한다.
 5. 구독 논문은 소속 기관의 구독 범위와 접속 망이 필요하다. KIST에서는 교내 망 또는 기관 VPN을 확인한다. 계정 로그인·자격증명 입력·약관 동의는 사용자에게 맡긴다. 쿠키 배너가 버튼을 가리면 Codex가 `Reject all`·필수 쿠키만·닫기 순으로 처리하고 페이지를 다시 스캔한다.
 
@@ -218,7 +218,7 @@ resolve 결과에 Elsevier OA·Wiley 논문이 있고 해당 키·토큰이 없�
 
 공용 [sci-retr 지침](sci-retr/SKILL.md)의 2절 원칙과 5절 절차를 따른다. [publisher matrix](sci-retr/references/publisher_matrix.md)의 오래된 자동화·우회·별도 프로필 기록은 현행 공통 정책을 대체하지 않는다.
 
-1. 1.3 에 따라 **저장 폴더를 확인받은 뒤** 새 폴더는 `doctor`, 이어서 `resolve` 를 실행한다. `resolve` 끝의 **`=== 다음 단계 … ===`** 블록에 나온 경로별 편수·review·키 질문·주제 확인·다음 명령을 안내에 옮긴다. 숫자나 경로 분류를 따로 다시 계산하지 않는다.
+1. 1.3 에 따라 **저장 폴더를 확인받은 뒤** 새 폴더는 `doctor`, 이어서 `resolve` 를 실행한다. `resolve` 끝의 **`=== 다음 단계 … ===`** 블록에 나온 경로별 편수·review·키 질문·주제 확인·다음 명령을 안내에 옮긴다. 숫자나 경로 분류를 따로 다시 계산하지 않는다. 같은 `kb-root` 의 `refs`·`resolve`·`collect`·`intake`·`index` 명령은 하나가 종료된 뒤 다음을 시작한다. 출력이 잠시 멈춰도 실행 중인 셸 세션을 확인하고 중복 실행하지 않는다. `collection_registry.csv` 저장 오류가 나면 다른 실행·CSV 열림 여부를 확인하고 `status` 로 실제 저장 상태를 재확인한다.
 2. 주제 확인은 **30편 초과**일 때만 하며, 이미 주제를 받았으면 다시 묻지 않는다. 30편 이하는 WoS·Scopus 입력이어도 목록 그대로 진행한다. review 는 제목 추정 대신 출력의 `[review]` 와 registry `doc_type` 을 쓴다. 문서 유형은 WoS `DT`·Scopus `Document Type`, 없으면 OpenAlex 유형이다. review follow-up·해당 키 발급 질문은 한 메시지에 묶는다. 신규 논문의 연도·paper_id 는 인쇄 연도 우선이며 기존 id 는 바꾸지 않는다. Angewandte 의 ange/anie 두 판은 `resolve` 가 독일어판을 범위 밖으로 처리한다.
 3. 사용자가 요청한 수집 범위에서 **답과 무관한 자동 수집은 먼저 진행**한다. 키 발급 질문이 있으면 해당 출판사만 `collect --exclude-publishers elsevier,wiley` 로 빼고, 없으면 `collect` 를 쓴다. 제외 목록은 실제로 답을 기다리는 출판사만 넣는다. 주제 답에 의존하는 분류·수집이나 추가 참고문헌 수집은 답을 받은 뒤 한다. 자동 결과와 남은 질문을 함께 알린다.
 4. **`collect`가 `_collect/manual_download.csv`도 만든다.** 웹 경로를 처음 시작할 때 `assist`를 반복할 필요가 없다. 목록을 다시 만들거나 중단 뒤 재개할 때만 `assist`를 쓴다(`--exclude-publishers`도 지원). 초록만·범위 밖 논문과 이미 저장된 파일 항목은 목록에서 제외된다. 목록은 설정 `web_first_publishers` 순으로 확인 창이 잦은 사이트를 앞에 둔다. 출판사별 논문·본문/SI 목록은 진행 상황으로 알릴 수 있지만 답을 기다리지 않고, **Codex 주 에이전트가 목록 순서대로 끝까지** 처리한다. [playbook](sci-retr/references/web_download_playbook.md)의 순서를 이 문서 3절 도구로 수행하고, `.crdownload`가 사라져 파일이 완성되기 전에 다음 논문으로 이동하지 않는다. Elsevier는 첫 결과에 SI가 없으면 View PDF 전에 `sciretrScan()`을 한 번 더 부른다. `sx`면 SI 절을 확인하고, `sk`만 있으면 받는 형식의 SI가 없는 것으로 기록한다. 파일 자체에 DOI·제목이 없을 것 같으면 다운로드 직후 `record --id <paper_id> --slot main|si --latest --url <현재 판 주소>`로 연결한다.
@@ -271,7 +271,7 @@ $sourcePdf = 'C:\papers_inbox\source_paper.pdf'
 
 `_collect/refs_<원 논문>.txt` 의 각 데이터 줄은 **`번호<TAB>DOI`** 다. Crossref 목록 순서가 원 논문의 참고문헌 번호이며, OpenAlex 에서 더 찾은 DOI 는 원 목록의 DOI 없는 항목과 제목 또는 연도·권·첫 쪽을 맞춰 번호를 붙인다. 못 찾으면 `00`(번호 모름)이다. PDF 만 있을 때는 `[12]`·`12.` 같은 줄 번호가 1부터 이어질 때만 번호로 쓴다. 파일의 `#` 로 시작하는 안내 줄은 입력에서 제외된다.
 
-참고문헌 수집은 **원 논문마다 새 주제 폴더**에서 시작한다. 결과 파일로 `resolve` 하면 번호가 신규 논문의 `paper_id`·폴더·PDF·SI 파일명 앞에 붙는다(예: `07_2021_ACS-Catal_Cheng`, 최소 두 자리). 이미 등록된 논문은 id 를 바꾸지 않고 레지스트리의 `ref_no` 와 색인 번호만 채운다. 사용자가 “모두”라고 했으면 편수와 관계없이 주제 확인·사전 분류로 목록을 줄이지 않는다. `--limit N` 은 사용자가 일부만 요청했거나 허락한 시험에만 쓴다. review follow-up 에 동의한 경우도 `refs --source <paper_id>` 로 목록을 만들고 이미 등록된 DOI 를 제외해 이어간다.
+참고문헌 수집은 **원 논문마다 새 주제 폴더**에서 시작한다. 원 논문 PDF 가 다른 수집 폴더 안에 있어도 새 폴더를 `$kbRoot` 로 정하고 `refs` 부터 색인까지 같은 경로를 쓴다. 결과 파일로 `resolve` 하면 번호가 신규 논문의 `paper_id`·폴더·PDF·SI 파일명 앞에 붙는다(예: `07_2021_ACS-Catal_Cheng`, 최소 두 자리). 이미 등록된 논문은 id 를 바꾸지 않고 레지스트리의 `ref_no` 와 색인 번호만 채운다. 사용자가 “모두”라고 했으면 편수와 관계없이 주제 확인·사전 분류로 목록을 줄이지 않는다. `--limit N` 은 사용자가 일부만 요청했거나 허락한 시험에만 쓴다. review follow-up 에 동의한 경우도 `refs --source <paper_id>` 로 목록을 만들고 이미 등록된 DOI 를 제외해 이어간다.
 
 ## 6. Codex 색인·한 줄 요약
 

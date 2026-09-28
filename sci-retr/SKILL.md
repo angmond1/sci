@@ -1,6 +1,6 @@
 ---
 name: sci-retr
-description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결과를 받아 논문 본문 PDF, 본문 텍스트, SI 를 수집하는 도구. 공식 API·직접 PDF 가 되는 곳(Elsevier OA, 토큰 있는 Wiley, Springer, MDPI, Nature)은 자동으로, 자동 요청을 막는 곳(Elsevier 구독 논문, 토큰 없는 Wiley, ACS, RSC, Science, ECS/IOP)은 사용자가 평소 쓰는 Chrome 에서 받아 정리한다. 논문 PDF·링크를 주면 그 논문의 참고문헌도 모아 받는다. 수집 전에 저장 폴더를 확인하고, 수집 뒤에는 편수와 관계없이 sci-index 로 서지정보 색인을 바로 만든다(몇 초). 한국어 한 줄 요약은 사용자에게 물어 원할 때만 sci-tldr. "논문 받아줘", "DOI 수집", "원문 다운로드", "SI 저장", "이 논문들 모아줘", "이 논문의 reference 논문들 모두 수집해줘", "sci-retr 사용법", "논문 목록은 어떻게 만들어" 에 사용.
+description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결과를 받아 논문 본문 PDF, 본문 텍스트, SI 를 수집하는 도구. 공식 API·직접 PDF 가 되는 곳(Elsevier OA, 토큰 있는 Wiley, Springer, Nature)은 자동으로, 자동 요청을 막는 곳(Elsevier 구독 논문, 토큰 없는 Wiley, ACS, RSC, MDPI, Science, ECS/IOP)은 사용자가 평소 쓰는 Chrome 에서 받아 정리한다. 논문 PDF·링크를 주면 그 논문의 참고문헌도 모아 받는다. 수집 전에 저장 폴더를 확인하고, 수집 뒤에는 편수와 관계없이 sci-index 로 서지정보 색인을 바로 만든다(몇 초). 한국어 한 줄 요약은 사용자에게 물어 원할 때만 sci-tldr. "논문 받아줘", "DOI 수집", "원문 다운로드", "SI 저장", "이 논문들 모아줘", "이 논문의 reference 논문들 모두 수집해줘", "sci-retr 사용법", "논문 목록은 어떻게 만들어" 에 사용.
 ---
 
 # sci-retr (Sci Retriever) — 논문 원문 수집 지침서
@@ -13,7 +13,7 @@ description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결
 
 - 입력은 DOI 목록이다. 출력은 `papers/{paper_id}/` 폴더마다 본문 PDF(필수), SI 파일, 본문 텍스트(`source.md`), 메타(`source.json`)와 전체 목록 `collection_registry.csv` 다.
 - 수집은 두 경로다.
-  - **자동 경로**: LLM 없이 도는 CLI `scripts/sci_collect.py` 가 공식 API(Elsevier OA 논문, Wiley TDM)와 직접 PDF(Springer, MDPI, Nature)로 받는다. Elsevier API 는 OA 논문에만 쓴다.
+  - **자동 경로**: LLM 없이 도는 CLI `scripts/sci_collect.py` 가 공식 API(Elsevier OA 논문, Wiley TDM)와 직접 PDF(Springer, Nature)로 받는다. Elsevier API 는 OA 논문에만 쓴다.
   - **웹 경로**: 자동 요청을 막는 출판사는 사용자가 평소 쓰는 Chrome 에서 받는다. Claude 가 Claude in Chrome 확장으로 논문 페이지를 열어 PDF·SI 를 받고, `intake` 명령이 다운로드 폴더의 파일을 논문 폴더로 정리한다.
 - Claude 가 하는 일: 수집 범위 판단(사전 분류), review 논문의 인용 follow-up 선별, 웹 경로 수집, 사용자와의 확인.
 - 짝이 되는 skill 은 `sci-index`(서지정보 색인, 수집 뒤 항상)와 `sci-tldr`(한국어 한 줄 요약, 사용자가 원할 때만)이다(5.7).
@@ -113,8 +113,8 @@ python scripts/sci_collect.py token --kb-root <root>
 
 | 키 | 기본값 | 뜻 |
 |---|---|---|
-| `intervals` | elsevier_api 3, wiley 5, springer 2, mdpi 2, nature 15, generic 5 (초) | 자동 경로에서 같은 출판사 논문 사이의 대기. 요청을 보내지 않은 논문 뒤에는 기다리지 않는다. acs·science·rsc·ecs·elsevier 값은 웹 전용 출판사를 목록에서 뺄 때만 쓰인다 |
-| `web_only_publishers` | acs, rsc, science, ecs, tandf, pnas, aip, oup, ieee, chemrxiv | 자동 요청을 보내지 않고 바로 웹 경로로 보낼 출판사(2026-09-26 여섯 곳 추가). 사이트 사정이 바뀌면 여기서 뺀다 |
+| `intervals` | elsevier_api 3, wiley 5, springer 2, nature 15, generic 5 (초); mdpi 5는 파이썬 경로를 별도로 활성화할 때만 적용 | 자동 경로에서 같은 출판사 논문 사이의 대기. 요청을 보내지 않은 논문 뒤에는 기다리지 않는다. acs·science·rsc·ecs·elsevier 값은 웹 전용 출판사를 목록에서 뺄 때만 쓰인다 |
+| `web_only_publishers` | acs, rsc, mdpi, science, ecs, tandf, pnas, aip, oup, ieee, chemrxiv | 자동 요청을 보내지 않고 바로 웹 경로로 보낼 출판사(2026-09-26 여섯 곳 추가). 사이트 사정이 바뀌면 여기서 뺀다 |
 | `web_first_publishers` | rsc, ecs, science, royal_society, pnas, oup, acs | 웹 목록에서 먼저 받을 출판사(확인 창이 잦은 곳). 확인 창이 풀리기를 기다리는 동안 다른 출판사를 받는다(2026-09-27 사용자 결정) |
 | `abstract_only_publishers` | thieme, world_scientific, csj, bentham, royal_society | 초록만 저장할 미구독 출판사 (Open Access 논문은 예외: 한 번 자동 시도, 안 되면 웹 경로) |
 | `si_skip_exts` | mp4·avi·mov 등 동영상, mp3·wav, cif·fcf·hkl·mol·mol2·sdf·pdb·xyz·cdx, zip·rar·7z·tar·gz·tgz, xls·xlsx·xlsm·xlsb·csv·ods | 받지 않는 SI 형식. 링크 확장자로 먼저 거른다. 자동 경로는 받은 뒤 실제 형식이 PDF·Word(docx·doc)인 것만 저장하고 그 밖(그림·표·압축·동영상·PowerPoint)은 버린다(2026-09-27 허용 목록 방식). 같은 내용이 다른 주소로 두 번 오면 한 번만 저장한다. intake 도 이 형식은 옮기지 않는다 |
@@ -145,7 +145,7 @@ python scripts/sci_collect.py token --kb-root <root>
   - Windows: `C:\sci\papers\<주제>` (기본 프로그램 폴더 `C:\sci` 안의 `papers`)
   - macOS·Linux: `~/sci/papers/<주제>`
   - 기본 위치(`C:\sci`)에 설치했다면 이 폴더는 프로그램 폴더 안이고, 저장소가 `papers` 를 무시하므로 업데이트(`git pull`)해도 그대로다. 다른 곳에 설치했어도 추천 경로는 같다. skill 폴더(`~/.claude/skills/...`) 안은 쓰지 않는다.
-- 사용자가 요청에서 폴더를 이미 말했거나, 참고문헌 수집(5.10)의 원 논문이 이미 수집 폴더(`collection_registry.csv` 가 있는 폴더) 안에 있으면 그 폴더를 한 줄로 확인만 한다.
+- 사용자가 요청에서 폴더를 이미 말했으면 그 경로를 한 줄로 확인한다. 참고문헌 수집(5.10)은 원 논문이 기존 수집 폴더 안에 있어도 원 논문별 새 폴더를 `--kb-root` 로 쓴다.
 - 고른 폴더에 `collection_registry.csv` 가 이미 있으면 이어서 받는다고 알린다. 이미 받은 논문은 다시 받지 않는다.
 - 그 폴더에서 처음 수집하는 경우(`collection_registry.csv` 가 없음) `doctor --kb-root <폴더>` 를 한 번 돌려 문제 0 을 확인한다. 문제가 있으면 안내대로 고친 뒤 진행한다.
 - 메시지 예시:
@@ -245,7 +245,7 @@ python scripts/sci_collect.py assist --kb-root <root>
    - PDF 가 없는 웹 전용 글(Science Expert Voices 처럼 PDF 아이콘이 없고 본문이 웹에만 있는 글)은 초록만으로 두지 않고 웹 본문을 저장한다(2026-09-27 사용자 지시). `web_find.js` 가 본문 후보 없이 끝난 같은 탭에 `references/web_text.js` 를 넣어 글자 수·문단 수·참고문헌 수·남은 소제목(heads)을 보고(요령 문서 2.5), 소제목에 관련·추천 논문, 뉴스, 지표 같은 것이 없으면 `sciretrSaveText('<paper_id>')` 로 `<paper_id>.sciretr.html` 을 내려받는다. 본문과 참고문헌만 담기고 관련·추천 논문, 지표·인용 수, 광고, 공유, 뉴스레터, 메뉴, 머리말·꼬리말은 빠진다. intake 가 이 파일로 source.md 를 만들고 원문상태를 '전문(웹 본문, PDF 없음)' 으로 둔다. 구독 밖이라 초록만 보이는 페이지에는 쓰지 않는다(글이 짧으면 ok false).
 5. **간격과 양**: 같은 출판사 안에서는 한 편씩 받는다. ScienceDirect는 본문·SI 파일의 다운로드 완료를 확인한 시각부터 30초를 기다린 뒤 다음 논문을 연다. 다운로드가 30초 전에 끝나도 이 대기 시간을 줄이지 않는다. 다른 웹 사이트는 한 편이 끝나면 바로 다음 논문으로 간다. 출판사당 한 번에 수십 편 이내로 나눈다. 탭은 하나만 쓰고, 그 탭을 화면 앞에 둔 채 순서대로 받는다(2026-09-26 사용자 확정). 여러 탭이나 여러 창을 번갈아 쓰는 방식은 쓰지 않는다. 시험 결과 시간 이득이 18편에 1~3분에 그쳤고, 뒤쪽 탭에서는 클릭이 빗나가고 연결이 끊겼으며, 확장은 탭을 앞으로 가져오거나 창을 옮길 수 없다(references/web_download_playbook.md 4절).
 6. **마무리**: 작업이 끝나면 연 탭을 모두 닫는다.
-7. **중단 뒤 재개**: 탭이 닫혔거나 세션이 끊겼으면 `intake` → `status` → `assist` 순으로 돌린다. 받아 둔 파일이 정리되고 남은 논문만 목록에 남는다. 확장이 새로 만드는 Chrome 창은 뒤에 열리므로 사용자에게 앞으로 가져와 달라고 한 뒤 이어서 받는다(references/web_download_playbook.md 5절).
+7. **중단 뒤 재개**: 탭이 닫혔거나 세션이 끊겼으면 `intake` → `status` → `assist` 순으로 돌린다. 받아 둔 파일이 정리되고 남은 논문만 목록에 남는다. 확장이 새로 만드는 Chrome 창은 뒤에 열리므로 사용자에게 앞으로 가져와 달라고 한 뒤 이어서 받는다(references/web_download_playbook.md 5절). 사용자가 웹 수집을 취소하면 재개하지 않는다. 받은 파일만 `intake` 하고 부분 색인을 만든 뒤 남은 `human_required` 와 웹 목록은 보존한다. 취소를 `out_of_scope` 나 수집 실패로 표시하지 않는다.
 
 사용자가 직접 받겠다고 하면 목록(`_collect/manual_download.csv` 의 url·save_to)을 전달한다. 평소처럼 받아 다운로드 폴더에 두면 `intake` 로 정리한다.
 
@@ -326,7 +326,7 @@ python scripts/sci_collect.py refs --kb-root <root> --source <PDF 경로 | 링�
 - Crossref 참고문헌(논문 순서)과 OpenAlex 인용 목록을 합쳐 `_collect/refs_<원 논문>.txt` 에 저장한다. 둘 다 비었을 때만 PDF 참고문헌에 적힌 DOI 를 쓴다. 출판사 페이지에는 요청하지 않는다.
 - **목록은 한 줄에 `번호<TAB>DOI` 이고, 번호는 원 논문의 참고문헌 번호다**(2026-09-27 사용자 지시). Crossref 목록 순서가 번호다. OpenAlex 가 더 찾아 준 DOI 는 Crossref 의 DOI 없는 항목과 제목(또는 연도·권·첫 쪽)으로 맞춰 번호를 찾고, 못 찾으면 `00`(번호 모름)이다. PDF 만 있을 때는 참고문헌 줄 머리의 번호(`12.`·`[12]`)가 1부터 이어질 때만 쓴다.
 - resolve 가 이 번호를 이름 앞에 붙인다: paper_id·폴더·PDF·SI 파일 이름이 `07_2021_ACS-Catal_Cheng`, `07_2021_ACS-Catal_Cheng.pdf` 처럼 참고문헌 번호로 시작한다(자릿수는 가장 큰 번호에 맞춤, 최소 두 자리). 색인(index.csv) 맨 왼쪽 열은 '참고문헌 번호' 다. 사용자가 원 논문의 참고문헌 목록과 바로 맞춰 볼 수 있다.
-- 참고문헌 수집은 원 논문마다 새 폴더에서 한다(5.0, 예: `<주제>\<원 논문>_refs`). 이미 목록에 있던 논문은 이름을 바꾸지 않는다(id 동결) — 번호는 색인 열에만 들어가고 resolve 가 알린다.
+- 참고문헌 수집은 원 논문마다 새 폴더에서 한다(5.0, 예: `<주제>\<원 논문>_refs`). 원 논문 PDF 가 기존 수집 폴더에 있어도 `refs`·`resolve`·`collect`·`index` 의 `--kb-root` 는 새 폴더로 통일한다. 이미 목록에 있던 논문은 이름을 바꾸지 않는다(id 동결) — 번호는 색인 열에만 들어가고 resolve 가 알린다.
 - DOI 가 없는 참고문헌(책, 학위논문, 옛 논문 등)은 빠진다. 몇 개가 빠졌는지 그 번호와 함께 사용자에게 알린다(목록 머리와 출력에 번호가 적힌다). 원 논문 자체는 목록에 넣지 않는다.
 - `--limit N` 은 앞에서 N개만 넣는다(시험, 또는 사용자가 일부만 원할 때).
 - 그 파일로 5.1(resolve)부터 평소처럼 한다. 사용자가 "모두" 라고 했으면 편수와 관계없이 주제 확인·사전 분류를 하지 않는다.
@@ -345,7 +345,7 @@ python scripts/sci_collect.py refs --kb-root <root> --source <PDF 경로 | 링�
 | Wiley | TDM 토큰 없음 | 웹 다운로드 | 30~60초 | - |
 | Springer | - | 파이썬 | 2초 | - |
 | Nature | - | 파이썬 | 15초 | - |
-| MDPI | - | 파이썬 | 2초 | - |
+| MDPI | - | 웹 다운로드 | 추가 대기 없음 | 첫 자동 요청 403 확인 후 웹 경로를 기본으로 변경 |
 | Frontiers | - | 파이썬 | 5초 | - |
 | PLOS | - | 파이썬 | 5초 | - |
 | Beilstein | - | 파이썬 | 5초 | - |
@@ -378,7 +378,7 @@ python scripts/sci_collect.py refs --kb-root <root> --source <PDF 경로 | 링�
 | Science | 10.1126 | 없음, 바로 웹 경로 | 제목 아래 오른쪽 빨간 PDF 아이콘 → 열린 온라인 보기의 오른쪽 위 둥근 다운로드 아이콘. 또는 도구 막대 눈 아이콘 "View Options" → "DOWNLOAD PDF". SI 는 Supplementary Material 의 "DOWNLOAD" | 30~60초 (한 편 처리 시간, 따로 기다리지 않음) | 아래쪽 뉴스레터 안내는 닫기. PDF 가 없는 웹 전용 글(Expert Voices 등)은 5.5 의 웹 본문 저장 |
 | Springer | 10.1007, 10.1023 | 직접 PDF + HTML + SI | 자동 실패한 논문만 | 2초 | |
 | Nature | 10.1038 | 논문 페이지 + PDF + SI | 자동 실패한 논문만 | 15초 | 갓 나온 논문은 페이지에 초록만 있고 PDF 주소가 HTML 로 응답해 실패로 남는다(2026-09-26). 며칠 뒤 `collect --ids <id> --force` |
-| MDPI | 10.3390 | 직접 PDF + HTML + SI | 자동 실패한 논문만: "Download ▾" → "Download PDF"("with Cover" 아님, playbook 3.13) | 2초 | 모두 OA. 자동 요청을 막는 날이 있다(2026-09-27 첫 요청 403 → 도구가 나머지를 요청 없이 웹 경로로). 사용자 Chrome 에서는 바로 열린다 |
+| MDPI | 10.3390 | 없음, 바로 웹 경로 (`web_only_publishers`) | "Download ▾" → "Download PDF"("with Cover" 아님), SI 는 Supplementary Materials 확인(playbook 3.13) | 별도 대기 없음 | 모두 OA. 2026-09-28 첫 자동 요청 403 확인 후 기본 웹 경로로 변경. 파이썬 직접 수집 코드는 비기본 경로로 보존 |
 | Frontiers, PLOS, Beilstein, Copernicus, APS, Cambridge | 10.3389, 10.1371, 10.3762, 10.5194, 10.1103, 10.1017 | 논문 페이지 + PDF + SI (일반 경로, 이름만 붙임) | 자동 실패한 논문만 | 5초 | 2026-09-26 확인: 사이트마다 3편을 5초 간격으로, 일곱 사이트 동시에 받아 차단 없음. 한 편 완료 간격 4~11초, PDF 가 8~11 MB 인 Beilstein·Copernicus 는 23~54초. APS 는 KIST 구독 저널(Phys. Rev. B)만 받히고 Phys. Rev. D·Applied·PRL 은 페이지에 PDF 링크가 없다(구독 밖일 수 있음 → 웹 목록에 넣어 확인, 구독 밖이면 `mark --status abstract_only`). 2026-09-27: PLOS SI(`type=supplementary`, Word 가 많음)·Copernicus SI(`-supplement.pdf`)를 자동으로 받는다. APS SI 는 목록 페이지를 스크립트가 그려 자동으로 못 받으므로 웹 목록에 SI 항목으로 올라간다. 게재 전 논문(`/accepted/`)은 PDF 가 없어 초록만(playbook 3.17) |
 | Taylor & Francis, PNAS, AIP, Oxford, IEEE | 10.1080, 10.1073, 10.1063, 10.1093, 10.1109 | 없음, 바로 웹 경로 (설정 `web_only_publishers`, 2026-09-26 실측 403·202) | playbook 3.7~3.11. T&F·PNAS·ChemRxiv 는 페이지 아래 "Download PDF", AIP 는 도구 막대 "PDF"(새 탭), Oxford 는 상단 "PDF", IEEE 는 "PDF" → "열기". Oxford 는 첫 편에서 Cloudflare 확인 화면을 스스로 통과(약 7초, 둘째 편부터 1~2초). PNAS 는 2026-09-26 에 같은 화면을 거쳤고 2026-09-27 4편은 거치지 않았다. IEEE SI 는 본문 끝 "Supplemental Items" 버튼 → 파일 카드 | 30~60초 (한 편 처리 시간, 따로 기다리지 않음) | 상황이 바뀌면 설정에서 뺀다 |
 | 그 외 | | 논문 페이지 + PDF 후보 + SI. 사이트(호스트)별로 한 번 막히면 그 사이트의 나머지는 요청하지 않고 웹 경로. 막힌 논문 자체도 웹 경로 대상으로 표시. 페이지에 PDF 링크가 없고 본문이 짧으면 '구독 밖일 수 있음' 으로 웹 경로 대상 | 막힌 논문 (playbook 3.15 CCS·처음 보는 사이트 순서, 3.16 De Gruyter) | 5초 | 2026-09-27: CCS Chemistry(chinesechemsoc.org) 403, De Gruyter(degruyterbrill.com) 202 로 막혀 웹 경로 |
@@ -478,7 +478,7 @@ python scripts/sci_collect.py doctor --kb-root D:/papers/my_topic
 python scripts/sci_collect.py resolve --kb-root D:/papers/my_topic --input D:/papers/my_topic/dois.txt
 ```
 
-출력 예시: elsevier 4 (oa 1), wiley 3, acs 2, mdpi 2, thieme 1. 사용자에게 "Elsevier OA 1편과 Wiley·MDPI 5편은 자동, Elsevier 구독 3편과 ACS 2편은 평소 쓰시는 Chrome 에서 받아야 하고, Thieme 1편은 초록만" 이라고 알린다.
+출력 예시: elsevier 4 (oa 1), wiley 3, acs 2, mdpi 2, thieme 1. 사용자에게 "Elsevier OA 1편과 Wiley 3편은 자동, Elsevier 구독 3편과 ACS 2편·MDPI 2편은 평소 쓰시는 Chrome 에서 받아야 하고, Thieme 1편은 초록만" 이라고 알린다.
 
 ```bash
 python scripts/sci_collect.py collect --kb-root D:/papers/my_topic
