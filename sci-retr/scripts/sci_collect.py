@@ -354,6 +354,30 @@ def norm_doc_type(s: str) -> str:
     return "review" if "review" in parts else parts[0]
 
 
+SI_SKIP_TYPES = {"review", "review article", "perspective", "news & views", "news and views", "news-and-views"}
+SI_SKIP_HEADING = re.compile(r"^(?:review(?: summary| article)?|perspective|news\s*(?:&|and)\s*views)$", re.I)
+
+
+def skip_si_for_paper(ctx: Ctx, pid: str) -> bool:
+    """기사 유형이 확인된 Review·Perspective·News & Views 는 본문만 수집한다.
+
+    OpenAlex 가 이 유형을 article 로 기록하기도 하므로 저장된 PDF 첫 쪽의
+    독립적인 기사 유형 머리표도 확인한다. 제목 속 낱말만으로는 판정하지 않는다.
+    """
+    row = next((r for r in ctx.registry.values() if r.get("paper_id") == pid), {})
+    if norm_doc_type(row.get("doc_type", "")) in SI_SKIP_TYPES:
+        return True
+    pdf = ctx.papers_root() / pid / "pdf" / f"{pid}.pdf"
+    if not pdf.exists():
+        return False
+    try:
+        with fitz.open(pdf) as doc:
+            lines = [line.strip() for line in doc[0].get_text().splitlines()[:12]]
+        return any(SI_SKIP_HEADING.fullmatch(line) for line in lines if line)
+    except Exception:
+        return False
+
+
 def read_doc_types(inputs: list[str]) -> dict:
     """WoS·Scopus 내보내기 파일의 문서 유형(WoS DT, Scopus Document Type)을 DOI 별로 읽는다. 그런 열이 없으면 빈 dict."""
     types: dict[str, str] = {}
@@ -961,6 +985,8 @@ def si_name(pid: str, k: int, ext: str) -> str:
 
 def save_si(ctx: Ctx, pid: str, fetch, links: list[str], manual_url: str = "") -> int:
     """SI 를 받은 형식 그대로 pdf/ 폴더에 {pid}_SI*.{ext} 로 저장. 거부·빈 응답·HTML 이 온 링크는 우회하지 않고 직접 다운로드 목록에 올린다."""
+    if skip_si_for_paper(ctx, pid):
+        return 0
     import hashlib
     d = paper_dir(ctx, pid) / "pdf"
     n, failed = 0, []
@@ -1028,6 +1054,8 @@ SI_MENTION_RE = re.compile(r"supporting information|supplementary (information|m
 
 def si_mentioned(ctx: Ctx, pid: str) -> bool:
     """source.md 본문에 SI 언급이 있는가. 읽지 못하면 확인하게 둔다(참)."""
+    if skip_si_for_paper(ctx, pid):
+        return False
     try:
         text = (ctx.papers_root() / pid / "source.md").read_text(encoding="utf-8", errors="ignore").split("## Full Text", 1)[-1]
     except Exception:
@@ -1041,6 +1069,8 @@ ELS_OBJ_RE = re.compile(rb'<object\b[^>]*\bref="(mmc\d+)"[^>]*>([^<]+)</object>'
 def elsevier_api_si(ctx: Ctx, row: dict, xml: bytes, hdr: dict) -> int:
     """Elsevier API XML 의 SI 목록(<object ref="mmcN">, Object Retrieval API 주소)을 같은 키로 받는다.
     XML 에 SI 가 없으면 SI 가 없는 논문이다. 받지 못한 것은 논문 페이지를 SI 확인 행으로 (2026-09-27 Codex 검증: API 경로가 SI 를 찾지 않음)."""
+    if skip_si_for_paper(ctx, row["paper_id"]):
+        return 0
     links = list(dict.fromkeys(htmlmod.unescape(u.decode("utf-8", "ignore")).strip() for _, u in ELS_OBJ_RE.findall(xml or b"")))
     if not links:
         return 0
@@ -2125,7 +2155,7 @@ def update_manual_csv(ctx: Ctx, new_rows: list[dict]) -> Path:
         keep = [r for r in rows.values()
                 if not saved(r) and r.get("paper_id") not in closed
                 and not (r.get("paper_id") in full and str(r.get("save_to", "")).endswith(f"{r.get('paper_id')}.pdf"))
-                and not (r.get("paper_id") in si_none and is_si_row(r))]
+                and not (is_si_row(r) and (r.get("paper_id") in si_none or skip_si_for_paper(ctx, r.get("paper_id", ""))))]
         keep.sort(key=lambda r: (web_order(ctx, r.get("publisher") or ""), r.get("paper_id") or "", is_si_row(r)))   # 확인 창이 잦은 사이트 먼저
         with open(p, "w", encoding="utf-8-sig", newline="") as f:
             w = csv.DictWriter(f, fieldnames=MANUAL_FIELDS, extrasaction="ignore")
@@ -2163,12 +2193,16 @@ def manual_si_rows(ctx: Ctx) -> list[dict]:
 def write_manual_list(ctx: Ctx, rows: list[dict], reason: str) -> Path:
     """본문 PDF 직접 다운로드 목록 (논문 페이지 URL + 저장 경로)."""
     new = [{"paper_id": r["paper_id"], "publisher": r["publisher"], "title": r.get("title", ""), "url": manual_url(r),
-            "save_to": str(paper_dir(ctx, r["paper_id"]) / "pdf" / f"{r['paper_id']}.pdf"), "reason": reason} for r in rows]
+            "save_to": str(paper_dir(ctx, r["paper_id"]) / "pdf" / f"{r['paper_id']}.pdf"),
+            "reason": reason + ("; 기사 유형 정책: 본문만 수집, SI 생략" if skip_si_for_paper(ctx, r["paper_id"]) else "")}
+           for r in rows]
     return update_manual_csv(ctx, new)
 
 
 def add_manual_si(ctx: Ctx, pid: str, urls: list[str], start: int = 1) -> Path:
     """받지 못한 SI 링크를 직접 다운로드 목록에 추가. 저장 이름은 이미 받은 SI 다음 번호부터."""
+    if skip_si_for_paper(ctx, pid):
+        return update_manual_csv(ctx, [])
     row = next((r for r in ctx.registry.values() if r.get("paper_id") == pid), {})
     d = paper_dir(ctx, pid) / "pdf"
     new = [{"paper_id": pid, "publisher": row.get("publisher", ""), "title": row.get("title", ""), "url": u,
@@ -2182,7 +2216,7 @@ def add_si_check_row(ctx: Ctx, pid: str, url: str, reason: str) -> None:
     """본문은 받았지만 SI 는 확인하지 못한 논문: 논문 페이지를 SI 자리로 웹 목록에 올린다.
     웹에서 SI 를 받거나(intake), 없으면 mark --si-none 으로 닫는다. 보고 블록의 'SI 만 받을 행' 에 잡힌다."""
     d = paper_dir(ctx, pid) / "pdf"
-    if any(d.glob(f"{pid}_SI*")) or pid in read_si_none(ctx):
+    if any(d.glob(f"{pid}_SI*")) or pid in read_si_none(ctx) or skip_si_for_paper(ctx, pid):
         return
     row = next((r for r in ctx.registry.values() if r.get("paper_id") == pid), {})
     update_manual_csv(ctx, [{"paper_id": pid, "publisher": row.get("publisher", ""), "title": row.get("title", ""), "url": url,

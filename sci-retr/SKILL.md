@@ -209,6 +209,7 @@ python scripts/sci_collect.py collect --kb-root <root>
 - 웹 전용 출판사(ACS·RSC·Science·ECS/IOP), 토큰 없는 Wiley, OA 가 아닌 Elsevier 구독 논문은 요청하지 않고 바로 웹 경로 대상으로 표시한다. 그 밖의 출판사도 첫 논문에서 막히면 나머지를 요청하지 않는다.
 - Elsevier OA 논문은 API 로 받는다. API 한도에 걸리면(429) 그 자리에서 멈추고 남은 논문은 다음 collect 로 미룬다.
 - API 경로의 SI: Elsevier API 는 XML 에 적힌 SI(`mmc`)를 같은 키로 받는다. 받지 못하면 논문 페이지를 웹 목록의 SI 행으로 올린다. 저장소 사본이나 Wiley TDM 으로 본문만 받았는데 본문에 SI 언급(Supporting Information, Figure S1 등)이 있으면 논문 페이지를 'SI 확인' 행으로 올린다(2026-09-27 Codex 검증: API 경로가 SI 를 찾지 않아 Wiley 1편의 SI 가 빠졌다). 이 행은 5.5 에서 SI 만 받거나, 없으면 `mark --si-none` 으로 닫는다.
+- **기사 유형별 SI 생략**: Review·News & Views·Perspective는 본문 PDF·텍스트를 평소대로 수집하고 SI 검색·다운로드·'SI 확인' 웹 행만 생략한다. 유형은 WoS·Scopus `doc_type`, 논문 페이지의 기사 분류, PDF 첫 쪽의 독립적인 유형 머리표로 확인한다. 제목에 review·perspective라는 단어가 있다는 이유만으로 생략하지 않는다. 이런 기사에도 SI가 있을 수 있으므로 `mark --si-none`(SI가 없음을 확인했다는 뜻)을 쓰지 않는다. 이미 받은 SI 파일은 삭제하지 않는다.
 - `--input` 을 함께 주면 resolve 를 겸한다. `--ids` 또는 `--publishers elsevier,rsc` 로 범위를 좁힐 수 있고, `--force` 는 이미 받은 것도 다시 받는다.
 - 출력 한 줄이 논문 한 편이다. 표시: `OK` 전문, `ABS` 초록만, `USR` 웹 경로 대상, `NOPDF` 텍스트만 확보, `FAIL` 실패. 끝에 상태별 편수 요약과 `=== 보고용 요약 ===` 블록(출판사별 편수, SI 수, 실패 사유, 색인 판단, 머리표)이 나온다. 웹 경로 목록 `_collect/manual_download.csv` 도 이때 함께 만들어지므로 `assist` 를 따로 돌리지 않아도 된다.
 
@@ -222,7 +223,7 @@ python scripts/sci_collect.py collect --kb-root <root>
 python scripts/sci_collect.py assist --kb-root <root>
 ```
 
-2. **목록 보고 후 바로 진행**: 출판사별로 받을 논문과 파일(본문 PDF, SI)을 진행 상황으로 한 번에 알릴 수 있지만 답을 기다리지 않는다. 최초 수집 명령이 웹 다운로드와 CAPTCHA·확인 창 처리까지 승인한다. Chrome 설정 두 가지(3.1)는 `doctor` 로 확인한다. 작업용 Chrome 창이 화면 뒤쪽에 열리면 앞으로 가져와 달라고 미리 안내한다. 예상 시간은 한 편에 1~2분으로 말한다(요령이 있는 사이트는 1분 안팎, 처음 다루는 사이트는 2분 이상).
+2. **목록 보고 후 바로 진행**: 출판사별로 받을 논문과 파일(본문 PDF, 대상 기사의 SI)을 진행 상황으로 한 번에 알릴 수 있지만 답을 기다리지 않는다. Review·News & Views·Perspective는 본문만 받으며, 웹 페이지의 기사 분류가 `doc_type`보다 구체적이면 그 분류를 따른다(5.4). 최초 수집 명령이 웹 다운로드와 CAPTCHA·확인 창 처리까지 승인한다. Chrome 설정 두 가지(3.1)는 `doctor` 로 확인한다. 작업용 Chrome 창이 화면 뒤쪽에 열리면 앞으로 가져와 달라고 미리 안내한다. 예상 시간은 한 편에 1~2분으로 말한다(요령이 있는 사이트는 1분 안팎, 처음 다루는 사이트는 2분 이상).
 3. **받기**: Claude in Chrome 확장으로 사용자 Chrome 의 새 탭에서 논문 주소를 연다. 한 편씩 진행한다. 그 Chrome 창은 화면 앞에 두고 수집 중에는 건드리지 않는다. 다른 모니터나 다른 프로그램은 써도 되지만, 그 창이 다른 창에 완전히 덮이거나 최소화되면 스크린샷이 안 되고 클릭이 빗나간다.
    - **웹 목록 전체를 전용 에이전트 `sci-retr-web` 하나에 맡긴다**(2026-09-27 사용자 결정). 프롬프트: `kb-root: <root>. skill 폴더: <이 skill 폴더>. Chrome deviceId: <list_connected_browsers 에서 onThisComputer 인 것>. 웹 목록을 끝까지 받아 줘.` (연결된 Chrome 이 둘 이상이면 에이전트 쪽에는 이 컴퓨터 표시가 없을 수 있다 — 2026-09-27 시험에서 묻고 멈춤) 도구를 Chrome·Bash·Read 로 좁히고 모델 sonnet·추론 medium 으로 정의돼 있다(`agents/sci-retr-web.md`, 설치 스크립트가 `~/.claude/agents/` 로 복사, 새 대화부터 인식). 묶음마다 새 에이전트를 띄우지 않는다 — 지침과 스크립트를 한 번만 읽는다(묶음마다 다시 읽는 데 4~8분). 범용 에이전트는 쓰지 않는다(도구 설명 약 7만 토큰을 호출마다 싣고 대화의 추론 수준을 그대로 이어받는다). 에이전트가 없으면(설치 전 대화, Codex) 메인이 직접 받는다.
    - 목록은 확인 창이 잦은 사이트가 앞에 온다(설정 `web_first_publishers`). 확인 창이 뜨면 에이전트는 **그 탭을 닫거나 옮기지 않고 직접 통과를 시도하며**, 기다리는 동안 다른 출판사를 새 탭에서 받는다(2026-09-27 6편 시험: 탭을 옮기면 확인 화면이 사라져 통과할 수 없었다). 이때만 탭이 둘이 된다. Codex 는 DOM 도구에 CAPTCHA가 보이지 않으면 같은 사용자 Chrome의 Computer Use로 화면을 읽고 클릭하며, 사용자에게 승인이나 대리 클릭을 요청하지 않는다.
