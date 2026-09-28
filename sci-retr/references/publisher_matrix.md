@@ -14,7 +14,7 @@
 
 ## ★ 사용자 평소 Chrome 에서 받기 — 2026-09-24 연습 결과 (Elsevier·RSC·ACS·Wiley·Science·ECS/IOP 각 1편)
 
-**2026-09-25 확정 규칙 (사용자 지시)**: (1) Elsevier API 는 OA 논문에만 쓴다. OA 가 아닌 구독 논문에는 API 를 호출하지 않는다. OA 논문은 키로 바로 빠르게 받는다는 점과 발급 주소 https://dev.elsevier.com/ 를 사용자에게 알린다. API 속도: 공식 한도 키당 초당 10회·주 50,000회(https://dev.elsevier.com/api_key_settings.html, 초과 시 429), 도구는 논문당 2회 요청 + 논문 사이 3초. (2) ACS·RSC·Science·ECS/IOP 는 자동 요청을 보내지 않는다(설정 `web_only_publishers`). (3) 웹 경로는 같은 출판사 안에서 한 편씩 받되, 논문 사이에 따로 기다리지 않는다(처음 정한 30초 간격은 같은 날 사용자 지시로 폐지). (4) SI 는 문서(PDF, Word)만 받는다. 동영상, 결정 구조 파일(CIF 등), 압축 파일(zip 등), 스프레드시트(Excel, CSV 등)는 받지 않는다(설정 `si_skip_exts`).
+**현재 규칙 (2026-09-28 갱신, 사용자 지시)**: (1) Elsevier API 는 OA 논문에만 쓴다. OA 가 아닌 구독 논문에는 API 를 호출하지 않는다. OA 논문은 키로 바로 빠르게 받는다는 점과 발급 주소 https://dev.elsevier.com/ 를 사용자에게 알린다. API 속도: 공식 한도 키당 초당 10회·주 50,000회(https://dev.elsevier.com/api_key_settings.html, 초과 시 429), 도구는 논문당 2회 요청 + 논문 사이 3초. (2) ACS·RSC·Science·ECS/IOP 는 자동 요청을 보내지 않는다(설정 `web_only_publishers`). (3) 웹 경로는 같은 출판사 안에서 한 편씩 받는다. ScienceDirect는 본문·SI 다운로드 완료 뒤 30초를 추가로 기다리고 다음 논문을 연다. 다른 사이트에는 별도 대기가 없다. (4) SI 는 문서(PDF, Word)만 받는다. 동영상, 결정 구조 파일(CIF 등), 압축 파일(zip 등), 스프레드시트(Excel, CSV 등)는 받지 않는다(설정 `si_skip_exts`).
 
 **출판사 텍스트 마이닝 신청 창구 (2026-09-25 조사, SKILL.md 요약표 메모의 상세)**:
 - Elsevier: 기관 API 키(Elsevier 공식 명칭은 institutional token, insttoken — API 키와 함께 보내는 추가 토큰이며 API 키에 묶임) 발급 요청 거절됨(2026-09). 신청 메일 datasupportRD@elsevier.com (University of Calgary 도서관 안내: API 키를 적고 소속 기관 메일로 보낼 것). Elsevier 개발자 사이트 공식 경로는 지원 센터 문의 양식 https://service.elsevier.com/app/contact/supporthub/researchproductsapis/ . 개인 API 키는 https://dev.elsevier.com/ 에서 셀프 발급, OA 논문만 본문 제공.
