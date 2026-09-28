@@ -147,6 +147,7 @@ args = ["-y", "chrome-devtools-mcp@latest", "--autoConnect"]
 1. [웹 다운로드 요령](sci-retr/references/web_download_playbook.md)의 해당 출판사 절을 읽는다. 논문 제목·DOI 와 본문/SI 링크의 역할을 먼저 확인한다.
 2. `select_page` 로 작업 탭을 앞으로 가져오고 `take_snapshot` 을 읽는다. 다운로드할 요소를 최신 `uid` 로 특정한 뒤 `click` 한다. 메뉴 펼침·페이지 이동·늦은 로딩 뒤에는 snapshot 을 다시 받는다.
 3. 스크롤이 필요하면 `evaluate_script` 로 해당 요소에 `scrollIntoView({block:'center', behavior:'instant'})` 를 적용하고 화면을 확인한다. Claude playbook 의 좌표·배율을 그대로 넣지 않는다.
+   페이지마다 로딩과 링크 위치를 다시 읽어 클릭 시점·스크롤 횟수·이동량을 정한다. 고정된 클릭 간격이나 같은 좌표·스크롤 순서를 반복하지 않는다. 커서 제어가 가능한 도구에서는 확인한 대상으로 이동하고, 무관한 클릭·가짜 마우스 움직임은 넣지 않는다. 도구가 커서 경로를 제공하지 않으면 그 기능이 있다고 가정하지 않는다.
 4. 클릭이 안 되고 페이지에 실제 다운로드 링크가 있으면 **그 페이지에서 확인한 주소**로 같은 탭을 이동하는 방법을 검토한다. Elsevier SI·View PDF, ACS/RSC 의 `/article-pdf/`·`/article-supplement/`, IOP 본문 `/pdf` 는 Claude 쪽 주소 이동 사례다. Codex 성공을 보장하는 목록은 아니다.
 5. IOP SI 의 서명 링크는 `/data` 목록에서 클릭한다. Science 본문은 playbook 의 온라인 보기 또는 View Options 경로를 쓴다. 주소를 추측하거나 토큰을 떼어 새 다운로드 요청을 만들지 않는다.
 
