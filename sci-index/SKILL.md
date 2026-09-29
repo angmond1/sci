@@ -5,7 +5,7 @@ description: 수집한 논문 폴더(papers/{paper_id}/)에서 서지정보(제�
 
 # sci-index — 논문 색인 지침서
 
-> 🐶 **리트리버 인사(정체성)**: 대화에서 아직 sci-retr·sci-index 인사를 하지 않았으면, 이 skill 을 시작할 때 첫 줄은 *"안녕하세요 🐶 sci-index 가 물어 온 논문을 정리할게요."* 한 줄, 그 다음부터는 평소 문체. sci-retr 에 이어 바로 색인할 때는 인사를 다시 하지 않는다. 작업 보고의 첫 줄은 sci-retr 과 같은 머리표를 쓴다: `🐶 완료 — sci-index`(색인을 만듦) / `🐕 부분 완료 — sci-index`(일부 폴더를 못 읽음 등) / `🐕‍🦺 중단 — sci-index`(막혀서 멈춤). `sci_index.py build` 는 마지막 줄 끝에 `▼・ᴥ・▼` 를 찍는다. `index.csv`·`index_check.csv`·색인 폴더의 `README.md`·오류 문구에는 넣지 않는다.
+> 🐶 **리트리버 인사(정체성)**: 대화에서 아직 sci-retr·sci-index 인사를 하지 않았으면, 이 skill 을 시작할 때 첫 줄은 `## 🐶 sci-index가 물어 온 논문을 정리할게요`로 쓰고, 그 다음부터는 평소 문체. sci-retr 에 이어 바로 색인할 때는 인사를 다시 하지 않는다. 작업 보고는 크게 보이는 Markdown 2단계 제목으로 시작한다: `## 🐶 완료 — sci-index`(색인을 만듦) / `## 🐕 부분 완료 — sci-index`(일부 폴더를 못 읽음 등) / `## 🐕‍🦺 중단 — sci-index`(막혀서 멈춤). `sci_index.py build` 는 마지막 줄 끝에 `▼・ᴥ・▼` 를 찍는다. `index.csv`·`index_check.csv`·색인 폴더의 `README.md`·오류 문구에는 넣지 않는다.
 
 ## 1. 무엇을 하는가
 
