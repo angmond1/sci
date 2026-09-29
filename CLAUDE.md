@@ -50,11 +50,16 @@
 
 스크립트가 하는 일은 네 단계다.
 1. 필요한 프로그램 확인과 설치: Python 3.11 이상, Google Chrome (Step 0 표).
-2. `sci-retr`, `sci-index`, `sci-tldr` 를 `~/.claude/skills/` 로 복사하고, 한 줄 요약 전용 에이전트 `sci-tldr/agents/sci-tldr-writer.md` 와 웹 다운로드 전용 에이전트 `sci-retr/agents/sci-retr-web.md` 를 `~/.claude/agents/` 로 복사(Codex 설치 때는 하지 않음).
+2. `sci-retr`, `sci-index`, `sci-tldr` 를 `~/.claude/skills/` 로 복사하고, 한 줄 요약 전용 에이전트 `sci-tldr/agents/sci-tldr-writer.md` 와 웹 다운로드 전용 에이전트 `sci-retr/agents/sci-retr-web.md` 를 `~/.claude/agents/` 로 복사(Codex 설치 때는 하지 않음). 세 skill 을 대상 폴더 안의 임시 폴더(`.sci-retr-install-…`)에 모두 준비한 뒤 기존 설치본과 바꾸고, 중간에 실패하면 기존 설치본으로 되돌린다. 기존 `token.txt`·`python.txt` 는 그대로 옮긴다. 패키지 원본 폴더와 설치 대상이 겹치면(예: `-Dest` 를 패키지 안으로 줌) 멈춘다.
 3. 파이썬 패키지(requests, pymupdf, truststore, beautifulsoup4, lxml, openpyxl, xlrd, playwright) 설치. 권한 문제면 `--user` 로 다시 한다. macOS/Linux 에서 시스템 Python 에 pip 이 없거나(Ubuntu 24.04 기본 상태) 설치를 막으면 `~/.sci-retr/venv` 가상환경에 설치한다.
 4. 환경 점검(`doctor`) 실행. Claude in Chrome 확장이 없으면 Chrome 웹스토어 페이지를 연다.
 
-출력 끝의 `▼・ᴥ・▼  sci-retr 설치 완료` 와 점검 결과를 읽고, `[문제]` 로 나온 것과 새로 설치한 프로그램을 사용자에게 알린다. 프로그램을 설치하지 않고 확인만 하려면 `-NoAutoInstall`(install.sh 는 `--no-auto-install`). 이후 명령은 설치 스크립트가 `sci-retr/python.txt` 에 적어 둔 Python 으로 실행한다(가상환경에 설치했으면 `~/.sci-retr/venv/bin/python`). `ModuleNotFoundError` 가 나면 다른 인터프리터(`py -3.12`, `python3.12` 등)로 같은 명령을 다시 시도한다.
+점검이 **문제 0** 일 때만 출력 끝에 `▼・ᴥ・▼  sci-retr 설치 완료` 가 나온다. 점검 결과와 새로 설치한 프로그램을 사용자에게 알린다.
+- `[문제]` 가 하나라도 있으면 스크립트는 "skill 파일은 설치했지만 환경 점검을 통과하지 못했습니다" 로 끝난다(종료 코드 1). 설치 실패가 아니다. skill·에이전트·파이썬 패키지와 `python.txt` 는 이미 들어가 있다. 새 PC 에서 가장 흔한 원인은 Chrome 의 PDF 기본값('Chrome 에서 열기')이다. `[문제]` 줄을 사용자에게 알려 고치게 하고(Chrome 설정은 Step 4), 설치 스크립트 전체가 아니라 Step 6 의 `doctor` 만 다시 돌려 문제 0 을 확인한다. 이때는 스크립트의 끝 안내('이렇게 시작하세요')가 나오지 않으므로 Step 5 안내는 에이전트가 한다.
+- `기존 설치 백업을 보존했습니다: <경로>` 가 나오면 교체 중 오류로 이전 설치본을 되돌리지 못한 것이다. 그 경로를 사용자에게 알리고 지우지 않는다.
+- Python·Chrome 을 자동으로 설치하지 않게 하려면 `-NoAutoInstall`(install.sh 는 `--no-auto-install`). 없는 프로그램은 안내만 한다. 시험 실행은 아니어서 skill 복사·패키지 설치·점검은 그대로 한다.
+
+이후 명령은 설치 스크립트가 `sci-retr/python.txt` 에 적어 둔 Python 으로 실행한다(가상환경에 설치했으면 `~/.sci-retr/venv/bin/python`). 그냥 `python` 은 패키지가 없는 다른 Python 일 수 있다. `python.txt` 가 없는데 `ModuleNotFoundError` 가 나면 다른 인터프리터(`py -3.12`, `python3.12` 등)로 같은 명령을 다시 시도한다.
 
 ### Step 3 — 브라우저 도구 두 가지
 둘 다 사용자가 평소 쓰는 Chrome 에 붙인다. 도구가 따로 띄운 Chrome(별도 프로필)은 웹 경로에 쓰지 않는다. 그런 Chrome 에서는 Elsevier·Wiley 확인 창이 반복되고 RSC 는 PDF 가 거부됐다(2026-09-24 실측).
@@ -75,6 +80,7 @@ SKILL.md 5.5 와 전용 에이전트 `sci-retr-web` 이 이 확장으로 받는�
 5. 쓰임: 받는 순서는 3.1 의 확장으로 한다(SKILL.md 5.5). chrome-devtools 는 메인이 보조로 쓴다 — 같은 Chrome 에 붙었는지 확인(`list_pages`), 작업 탭을 앞으로 가져오기(`select_page` 의 `bringToFront`, 확장으로는 못 한다), 약 1,000자에서 잘리는 확장 스크립트 출력 대신 긴 결과 읽기(`evaluate_script`). 도구 이름 대응은 CODEX.md 3절 표.
 
 ### Step 4 — Chrome 설정 두 가지 (점검에서 [문제] 로 나올 때만, 사용자가 직접)
+새 PC 의 기본값이면 대개 PDF 설정이 `[문제]` 로 나오고, 그러면 Step 2 의 스크립트가 오류로 끝난다. 사용자에게 다음을 부탁하고, 바꿨다고 하면 Step 6 의 `doctor` 로 문제 0 을 확인한다.
 > "Chrome 에서 두 가지를 바꿔 주세요. ① `chrome://settings/content/pdfDocuments` 에서 'PDF 다운로드' 선택 ② `chrome://settings/downloads` 에서 '다운로드 전에 각 파일의 저장 위치 확인' 끄기. 이래야 PDF 가 저장 창 없이 다운로드 폴더로 바로 들어갑니다."
 
 ### Step 5 — 새 대화 안내 (반드시)
@@ -83,12 +89,15 @@ SKILL.md 5.5 와 전용 에이전트 `sci-retr-web` 이 이 확장으로 받는�
 > 이어서 알린다(2026-09-27 사용자 지시): "특정 주제의 논문 목록은 Web of Science 나 Scopus 에서 검색해 내보내기(Export)로 만들 수 있습니다. Web of Science: https://www.webofscience.com/wos/woscc/smart-search , Scopus: https://www.scopus.com/pages/home#basic"
 > 마지막으로 README 의 주의 두 가지: "웹 다운로드 중 확인 창(CAPTCHA)이 뜨면 알려 드릴 테니 그 탭에서 통과시켜 주세요. 처음 한두 번은 과정을 지켜보시면서 잘못된 점을 알려 주시면 좋습니다."
 
-### Step 6 — 점검 (사용자가 요청할 때)
-설치 스크립트가 이미 점검했으므로 따로 하지 않아도 된다. 사용자가 "sci-retr 점검해줘" 라고 하면 다음을 돌린다.
-`python ~/.claude/skills/sci-retr/scripts/sci_collect.py doctor --kb-root <논문 폴더>` 를 돌려(가상환경에 설치했으면 `python` 대신 `~/.sci-retr/venv/bin/python`) "문제 0" 을 확인한다. 논문 폴더를 아직 정하지 않았으면 `--kb-root` 에 임시 폴더(예: `%TEMP%\sci-retr-check`, macOS/Linux `/tmp/sci-retr-check`)를 준다. 논문 폴더는 수집할 때 정한다(SKILL.md 5.0). 문제가 있으면 출력의 안내대로 고친 뒤 다시 돌린다. 키·토큰(선택)은 수집 목록에 Elsevier OA·Wiley 논문이 있을 때 안내한다(SKILL.md 3.2.1). 값은 사용자가 skill 폴더의 `token.txt` 에 직접 넣고, 채팅창에는 절대 적지 않게 한다.
+### Step 6 — 점검 (사용자가 요청할 때, Step 2 가 점검 [문제] 로 끝났을 때)
+설치 스크립트가 문제 0 으로 끝났으면 따로 하지 않아도 된다. 사용자가 "sci-retr 점검해줘" 라고 하거나 Step 2 의 `[문제]` 를 고친 뒤에는 다음을 돌린다.
+`<python> ~/.claude/skills/sci-retr/scripts/sci_collect.py doctor --kb-root <논문 폴더>` 를 돌려 "문제 0" 을 확인한다. `<python>` 은 `~/.claude/skills/sci-retr/python.txt` 에 적힌 인터프리터다(가상환경에 설치했으면 `~/.sci-retr/venv/bin/python`). 논문 폴더를 아직 정하지 않았으면 `--kb-root` 에 임시 폴더(예: `%TEMP%\sci-retr-check`, macOS/Linux `/tmp/sci-retr-check`)를 준다. 논문 폴더는 수집할 때 정한다(SKILL.md 5.0). 문제가 있으면 출력의 안내대로 고친 뒤 다시 돌린다. 키·토큰(선택)은 수집 목록에 Elsevier OA·Wiley 논문이 있을 때 안내한다(SKILL.md 3.2.1). 값은 사용자가 skill 폴더의 `token.txt` 에 직접 넣고, 채팅창에는 절대 적지 않게 한다.
 
 ## 2. 실행
 사용자가 DOI 목록이나 "논문 받아줘" 라고 하면 `sci-retr` skill 지침(SKILL.md)을 따른다. 수집 전에 저장 폴더를 묻고 확인하며(5.0), 수집이 끝나면 편수와 관계없이 색인(sci-index, 몇 초)을 바로 만들고, 한국어 한 줄 요약(sci-tldr)은 한 번 물어 원할 때만 한다(5.7). 논문 PDF·링크를 주며 참고문헌 수집을 부탁하면 SKILL.md 5.10(`refs`).
+
+- 진행 상황은 세 시점에 `## 🐶 1. 수집 전략`(5.2), `## 🐶 2. 자동 수집 결과`(5.4), `## 🐶 3. 웹 수집 결과`(5.5) 제목으로 채팅에 알린다. 웹 수집 결과는 `sci-retr-web` 이 intake·status 까지 마치고 보고한 뒤에 쓴다.
+- 한 줄 요약을 만들었으면 끝난 뒤 논문마다 세 줄(번호·연도·저널·교신저자 / 제목 / 한줄요약)을 채팅에 모두 출력한다(sci-tldr 5절). 파일 링크나 편수만으로 끝내지 않는다.
 
 ### 2.1 Claude 에서 다르게 하는 것
 공용 SKILL.md·요령 문서의 아래 대목은 Codex 기준으로 적혀 있다(CODEX.md 3.2). Claude 에서는 이렇게 한다.
@@ -99,4 +108,4 @@ SKILL.md 5.5 와 전용 에이전트 `sci-retr-web` 이 이 확장으로 받는�
 - **Computer Use·ChatGPT Chrome 확장**: Codex 준비물이다. Claude 는 Step 3 의 두 도구를 쓴다.
 
 ## 3. 갱신
-`<root>` 에서 `git pull` 한 뒤 Step 2 의 설치 스크립트를 다시 실행한다. 설치본은 복사본이라 `git pull` 만으로는 바뀌지 않는다. 스크립트가 세 skill 과 전용 에이전트 두 개를 다시 복사하고, 새 대화부터 반영된다. chrome-devtools MCP 등록(Step 3.2)은 다시 하지 않는다. 설정과 `.env` 는 논문 폴더에 있고, 설치 스크립트는 skill 폴더의 `token.txt` 를 남겨 두므로 영향이 없다. 논문은 기본으로 `<root>\papers\<주제>` 에 쌓이고 git 이 무시하므로 `git pull` 에도 그대로다. `<root>` 폴더를 지우고 다시 받지 않는다(논문이 함께 지워진다).
+`<root>` 에서 `git pull` 한 뒤 Step 2 의 설치 스크립트를 다시 실행한다. 설치본은 복사본이라 `git pull` 만으로는 바뀌지 않는다. 스크립트가 세 skill 과 전용 에이전트 두 개를 다시 복사하고, 새 대화부터 반영된다. chrome-devtools MCP 등록(Step 3.2)은 다시 하지 않는다. 점검에 `[문제]` 가 있으면 갱신 때도 스크립트가 오류로 끝나므로 Step 2 와 같이 처리한다. 설정과 `.env` 는 논문 폴더에 있고, 설치 스크립트는 skill 폴더의 `token.txt`·`python.txt` 를 남겨 두므로 영향이 없다. 논문은 기본으로 `<root>\papers\<주제>` 에 쌓이고 git 이 무시하므로 `git pull` 에도 그대로다. `<root>` 폴더를 지우고 다시 받지 않는다(논문이 함께 지워진다).
