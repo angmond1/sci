@@ -124,9 +124,10 @@ def find_keywords(md: str) -> str:
         return "; ".join(dict.fromkeys(parts))[:300]
     parts = []
     for line in head[m.end():].splitlines()[1:]:
-        s = one_line(line).strip(" .;,")
-        if not s or len(s.split()) >= 8 or s.endswith(".") or s.lower().startswith(("1.", "1 ", "introduction", "abstract", "##", "#")):
+        raw = one_line(line)
+        if not raw or len(raw.split()) >= 8 or raw.endswith(".") or raw.lower().startswith(("1.", "1 ", "introduction", "abstract", "##", "#")):
             break
+        s = raw.strip(" .;,")
         parts.extend(p.strip() for p in re.split(r"[;,]", s) if p.strip())
         if len(parts) >= 15:
             break
@@ -261,7 +262,7 @@ def build_rows(kb_root: Path) -> tuple[list[dict], list[dict]]:
         words = count_words(md) if md else 0
         access = sj.get("access_status") or fm.get("access_status") or ""
         status = r.get("status") or ("full" if access == "fulltext" else access)
-        if access == "abstract_only":
+        if access == "abstract_only" and status != "out_of_scope":
             status = "abstract_only"
         if status in ("", "resolved") and (pdf.exists() or words >= 1500):
             status = "full"   # 레거시 폴더: 실물 기준

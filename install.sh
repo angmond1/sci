@@ -28,7 +28,7 @@ else
   DEST="$HOME/.claude/skills"; APP="Claude"
 fi
 EXT_URL="https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn"
-PACKAGES="requests pymupdf truststore beautifulsoup4 lxml openpyxl playwright"
+PACKAGES="requests pymupdf truststore beautifulsoup4 lxml openpyxl xlrd playwright"
 OS="$(uname -s)"
 INSTALLED=""
 export PYTHONIOENCODING=utf-8
@@ -89,17 +89,61 @@ fi
 
 echo "=== 2. skill 설치 ($APP)"
 mkdir -p "$DEST"
+ROOT="$(cd "$ROOT" && pwd -P)"
+DEST="$(cd "$DEST" && pwd -P)"
 for skill in sci-retr sci-index sci-tldr; do
   src="$ROOT/$skill"
   [ -f "$src/SKILL.md" ] || { echo "skill 폴더가 없습니다: $src" >&2; exit 1; }
-  KEEP=""
-  if [ -f "$DEST/$skill/token.txt" ]; then KEEP="$(mktemp)"; cp -p "$DEST/$skill/token.txt" "$KEEP"; fi   # 다시 설치해도 키·토큰 파일은 남긴다
-  rm -rf "$DEST/$skill"
-  mkdir -p "$DEST/$skill"
-  (cd "$src" && tar --exclude='_history' --exclude='__pycache__' --exclude='token.txt' --exclude='python.txt' -cf - .) | (cd "$DEST/$skill" && tar -xf -)
-  echo "설치: $DEST/$skill"
-  if [ -n "$KEEP" ]; then cp -p "$KEEP" "$DEST/$skill/token.txt"; rm -f "$KEEP"; echo "  키·토큰 파일(token.txt)은 그대로 두었습니다."; fi
+  to="$DEST/$skill"
+  if [ "$src" = "$to" ] || [[ "$src" == "$to/"* || "$to" == "$src/"* ]]; then
+    echo "패키지 원본과 설치 대상 경로가 겹칩니다: $src / $to" >&2; exit 1
+  fi
 done
+STAGE_ROOT="$(mktemp -d "$DEST/.sci-retr-install.XXXXXXXX")"
+BACKUP_ROOT="$STAGE_ROOT/backup"
+BACKED_UP=()
+PLACED=()
+COMMITTED=0
+cleanup_install() {
+  status=$?
+  trap - EXIT
+  set +e
+  rollback_ok=1
+  if [ "$COMMITTED" = 0 ]; then
+    for skill in "${PLACED[@]}"; do rm -rf "$DEST/$skill" || rollback_ok=0; done
+    for skill in "${BACKED_UP[@]}"; do mv "$BACKUP_ROOT/$skill" "$DEST/$skill" || rollback_ok=0; done
+  fi
+  if [ "$rollback_ok" = 1 ]; then
+    rm -rf "$STAGE_ROOT"
+  else
+    echo "기존 설치 복구가 끝나지 않았습니다. 백업: $BACKUP_ROOT" >&2
+    status=1
+  fi
+  exit "$status"
+}
+trap cleanup_install EXIT
+for skill in sci-retr sci-index sci-tldr; do
+  src="$ROOT/$skill"
+  stage="$STAGE_ROOT/$skill"
+  mkdir -p "$stage"
+  # 세 skill 의 복사와 token.txt 보존을 마친 뒤 기존 설치를 교체한다.
+  (cd "$src" && tar --exclude='_history' --exclude='__pycache__' --exclude='token.txt' --exclude='python.txt' -cf - .) | (cd "$stage" && tar -xf -)
+  [ -f "$stage/SKILL.md" ] || { echo "복사 결과에 SKILL.md 가 없습니다: $skill" >&2; exit 1; }
+  if [ -f "$DEST/$skill/token.txt" ]; then cp -p "$DEST/$skill/token.txt" "$stage/token.txt"; fi
+  if [ -f "$DEST/$skill/python.txt" ]; then cp -p "$DEST/$skill/python.txt" "$stage/python.txt"; fi
+done
+mkdir -p "$BACKUP_ROOT"
+for skill in sci-retr sci-index sci-tldr; do
+  if [ -e "$DEST/$skill" ] || [ -L "$DEST/$skill" ]; then
+    mv "$DEST/$skill" "$BACKUP_ROOT/$skill"
+    BACKED_UP+=("$skill")
+  fi
+  mv "$STAGE_ROOT/$skill" "$DEST/$skill"
+  PLACED+=("$skill")
+  echo "설치: $DEST/$skill"
+  if [ -f "$DEST/$skill/token.txt" ]; then echo "  키·토큰 파일(token.txt)은 그대로 두었습니다."; fi
+done
+COMMITTED=1
 if [ "$APP" = "Claude" ]; then
   # 한 줄 요약 전용 에이전트 (도구 Read·Write, sonnet). ~/.claude/agents 는 하위 폴더까지 읽으므로 이 파일 하나만 맨 위에 둔다
   mkdir -p "$HOME/.claude/agents"
@@ -139,7 +183,11 @@ echo "[확인] 이 skill 이 쓸 Python: $PY_EXE (sci-retr/python.txt 에 기록
 
 echo "=== 4. 환경 점검"
 CHECK_ROOT="${TMPDIR:-/tmp}/sci-retr-check"
-DOCTOR_OUT="$("$PY" "$DEST/sci-retr/scripts/sci_collect.py" doctor --kb-root "$CHECK_ROOT" 2>&1 || true)"
+if DOCTOR_OUT="$("$PY" "$DEST/sci-retr/scripts/sci_collect.py" doctor --kb-root "$CHECK_ROOT" 2>&1)"; then
+  DOCTOR_STATUS=0
+else
+  DOCTOR_STATUS=$?
+fi
 echo "$DOCTOR_OUT"
 echo "(위 root 는 점검용 임시 폴더입니다. 논문을 저장할 폴더는 수집을 시작할 때 정합니다.)"
 NEED_CHROME_SET=0
@@ -156,10 +204,14 @@ if [ "$CODEX" = 0 ] && echo "$DOCTOR_OUT" | grep -q "Claude in Chrome 확장 없
 fi
 
 echo ""
+N=1
+if [ "$DOCTOR_STATUS" -ne 0 ] || ! grep -Eq '^=== 점검 끝: 문제 0, 주의 [0-9]+' <<< "$DOCTOR_OUT"; then
+  echo "skill 파일은 설치했지만 환경 점검을 통과하지 못했습니다. 위의 [문제] 또는 오류를 고친 뒤 doctor 를 다시 실행하세요." >&2
+  exit 1
+fi
 echo "▼・ᴥ・▼  sci-retr 설치 완료"
 if [ -n "$INSTALLED" ]; then echo "새로 설치한 프로그램:$INSTALLED"; fi
 echo "이렇게 시작하세요:"
-N=1
 if [ "$NEED_EXT" = 1 ]; then echo "  $N) Claude in Chrome 확장 설치·로그인: $EXT_URL"; N=$((N + 1)); fi
 if [ "$NEED_CHROME_SET" = 1 ]; then
   echo "  $N) Chrome 설정: 위 점검에서 [문제] 로 나온 항목 고치기 (chrome://settings/content/pdfDocuments → 'PDF 다운로드', chrome://settings/downloads → '다운로드 전에 각 파일의 저장 위치 확인' 끄기)"

@@ -2,7 +2,7 @@
 
 > 이 문서는 Codex Desktop / Codex CLI 가 [sci-retr 패키지](https://github.com/angmond1/sci)를 설치하고 사용할 때 읽는 지침이다. 사용자가 “sci-retr 설치해줘”라고 하면 1절부터 진행한다.
 > 공용 skill 본문은 Claude 기준이다. 수집은 [sci-retr/SKILL.md](sci-retr/SKILL.md), 색인은 [sci-index/SKILL.md](sci-index/SKILL.md), 선택 사항인 한국어 한 줄 요약은 [sci-tldr/SKILL.md](sci-tldr/SKILL.md)를 따른다. 도구·모델·경로 차이는 이 문서를 적용한다. [CLAUDE.md](CLAUDE.md)는 Claude 설치용이다.
-> 갱신 기준: 2026-09-28, 소스 `822971b`, 패키지 `VERSION` 0.2.1. `a29fff0`까지의 수집 기능과 이후 README의 Codex 우선 설치 안내를 반영했다. Codex에서 확인한 범위와 Claude 쪽 시험 기록은 7절에 구분한다.
+> 갱신 기준: 2026-09-29, 패키지 `VERSION` 0.2.1. Codex에서 확인한 범위와 Claude 쪽 시험 기록은 7절에 구분한다.
 
 ## 0. 구성과 적용 범위
 
@@ -55,7 +55,7 @@ bash "$package_root/install.sh" --codex
 ```
 
 - `-Codex` / `--codex` 를 생략하면 Claude 경로에 설치된다. Codex 옵션의 기본 목적지는 `$CODEX_HOME/skills`, 환경변수가 없으면 `~/.codex/skills` 다.
-- 스크립트는 **프로그램 확인·설치 → 세 skill 복사 → pip 패키지 설치 → `doctor` 점검** 순서로 실행한다. 패키지는 `requests`, `pymupdf`, `truststore`, `beautifulsoup4`, `lxml`, `openpyxl`, `playwright` 일곱 개다. `wiley-tdm` 은 설치 목록·점검에서 빠졌으며, Wiley TDM API 는 `requests` 로 직접 부른다.
+- 스크립트는 **프로그램 확인·설치 → 세 skill 복사 → pip 패키지 설치 → `doctor` 점검** 순서로 실행한다. 패키지는 `requests`, `pymupdf`, `truststore`, `beautifulsoup4`, `lxml`, `openpyxl`, `xlrd`, `playwright` 여덟 개다. `.xls` 입력은 `xlrd`를 쓴다. `wiley-tdm` 은 설치 목록·점검에서 빠졌으며, Wiley TDM API 는 `requests` 로 직접 부른다.
 - Windows 는 Python·Chrome 이 없으면 winget 의 `Python.Python.3.12`·`Google.Chrome` 을 설치한다(`--source winget`, Python 은 먼저 `--scope user`). winget 이 없거나 설치가 실패하면 출력의 수동 설치 안내를 따른다. UAC 창은 사용자가 처리한다. pip 실패 시에는 `--user` 로 한 번 더 시도한다.
 - macOS 는 Homebrew 가 있을 때 `python@3.12`·`--cask google-chrome` 을 설치한다. Linux 는 필요한 시스템 프로그램의 설치 방법을 안내한다. macOS/Linux 에서 pip 이 없거나 시스템 Python 설치가 제한되면 `~/.sci-retr/venv` 에 패키지를 넣는다. Windows Git Bash 에서는 `install.ps1` 로 넘긴다.
 - `-NoAutoInstall` / `--no-auto-install` 은 Python·Chrome 자동 설치를 끈다. **전체 스크립트의 dry-run 은 아니다.** 이미 필요한 프로그램이 있으면 skill 복사·pip 설치·점검은 진행한다.
@@ -309,7 +309,7 @@ $sourcePdf = 'C:\papers_inbox\source_paper.pdf'
 2. **Codex 기본 경로는 주 에이전트의 순차 처리다.** Claude 의 `sci-tldr-writer` 는 Read·Write 도구와 `model: sonnet` 으로 정의되어 있으며 Codex 에 등록되지 않는다. 전용 에이전트가 없으면 메인이 처리한다는 공용 지침을 따른다. 10편 미만은 원래부터 메인이 처리하고, 10편 이상도 이 Codex 경로에서는 묶음마다 직접 읽고 쓴다. 범용 하위 에이전트를 대용으로 띄우거나 Claude 의 모델·effort 를 Codex 설정으로 옮기지 않는다. 전용 에이전트 정의에도 현재 effort 지정은 없다.
 3. 묶음 파일을 한 번 읽고 머리의 규칙 8개에 따라, **묶음의 모든 논문**을 지정된 `_collect/tldr_<n>.jsonl` 에 한 번에 쓴다. 한 줄에 JSON 하나, 필드는 `paper_id`, `한줄요약`, `flag` 다. Python `json.dumps(..., ensure_ascii=False)` 등으로 따옴표·줄바꿈을 이스케이프하고 UTF-8 로 저장한다. 마크다운 코드 울타리는 결과 파일에 넣지 않는다.
 4. 요약은 제공된 글에 근거한 한국어 한 문장, 권장 60~120자·최대 150자로 마침표로 끝낸다. 숫자·단위·물질명·화학식을 추측하거나 변환해 보태지 않는다. 리뷰·논평은 그 유형에 맞게 쓴다. 재료 부족·제목과 글 불일치면 `한줄요약` 을 빈 문자열로 두고 이유를 `flag` 에 쓴다.
-5. 결과를 모두 쓴 뒤 `apply` 로 검증·병합한다. 기본은 `_collect/tldr_*.jsonl` 이며 `--files <경로 …>` 로 결과를 지정할 수 있다. `tldr_src_<n>.json` 도 함께 보존한다. `prep` 을 다시 실행하면 기존 묶음 Markdown 을 지우므로, 현재 묶음의 작성·병합을 마친 뒤 재준비한다. 새 결과 번호는 기존 `tldr_<n>.jsonl` 다음부터 시작한다.
+5. 결과를 모두 쓴 뒤 `apply` 로 검증·병합한다. 기본은 `_collect/tldr_*.jsonl` 이며 `--files <경로 …>` 로 결과를 지정할 수 있다. 각 `tldr_<n>.jsonl` 에 대응하는 `tldr_src_<n>.json` 을 함께 보존한다. 없거나 읽지 못하면 그 결과는 보류된다. `prep` 을 다시 실행하면 기존 묶음 Markdown 을 지우므로, 현재 묶음의 작성·병합을 마친 뒤 재준비한다. 새 결과 번호는 기존 `tldr_<n>.jsonl` 다음부터 시작한다.
 6. 보류는 `prep --ids <paper_id …>` 로 한 번 더 쓴다. “재료 부족”인데 전문이 있으면 `prep --body <paper_id …>` 로 본문 앞부분 3,000자를 쓴다. 두 번째도 해결되지 않으면 비워 두고 이유를 보고한다. 검증에서 보류된 새 문장은 병합되지 않으며 기존 요약은 남을 수 있다. 명시적으로 빈 결과를 쓴 행은 `apply` 가 예전 요약도 지운다. 최종 비움이 필요하면 빈 결과와 이유를 다시 병합해 확인한다.
 
 일반 요약 재료는 초록 최대 1,500자다. 초록이 200자 미만이면 해당 논문 제목 자리부터의 본문 앞부분을 우선 확인하고, 쓸 재료가 없으면 묶지 않는다. 초록만 받은 논문의 `source.md` 는 본문 재료로 쓰지 않는다. 제목만으로 요약하지 않는다.

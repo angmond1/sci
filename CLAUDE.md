@@ -3,7 +3,7 @@
 > 이 문서는 Claude (Claude Code CLI / Claude Desktop 앱) 가 sci-retr 을 설치하고 쓸 때 따르는 기준이다.
 > 사용자가 "https://github.com/angmond1/sci 설치해줘", "sci-retr 설치해줘", "이거 설치해줘" 라고 하면 추측하지 말고 아래 1번 절차를 순서대로 실행한다.
 > 공용 skill 본문(SKILL.md·요령 문서)은 Claude 와 Codex 가 함께 읽는다. 그중 Codex 기준으로 적힌 동작(CAPTCHA 풀이, Computer Use, 쿠키 배너 처리)을 Claude 에서 어떻게 하는지는 2.1 에 둔다. Codex 지침은 [CODEX.md](CODEX.md).
-> 갱신 기준: 2026-09-28, 소스 `5174c57`, 패키지 `VERSION` 0.2.1.
+> 갱신 기준: 2026-09-29, 패키지 `VERSION` 0.2.1.
 
 ## 0. sci-retr 이 무엇인가 (한 줄)
 
@@ -51,7 +51,7 @@
 스크립트가 하는 일은 네 단계다.
 1. 필요한 프로그램 확인과 설치: Python 3.11 이상, Google Chrome (Step 0 표).
 2. `sci-retr`, `sci-index`, `sci-tldr` 를 `~/.claude/skills/` 로 복사하고, 한 줄 요약 전용 에이전트 `sci-tldr/agents/sci-tldr-writer.md` 와 웹 다운로드 전용 에이전트 `sci-retr/agents/sci-retr-web.md` 를 `~/.claude/agents/` 로 복사(Codex 설치 때는 하지 않음).
-3. 파이썬 패키지(requests, pymupdf, truststore, beautifulsoup4, lxml, openpyxl, playwright) 설치. 권한 문제면 `--user` 로 다시 한다. macOS/Linux 에서 시스템 Python 에 pip 이 없거나(Ubuntu 24.04 기본 상태) 설치를 막으면 `~/.sci-retr/venv` 가상환경에 설치한다.
+3. 파이썬 패키지(requests, pymupdf, truststore, beautifulsoup4, lxml, openpyxl, xlrd, playwright) 설치. 권한 문제면 `--user` 로 다시 한다. macOS/Linux 에서 시스템 Python 에 pip 이 없거나(Ubuntu 24.04 기본 상태) 설치를 막으면 `~/.sci-retr/venv` 가상환경에 설치한다.
 4. 환경 점검(`doctor`) 실행. Claude in Chrome 확장이 없으면 Chrome 웹스토어 페이지를 연다.
 
 출력 끝의 `▼・ᴥ・▼  sci-retr 설치 완료` 와 점검 결과를 읽고, `[문제]` 로 나온 것과 새로 설치한 프로그램을 사용자에게 알린다. 프로그램을 설치하지 않고 확인만 하려면 `-NoAutoInstall`(install.sh 는 `--no-auto-install`). 이후 명령은 설치 스크립트가 `sci-retr/python.txt` 에 적어 둔 Python 으로 실행한다(가상환경에 설치했으면 `~/.sci-retr/venv/bin/python`). `ModuleNotFoundError` 가 나면 다른 인터프리터(`py -3.12`, `python3.12` 등)로 같은 명령을 다시 시도한다.

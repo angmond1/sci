@@ -7,6 +7,8 @@ description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결
 
 리트리버가 논문을 물어 온다는 뜻의 이름이다. 짝 스킬 `sci-index` 는 수집이 끝나면 이 지침이 이어서 부르고(편수 무관, 몇 초), 한국어 한 줄 요약 `sci-tldr` 은 사용자가 원할 때만 부른다(5.7).
 
+**Codex에서 사용:** 패키지 루트의 `CODEX.md`가 도구·모델 차이를 정한다. 아래의 Claude in Chrome 설치·`sci-retr-web` 에이전트 호출은 Claude 전용이다. Codex는 연결된 사용자 Chrome을 지원 도구로 다루고, 웹 목록은 주 에이전트가 처리한 뒤 같은 `intake`로 정리한다. 패키지 루트 문서에 접근할 수 없더라도 Claude 확장을 Codex 필수 준비물로 요구하지 않는다.
+
 > 🐶 **리트리버 인사(정체성)**: 대화에서 이 skill 을 처음 시작할 때 첫 줄은 `## 🐶 sci-retr가 논문을 물어 올게요`로 쓰고, 그 다음부터는 평소 문체. 진행 알림과 작업 보고의 강아지 이모지도 채팅에서 크게 보이도록 Markdown 2단계 제목(`## 🐶 …`)으로 쓴다. 완료·부분 완료·중단은 각각 `## 🐶 완료 — sci-retr`, `## 🐕 부분 완료 — sci-retr`, `## 🐕‍🦺 중단 — sci-retr`로 표시하고, 제목 아래 실제 수집 편수와 남은 일을 적는다. 받은 파일·파일 이름·`index.csv`·`source.md`·오류 문구에는 넣지 않는다.
 
 ## 1. 무엇을 하는가
@@ -14,8 +16,8 @@ description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결
 - 입력은 DOI 목록이다. 출력은 `papers/{paper_id}/` 폴더마다 본문 PDF(필수), SI 파일, 본문 텍스트(`source.md`), 메타(`source.json`)와 전체 목록 `collection_registry.csv` 다.
 - 수집은 두 경로다.
   - **자동 경로**: LLM 없이 도는 CLI `scripts/sci_collect.py` 가 공식 API(Elsevier OA 논문, Wiley TDM)와 직접 PDF(Springer, Nature)로 받는다. Elsevier API 는 OA 논문에만 쓴다.
-  - **웹 경로**: 자동 요청을 막는 출판사는 사용자가 평소 쓰는 Chrome 에서 받는다. Claude 가 Claude in Chrome 확장으로 논문 페이지를 열어 PDF·SI 를 받고, `intake` 명령이 다운로드 폴더의 파일을 논문 폴더로 정리한다.
-- Claude 가 하는 일: 수집 범위 판단(사전 분류), review 논문의 인용 follow-up 선별, 웹 경로 수집, 사용자와의 확인.
+  - **웹 경로**: 자동 요청을 막는 출판사는 사용자가 평소 쓰는 Chrome 에서 받는다. Claude 는 Claude in Chrome 확장을, Codex 는 연결된 Chrome 도구를 사용해 PDF·SI 를 받고, `intake` 명령이 다운로드 폴더의 파일을 논문 폴더로 정리한다.
+- 에이전트가 하는 일: 수집 범위 판단(사전 분류), review 논문의 인용 follow-up 선별, 웹 경로 수집, 사용자와의 확인.
 - 짝이 되는 skill 은 `sci-index`(서지정보 색인, 수집 뒤 항상)와 `sci-tldr`(한국어 한 줄 요약, 사용자가 원할 때만)이다(5.7).
 - 하위 에이전트가 필요한 LLM 작업(큰 목록 사전 분류, 사용자가 원할 때의 한국어 한 줄 요약 `sci-tldr`)은 sonnet 으로 돌린다. 색인(`sci-index`)은 LLM 을 쓰지 않는다.
 
@@ -38,7 +40,7 @@ description: Sci Retriever(sci-retr) — DOI 목록이나 WoS·Scopus 검색 결
 1. **교내 망**에서 실행한다. 구독 논문은 KIST IP 로 열린다. 밖에서는 자동 경로와 웹 경로 모두 구독 논문을 받지 못한다.
 2. **Python 과 패키지**를 설치한다(3.1). 저장소의 설치 스크립트(`install.ps1`, `install.sh`)가 Python 3.11 이상과 Google Chrome 이 없으면 winget(macOS 는 Homebrew)으로 설치하고, 패키지를 넣고, 점검까지 한다.
 3. **Chrome 설정 두 가지**를 맞춘다(3.1): "PDF 다운로드", 저장 위치 확인 끄기.
-4. **Claude in Chrome 확장**을 Chrome 에 설치하고 Claude 계정으로 로그인한다. 같은 계정으로 확장을 켠 다른 컴퓨터가 있으면 그 Chrome 도 목록에 나온다. Claude 는 이 컴퓨터의 것(`onThisComputer`)만 쓰고, 이 컴퓨터 것이 둘 이상이면 사용자에게 묻는다.
+4. **Claude 사용 시** Claude in Chrome 확장을 Chrome 에 설치하고 Claude 계정으로 로그인한다. 같은 계정으로 확장을 켠 다른 컴퓨터가 있으면 그 Chrome 도 목록에 나온다. Claude 는 이 컴퓨터의 것(`onThisComputer`)만 쓰고, 이 컴퓨터 것이 둘 이상이면 사용자에게 묻는다. Codex 의 Chrome 연결은 `CODEX.md` 2절을 따른다.
 5. **점검 명령**을 돌려 "문제 0" 을 확인한다. 읽기만 하고 아무것도 바꾸지 않는다.
 6. **키·토큰**은 선택이다(3.2). 없어도 된다.
 
@@ -51,9 +53,9 @@ python scripts/sci_collect.py doctor --kb-root <root>
 
 ### 3.1 소프트웨어
 
-- Python 3.11 이상과 패키지: `pip install requests playwright pymupdf truststore beautifulsoup4 lxml openpyxl`
+- Python 3.11 이상과 패키지: `pip install requests playwright pymupdf truststore beautifulsoup4 lxml openpyxl xlrd`
 - Google Chrome. 기본 경로가 아니면 환경변수 `CHROME_EXE` 에 실행 파일 경로를 둔다. 기본 설정에서는 자동 단계가 브라우저를 띄우지 않는다. 웹 전용 출판사를 설정 목록에서 뺐을 때만 창 없는 시도에 쓴다.
-- **웹 경로용**: 사용자 Chrome 에 Claude in Chrome 확장이 연결되어 있어야 한다. 그리고 Chrome 설정 두 가지를 맞춘다(사용자가 직접 바꾼다. `doctor` 가 읽어서 알려 준다).
+- **웹 경로용**: Claude 는 사용자 Chrome 에 Claude in Chrome 확장이 연결되어 있어야 한다. Codex 는 `CODEX.md` 2절의 Chrome 연결을 쓴다. 두 환경 모두 Chrome 설정 두 가지를 맞춘다(사용자가 직접 바꾼다. `doctor` 가 읽어서 알려 준다).
   - `chrome://settings/content/pdfDocuments` 의 기본 동작을 "PDF 다운로드" 로 둔다. 그래야 PDF 가 저장 창 없이 다운로드 폴더로 바로 저장된다. Chrome PDF 보기 화면의 다운로드 버튼은 설정과 관계없이 항상 저장 창을 띄우므로 쓰지 않는다. 수집이 끝나면 되돌려도 된다.
   - `chrome://settings/downloads` 의 "다운로드 전에 각 파일의 저장 위치 확인" 을 끈다. 켜져 있으면 파일마다 저장 창이 떠서 웹 경로가 멈춘다.
   - 다운로드 폴더는 바꾸지 않아도 된다. `intake` 가 Chrome 설정과 Windows 의 다운로드 폴더 위치(OneDrive 로 옮긴 경우 포함)를 읽어 찾는다. 다른 곳이면 `--downloads` 나 설정 `downloads_dir`.
@@ -61,7 +63,7 @@ python scripts/sci_collect.py doctor --kb-root <root>
 - 명령의 `python` 은 이 skill 폴더의 `python.txt` 에 적힌 인터프리터다(경로에 공백이 있으면 따옴표로 감싼다). 설치 스크립트가 패키지를 넣은 Python 을 기록해 둔다. 이 지침의 모든 `python` 예시(아래 확인 한 줄 포함)에 해당한다. 시작 전에 3.0 의 `doctor` 로 확인한다. `python.txt` 가 없는데 `ModuleNotFoundError` 가 나면 다른 인터프리터(`py -3.12`, `python3.12` 등)로 같은 명령을 다시 시도해 되는 것을 쓴다. macOS·Linux 에서 설치 스크립트가 가상환경을 만들었으면 `~/.sci-retr/venv/bin/python` 이다. 패키지만 빠르게 볼 때는 다음 한 줄.
 
 ```bash
-python -c "import requests, pymupdf, bs4, lxml, truststore, openpyxl; print('ok')"
+python -c "import requests, pymupdf, bs4, lxml, truststore, openpyxl, xlrd; print('ok')"
 ```
 
 ### 3.2 키·토큰 (선택, 이 skill 폴더의 `token.txt`)
@@ -128,7 +130,7 @@ python scripts/sci_collect.py token --kb-root <root>
 
 ## 4. 입력
 
-- DOI 문자열(한 개 이상), `.txt`·`.csv`(DOI 가 어디 있든 정규식으로 뽑는다), `.xlsx`(openpyxl), WoS·Scopus export 파일(DOI 열 자동 추출). 중복은 제거된다.
+- DOI 문자열(한 개 이상), `.txt`·`.csv`·`.tsv`, `.xlsx`(openpyxl), `.xls`(xlrd; HTML·탭 형식 내보내기도 처리), WoS·Scopus export 파일. DOI/DI 열이 있으면 그 열만 읽고, WoS 태그형 텍스트는 DI 항목만 읽어 참고문헌 CR의 DOI가 섞이지 않게 한다. 중복은 제거된다. 지정한 입력 파일이 없거나 DOI를 찾지 못하면 중단한다.
 - 논문 한 편도 같은 절차다. 규모 판단에서 바로 수집으로 간다.
 - 논문 PDF·웹 링크를 주며 그 논문의 참고문헌을 받아 달라고 하면 `refs` 명령으로 DOI 목록을 만든 뒤 같은 절차를 한다(5.10).
 - WoS·Scopus export 판별: WoS 는 탭 구분 `savedrecs*.txt` 에 `DI`·`TI`·`AB` 열, Scopus 는 `DOI`·`Title`·`Abstract` 열이 있는 CSV.

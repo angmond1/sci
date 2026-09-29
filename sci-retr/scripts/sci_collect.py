@@ -186,15 +186,19 @@ def read_kv(path: Path) -> dict:
 
 def load_env(path: Path) -> dict:
     """키·토큰: 논문 폴더 .env(또는 --env) → skill 폴더 token.txt → 환경변수 순. 빈 값은 없는 것으로 본다."""
-    env = {k: v for k, v in read_kv(path).items() if v}
-    for k, v in read_kv(TOKEN_FILE).items():
-        if v and not env.get(k):
-            env[k] = v
-    for k in ("ELSEVIER_API_KEY", "WILEY_TDM_TOKEN", "TDM_API_TOKEN"):
-        if os.environ.get(k) and not env.get(k):
-            env[k] = os.environ[k]
-    if not env.get("TDM_API_TOKEN") and env.get("WILEY_TDM_TOKEN"):
-        env["TDM_API_TOKEN"] = env["WILEY_TDM_TOKEN"]
+    process_keys = ("ELSEVIER_API_KEY", "WILEY_TDM_TOKEN", "TDM_API_TOKEN")
+    sources = (read_kv(path), read_kv(TOKEN_FILE), {k: os.environ.get(k, "") for k in process_keys})
+    env = {}
+    for source in sources:
+        for k, v in source.items():
+            if v and not env.get(k):
+                env[k] = v
+    # 두 Wiley 이름은 같은 자격 증명이다. 이름별 병합 후 선택하면 낮은 우선순위의
+    # TDM_API_TOKEN 이 .env 의 WILEY_TDM_TOKEN 을 가릴 수 있다.
+    wiley = next((source.get("WILEY_TDM_TOKEN") or source.get("TDM_API_TOKEN") for source in sources
+                  if source.get("WILEY_TDM_TOKEN") or source.get("TDM_API_TOKEN")), "")
+    if wiley:
+        env["WILEY_TDM_TOKEN"] = env["TDM_API_TOKEN"] = wiley
     return env
 
 
@@ -298,6 +302,53 @@ def log_row(ctx: Ctx, row: dict) -> None:
 DOI_RE = re.compile(r"10\.\d{4,9}/[^\s\"'<>,;]+", re.I)
 
 
+def spreadsheet_tables(path: Path) -> list[list[list]]:
+    """xlsx 및 실제/HTML/구분자 텍스트형 xls 내보내기의 셀 표를 읽는다."""
+    import openpyxl
+
+    if path.suffix.lower() == ".xlsx":
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        try:
+            return [list(ws.iter_rows(values_only=True)) for ws in wb.worksheets]
+        finally:
+            wb.close()
+    data = path.read_bytes()
+    if data.startswith(b"PK\x03\x04"):  # xlsx 내용을 .xls 이름으로 내보낸 경우
+        wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        try:
+            return [list(ws.iter_rows(values_only=True)) for ws in wb.worksheets]
+        finally:
+            wb.close()
+    if data.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):
+        try:
+            import xlrd
+        except ImportError:
+            raise SystemExit(".xls 입력에는 xlrd가 필요합니다: python -m pip install xlrd")
+        book = xlrd.open_workbook(file_contents=data)
+        return [[sheet.row_values(i) for i in range(sheet.nrows)] for sheet in book.sheets()]
+    text = data.decode("utf-8-sig", errors="replace")
+    if "<table" in text[:4096].lower():
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(text, "lxml")
+        return [[[cell.get_text(" ", strip=True) for cell in tr.find_all(("th", "td"))]
+                 for tr in table.find_all("tr")]
+                for table in soup.find_all("table")]
+    if "\t" in text or "," in text:
+        first = text.splitlines()[0] if text.splitlines() else ""
+        delim = "\t" if first.count("\t") >= first.count(",") else ","
+        return [list(csv.reader(io.StringIO(text), delimiter=delim))]
+    raise SystemExit(f".xls 형식을 읽을 수 없습니다: {path}. .xlsx 또는 DOI가 있는 CSV로 다시 내보내세요.")
+
+
+def dois_from_table(table: list[list]) -> list[str]:
+    if not table:
+        return []
+    header = [str(c or "").strip().lower() for c in table[0]]
+    doi_cols = [i for i, name in enumerate(header) if name in ("di", "doi", "digital object identifier")]
+    cells = (row[i] for row in table[1:] for i in doi_cols if i < len(row)) if doi_cols else (c for row in table for c in row)
+    return [d for cell in cells if isinstance(cell, str) for d in DOI_RE.findall(cell)]
+
+
 def read_dois(inputs: list[str]) -> list[str]:
     dois: list[str] = []
     for item in inputs:
@@ -305,24 +356,26 @@ def read_dois(inputs: list[str]) -> list[str]:
         if p.exists():
             if p.suffix.lower() in (".xlsx", ".xls"):
                 try:
-                    import openpyxl
-                    wb = openpyxl.load_workbook(p, read_only=True, data_only=True)
-                    for ws in wb.worksheets:
-                        for row in ws.iter_rows(values_only=True):
-                            for cell in row:
-                                if isinstance(cell, str):
-                                    dois += DOI_RE.findall(cell)
+                    for table in spreadsheet_tables(p):
+                        dois += dois_from_table(table)
                 except ImportError:
-                    raise SystemExit("xlsx 입력에는 openpyxl 필요: pip install openpyxl")
+                    raise SystemExit("엑셀 입력에는 openpyxl이 필요합니다: python -m pip install openpyxl")
             else:
                 text = p.read_text(encoding="utf-8-sig", errors="ignore")
                 # '#' 로 시작하는 줄은 설명이다 (refs 목록 머리에 원 논문 DOI 가 있다 — 원 논문까지 목록에 넣은 일, 2026-09-27)
                 text = "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))
-                dois += DOI_RE.findall(text)
+                if text.startswith("FN ") or (re.search(r"(?m)^PT ", text) and re.search(r"(?m)^ER\s*$", text)):
+                    # WoS plain-text의 CR 줄에는 인용한 다른 논문의 DOI가 있다.
+                    dois += [d for line in text.splitlines() if line.startswith("DI ") for d in DOI_RE.findall(line[3:])]
+                elif p.suffix.lower() in (".csv", ".tsv", ".txt") and (p.suffix.lower() != ".txt" or "\t" in text.split("\n", 1)[0]):
+                    first = text.splitlines()[0] if text.splitlines() else ""
+                    delim = "\t" if first.count("\t") > first.count(",") else ","
+                    dois += dois_from_table(list(csv.reader(io.StringIO(text), delimiter=delim)))
+                else:
+                    dois += DOI_RE.findall(text)
         else:
             if re.search(r"[\\/]|\.(txt|csv|tsv|xlsx|xls|md)$", item, re.I) and not DOI_RE.search(item):
-                say(f"!! 입력 파일을 찾을 수 없습니다: {item}")
-                continue
+                raise SystemExit(f"입력 파일을 찾을 수 없습니다: {item}")
             dois += DOI_RE.findall(item)
     out, seen = [], set()
     for d in dois:
@@ -383,15 +436,16 @@ def read_doc_types(inputs: list[str]) -> dict:
     types: dict[str, str] = {}
     for item in inputs or []:
         p = Path(item)
-        if not p.exists() or p.suffix.lower() not in (".txt", ".tsv", ".csv", ".xlsx"):
+        if not p.exists() or p.suffix.lower() not in (".txt", ".tsv", ".csv", ".xlsx", ".xls"):
             continue
         try:
-            if p.suffix.lower() == ".xlsx":
-                import openpyxl
-                ws = openpyxl.load_workbook(p, read_only=True, data_only=True).worksheets[0]
-                it = ws.iter_rows(values_only=True)
-                header = [str(c or "").strip() for c in next(it)]
-                rows = [dict(zip(header, [str(c or "") for c in r])) for r in it]
+            if p.suffix.lower() in (".xlsx", ".xls"):
+                rows = []
+                for table in spreadsheet_tables(p):
+                    if not table:
+                        continue
+                    header = [str(c or "").strip() for c in table[0]]
+                    rows.extend(dict(zip(header, [str(c or "") for c in row])) for row in table[1:])
             else:
                 text = p.read_text(encoding="utf-8-sig", errors="ignore")
                 if text.startswith("FN ") or "\nER" in text[:20000] and "\nDT " in text[:20000]:
@@ -611,6 +665,8 @@ def resolve_doi(ctx: Ctx, doi: str, ref_no: int | None = None, width: int = 2) -
 def cmd_resolve(args) -> None:
     ctx = make_ctx(args)
     dois = read_dois(args.input)
+    if not dois:
+        raise SystemExit("입력 목록에서 DOI를 찾지 못했습니다. DOI 열 또는 WoS DI 태그를 확인하세요.")
     types = read_doc_types(args.input)   # WoS·Scopus 문서 유형이 있으면 OpenAlex 보다 앞선다
     nums = read_ref_numbers(args.input)  # refs 목록이면 원 논문 참고문헌 번호 → 이름 앞에 (2026-09-27 사용자 지시)
     width = max(2, len(str(max(nums.values())))) if nums else 2
@@ -629,8 +685,6 @@ def cmd_resolve(args) -> None:
             say(f"  [{i:3d}] {row['paper_id']:40s} {row['publisher']:9s} oa={row['is_oa']} abs={'Y' if row['abstract'] else '-'}{rv} {row['title'][:50]}")
         except Exception as exc:
             say(f"  [{i:3d}] {doi} resolve 실패: {type(exc).__name__}: {str(exc)[:80]}")
-        if not (doi.lower() in ctx.registry and ctx.registry[doi.lower()].get("resolved_at") and i % 1 == 0):
-            pass
         time.sleep(1.0)
     save_registry(ctx)
     say(f"registry 저장: {registry_path(ctx)} (신규 {n_new}건)")
@@ -827,29 +881,45 @@ def write_paper(ctx: Ctx, row: dict, out: Outcome) -> Outcome:
     paper = Paper(paper_id=pid, doi=row["doi"], title=row["title"], year=row["year"], scope_label="", is_curated_pathway="",
                   publisher=row["publisher"], agent="sci_collect")
     pdf_txt, n_pages = ("", 0)
+    candidate_pdf = b""
     if out.pdf_data and is_pdf(out.pdf_data):
-        (d / "pdf" / f"{pid}.pdf").write_bytes(out.pdf_data)
-        out.pdf_bytes = len(out.pdf_data)
         try:
             pdf_txt, n_pages = pdf_text(out.pdf_data)
+            if n_pages:
+                candidate_pdf = out.pdf_data
+                out.pdf_bytes = len(candidate_pdf)
         except Exception as exc:
             out.note += f" pdf_text_error={type(exc).__name__}"
     html_text, container = "", ""
     if out.html_raw:
-        (d / "html" / f"{pid}.html").write_text(out.html_raw, encoding="utf-8", errors="ignore")
         if out.method.startswith("web_text"):
             html_text, container = html_container_text(out.html_raw, "web_text", min_chars=0)
         else:
             html_text, container = html_container_text(out.html_raw, row["publisher"])
     xml_text = ""
     if out.xml_raw:
-        (d / "xml" / f"{pid}.xml").write_bytes(out.xml_raw)
         xml_text = elsevier_xml_text(out.xml_raw)
     text, source, tnote = choose_text(html_text, pdf_txt, xml_text, paper)
     text = (text or "").translate(LIGATURES)
     if not text:
+        out.pdf_bytes = 0
         out.status, out.note = "failed", (out.note + " no text").strip()
         return out
+    if out.html_raw:
+        (d / "html" / f"{pid}.html").write_text(out.html_raw, encoding="utf-8", errors="ignore")
+    if out.xml_raw:
+        (d / "xml" / f"{pid}.xml").write_bytes(out.xml_raw)
+    if candidate_pdf:
+        # 재시도 응답을 파싱하고 쓸 본문이 확인된 뒤 교체한다. 실패 시 이전 PDF를 보존한다.
+        pdf_path = d / "pdf" / f"{pid}.pdf"
+        fd, name = tempfile.mkstemp(prefix=f"{pid}.", suffix=".pdf.tmp", dir=pdf_path.parent)
+        tmp = Path(name)
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(candidate_pdf)
+            tmp.replace(pdf_path)
+        finally:
+            tmp.unlink(missing_ok=True)
     sj = {"paper_id": pid, "doi": row["doi"], "title": row["title"], "year": row["year"], "journal": row["journal"],
           "journal_abbrev": row["journal_abbrev"], "volume": row["volume"], "issue": row["issue"], "pages": row["pages"],
           "authors": row["authors"], "corresponding": row["corresponding"], "abstract": row["abstract"], "publisher": row["publisher"],
@@ -959,11 +1029,6 @@ def si_skipped(url: str, skip: set) -> bool:
     return any(re.search(r"\." + re.escape(e) + r"(?:$|[?&;/])", u) for e in skip)
 
 
-# 확장자 없이 온 SI 를 거를 content-type 조각 (동영상·음성, 결정 구조, 압축, 스프레드시트)
-SI_SKIP_CT = ("video/", "audio/", "cif", "zip", "x-rar", "vnd.rar", "x-7z", "x-tar", "gzip",
-              "ms-excel", "spreadsheetml", "opendocument.spreadsheet", "text/csv")
-
-
 def zip_kind(data: bytes) -> str:
     """zip 형식 데이터의 실제 종류: docx·xlsx·pptx·zip. zip 이 아니면 빈 문자열. Word 는 받고 Excel·일반 zip 은 거르는 데 쓴다."""
     if data[:4] != b"PK\x03\x04":
@@ -981,6 +1046,15 @@ def zip_kind(data: bytes) -> str:
 
 def si_name(pid: str, k: int, ext: str) -> str:
     return f"{pid}_SI.{ext}" if k == 1 else f"{pid}_SI_{k}.{ext}"
+
+
+def next_si_slot(d: Path, pid: str, start: int = 1, reserved: set[str] | None = None) -> int:
+    """확장자가 달라도 이미 저장·예약된 SI 번호는 재사용하지 않는다."""
+    reserved = reserved or set()
+    k = max(1, start)
+    while any(d.glob(si_name(pid, k, "*"))) or Path(si_name(pid, k, "pdf")).stem in reserved:
+        k += 1
+    return k
 
 
 def save_si(ctx: Ctx, pid: str, fetch, links: list[str], manual_url: str = "") -> int:
@@ -1035,15 +1109,22 @@ def save_si(ctx: Ctx, pid: str, fetch, links: list[str], manual_url: str = "") -
         h = hashlib.sha1(data).hexdigest()
         if h in seen_hash:
             continue   # 같은 파일이 다른 주소로 한 번 더 온 것 (Copernicus 의 .pdf 와 doi.org 주소 등)
+        slot = next_si_slot(d, pid)
+        while True:
+            try:
+                with (d / si_name(pid, slot, ext)).open("xb") as f:
+                    f.write(data)
+                break
+            except FileExistsError:
+                slot = next_si_slot(d, pid, slot + 1)
         seen_hash.add(h)
         n += 1
-        (d / si_name(pid, n, ext)).write_bytes(data)
         time.sleep(2)
     if failed:
         if manual_url:   # API 주소처럼 브라우저로 열 수 없는 주소 — 논문 페이지에서 SI 를 받게 한다
             add_si_check_row(ctx, pid, manual_url, "SI 받기 실패 (API) — 논문 페이지에서 SI 를 받거나, 없으면 mark --si-none")
         else:
-            add_manual_si(ctx, pid, failed, start=n + 1)
+            add_manual_si(ctx, pid, failed)
     return n
 
 
@@ -1576,9 +1657,13 @@ def select_rows(ctx: Ctx, args, statuses: set[str] | None = None) -> list[dict]:
 
 def cmd_collect(args) -> None:
     ctx = make_ctx(args)
+    input_dois = None
     if args.input:
+        input_dois = read_dois(args.input)
+        if not input_dois:
+            raise SystemExit("입력 목록에서 DOI를 찾지 못했습니다. DOI 열 또는 WoS DI 태그를 확인하세요.")
         types = read_doc_types(args.input)
-        for doi in read_dois(args.input):
+        for doi in input_dois:
             if doi.lower() not in ctx.registry:
                 try:
                     resolve_doi(ctx, doi); time.sleep(1)
@@ -1589,6 +1674,9 @@ def cmd_collect(args) -> None:
         save_registry(ctx)
     todo_status = None if args.force else {"resolved", "failed", "pdf_missing", ""}
     rows = select_rows(ctx, args, todo_status)
+    if input_dois is not None:
+        input_set = {doi.lower() for doi in input_dois}
+        rows = [r for r in rows if r.get("doi", "").lower() in input_set]
     if not getattr(args, "ids", None):
         rows = [r for r in rows if r.get("status") != "out_of_scope"]   # 범위 밖(mark) 논문은 id 를 직접 지정할 때만 수집
     if not rows:
@@ -2046,7 +2134,8 @@ def cmd_doctor(args) -> None:
         bad(f"Python {v.major}.{v.minor} — 3.11 이상이 필요하다 ({sys.executable})")
     for mod, why, level in (("requests", "필수", "bad"), ("pymupdf", "필수 (PDF 텍스트)", "bad"), ("bs4", "필수 (HTML 본문)", "bad"),
                             ("lxml", "필수 (HTML 본문)", "bad"), ("truststore", "필수 (기관 망 인증서)", "bad"),
-                            ("openpyxl", "xlsx 입력에 필요", "warn"), ("playwright", "예전 도구 창 방식에만 필요", "info")):
+                            ("openpyxl", "xlsx 입력에 필요", "warn"), ("xlrd", "xls 입력에 필요", "warn"),
+                            ("playwright", "예전 도구 창 방식에만 필요", "info")):
         # wiley-tdm 패키지는 쓰지 않는다 — Wiley TDM API 는 requests 로 직접 부른다 (2026-09-27 설치 목록에서 뺌)
         try:
             m = importlib.import_module(mod)
@@ -2205,9 +2294,19 @@ def add_manual_si(ctx: Ctx, pid: str, urls: list[str], start: int = 1) -> Path:
         return update_manual_csv(ctx, [])
     row = next((r for r in ctx.registry.values() if r.get("paper_id") == pid), {})
     d = paper_dir(ctx, pid) / "pdf"
-    new = [{"paper_id": pid, "publisher": row.get("publisher", ""), "title": row.get("title", ""), "url": u,
-            "save_to": str(d / si_name(pid, k, si_ext(u, default="pdf"))), "reason": "SI 직접 다운로드 (도구로 받지 못함)"}
-           for k, u in enumerate(urls, start=start)]
+    reserved: set[str] = set()
+    existing_list = ctx.work / "manual_download.csv"
+    if existing_list.exists():
+        with open(existing_list, encoding="utf-8-sig", newline="") as f:
+            reserved = {Path(r.get("save_to") or "").stem for r in csv.DictReader(f) if r.get("paper_id") == pid}
+    new = []
+    for u in urls:
+        k = next_si_slot(d, pid, start, reserved)
+        name = si_name(pid, k, si_ext(u, default="pdf"))
+        reserved.add(Path(name).stem)
+        new.append({"paper_id": pid, "publisher": row.get("publisher", ""), "title": row.get("title", ""), "url": u,
+                    "save_to": str(d / name), "reason": "SI 직접 다운로드 (도구로 받지 못함)"})
+        start = k + 1
     say(f"   [{pid}] SI {len(urls)}개를 받지 못해 직접 다운로드 목록에 올렸습니다.")
     return update_manual_csv(ctx, new)
 

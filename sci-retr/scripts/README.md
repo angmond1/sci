@@ -6,7 +6,7 @@
 |---|---|
 | `sci_collect.py` | 수집 CLI. `resolve`, `collect`, `assist`, `intake`, `status`, `mark`, `reextract`, `refs`, `token`, `doctor` |
 | `sci_index.py` | 색인 CLI. `build` (LLM 없음, 몇 초). 옛 `prep`·`apply` 는 sci_tldr.py 로 옮겼다 |
-| `sci_tldr.py` | 한국어 한 줄 요약 CLI. `prep`(묶음·재료 글), `apply`(숫자·화학식을 재료 글과 대조한 뒤 한줄요약 열에 병합). 요약은 전용 에이전트 sci-tldr-writer 가 쓴다 |
+| `sci_tldr.py` | 한국어 한 줄 요약 CLI. `prep`(묶음·재료 글), `apply`(각 결과와 같은 번호의 재료 글에 숫자·화학식을 대조한 뒤 한줄요약 열에 병합). 재료가 없으면 보류한다. 요약은 전용 에이전트 sci-tldr-writer 가 쓴다 |
 | `runner.py` | sci_collect 가 불러 쓰는 판정·정리 함수(본문 판정, HTML 본문 줄 정리, source.md 머리말, PDF 주소 후보). 직접 실행하지 않는다 |
 | `validate.py` | 수집한 논문 검증(본문 길이, 절 제목, 첫 쪽 DOI, 덮어쓰기 방지 등). sci_collect 가 source.md 를 쓴 직후 부른다 |
 

@@ -32,7 +32,6 @@ from sci_index import TLDR_COL, body_excerpt, looks_boilerplate, one_line, read_
 
 ABS_MAX = 1500          # 초록은 앞 1,500자면 한 문장 요약에 충분하다 (묶음 크기·토큰 절감)
 MIN_MATERIAL = 300      # 이보다 짧은 본문 앞부분은 재료로 보지 않는다
-REVIEW_TYPES = {"review", "editorial", "comment", "commentary", "letter", "erratum", "news", "perspective"}
 META_RE = re.compile(r"(제공된|주어진)\s*(초록|본문|정보|글)|초록(은|이|에는|만으로)\s|제목(은|만으로)\s|본문 앞부분|글에 (따르면|없)")
 NUM_RE = re.compile(r"\d+(?:\.\d+)?")
 FORMULA_RE = re.compile(r"(?<![A-Za-z0-9])[A-Z][A-Za-z]*\d[A-Za-z0-9]*")   # 화학식·물질 코드: Pd3Pb, MgFe2O4, H2O2, CO2 (한글 조사 앞에서 끊긴다)
@@ -90,9 +89,13 @@ def _word_numbers(src: str) -> str:
     """글에 영어 낱말로 쓴 수(ten times, twenty-five, tenfold)를 숫자로도 적어 둔다 — 요약이 '10배' 로 옮긴 것을 지어낸 숫자로 보지 않게
     (2026-09-27 'more than ten times' → '10배' 가 걸렸다)."""
     low = (src or "").lower()
-    found = [str(v) for w, v in NUM_WORDS.items() if re.search(rf"\b{w}\b", low)]
-    for m in re.finditer(r"\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[- ](one|two|three|four|five|six|seven|eight|nine)\b", low):
+    found = []
+    compound = re.compile(r"\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[- ](one|two|three|four|five|six|seven|eight|nine)\b")
+    def replace_compound(m: re.Match) -> str:
         found.append(str(NUM_WORDS[m.group(1)] + ONES[m.group(2)]))
+        return " "
+    low = compound.sub(replace_compound, low)
+    found.extend(str(v) for w, v in NUM_WORDS.items() if re.search(rf"\b{w}\b", low))
     return " ".join(found)
 
 
@@ -111,14 +114,16 @@ def check_tldr(s: str, src: str) -> list[str]:
         probs.append("마침표로 끝나지 않음")
     if META_RE.search(s):
         probs.append("판단 과정 섞임")
-    if src:
+    if not src.strip():
+        probs.append("대조할 원문 없음")
+    else:
         sn = _num_text(src) + " " + _word_numbers(src)
         bad = [n for n in NUM_RE.findall(_num_text(s))
                if ("." in n or len(n) >= 2) and not re.search(rf"(?<![\d.]){re.escape(n)}(?!\d)", sn)]   # 한 자리 정수는 글에서 낱말(two)로도 써서 보지 않는다
         if bad:
             probs.append("글에 없는 숫자 " + ", ".join(dict.fromkeys(bad)))
-        sa = _alnum(src)
-        badf = [f for f in FORMULA_RE.findall(unicodedata.normalize("NFKC", s)) if _alnum(f) not in sa]
+        source_formulas = {_alnum(f) for f in FORMULA_RE.findall(unicodedata.normalize("NFKC", src))}
+        badf = [f for f in FORMULA_RE.findall(unicodedata.normalize("NFKC", s)) if _alnum(f) not in source_formulas]
         if badf:
             probs.append("글에 없는 화학식·코드 " + ", ".join(dict.fromkeys(badf)))
     return probs
@@ -182,13 +187,21 @@ def cmd_prep(args) -> None:
     print(f"쓰기: {how}. 다 되면: python {Path(__file__)} apply --kb-root {kb_root}  ▼・ᴥ・▼")
 
 
-def read_results(files: list[str]) -> tuple[dict[str, dict], int]:
-    """tldr_<n>.jsonl (한 줄 JSON). 번호 순서로 읽어 같은 논문은 나중 것이 이긴다. 형식이 틀린 줄 수도 돌려준다."""
+def read_results(files: list[str], work: Path) -> tuple[dict[str, dict], int]:
+    """결과를 해당 묶음의 원문과 함께 읽는다. 같은 논문은 나중 결과가 이긴다."""
     def num(p: str) -> int:
         m = re.search(r"(\d+)\.jsonl$", p)
         return int(m.group(1)) if m else 0
     res, bad = {}, 0
     for fp in sorted(files, key=num):
+        m = re.fullmatch(r"tldr_(\d+)\.jsonl", Path(fp).name)
+        src_path = work / f"tldr_src_{m.group(1)}.json" if m else None
+        try:
+            sources = json.loads(src_path.read_text(encoding="utf-8")) if src_path else {}
+            if not isinstance(sources, dict):
+                sources = {}
+        except (OSError, ValueError):
+            sources = {}
         for line in Path(fp).read_text(encoding="utf-8-sig", errors="replace").splitlines():
             line = line.strip()
             if not line:
@@ -198,7 +211,8 @@ def read_results(files: list[str]) -> tuple[dict[str, dict], int]:
                 pid = str(o.get("paper_id") or "").strip()
                 if not pid:
                     raise ValueError
-                res[pid] = {"s": one_line(str(o.get("한줄요약") or o.get("tldr") or "")), "flag": one_line(str(o.get("flag") or ""))}
+                res[pid] = {"s": one_line(str(o.get("한줄요약") or o.get("tldr") or "")),
+                            "flag": one_line(str(o.get("flag") or "")), "source": str(sources.get(pid) or "")}
             except Exception:
                 bad += 1
     return res, bad
@@ -216,13 +230,7 @@ def cmd_apply(args) -> None:
         files += sorted(glob.glob(g)) or ([g] if Path(g).exists() else [])
     if not files:
         print(f"결과 파일이 없습니다: {' '.join(args.files or [str(work / 'tldr_*.jsonl')])}"); raise SystemExit(1)
-    res, bad_lines = read_results(files)
-    srcs: dict[str, str] = {}
-    for sp in sorted(work.glob("tldr_src_*.json"), key=lambda p: int(re.search(r"(\d+)", p.stem).group(1))):
-        try:
-            srcs.update(json.loads(sp.read_text(encoding="utf-8")))
-        except Exception:
-            pass
+    res, bad_lines = read_results(files, work)
     known = {r["paper_id"] for r in rows}
     unknown = sorted(set(res) - known)
     merged, held, empty = 0, {}, {}
@@ -235,7 +243,9 @@ def cmd_apply(args) -> None:
             empty[r["paper_id"]] = g["flag"] or "비움"
             r[TLDR_COL] = ""
             continue
-        probs = check_tldr(g["s"], srcs.get(r["paper_id"], ""))
+        probs = check_tldr(g["s"], g["source"])
+        if g["flag"]:
+            probs.insert(0, "작성자 flag: " + g["flag"])
         if probs:
             held[r["paper_id"]] = "; ".join(probs)
             continue

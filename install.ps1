@@ -30,7 +30,7 @@ if (-not $Dest) {
 }
 $ExtId = "fcoeoabgfenejglbffodgkkbkcdhcgfn"
 $ExtUrl = "https://chromewebstore.google.com/detail/claude/$ExtId"
-$Packages = "requests pymupdf truststore beautifulsoup4 lxml openpyxl playwright"
+$Packages = "requests pymupdf truststore beautifulsoup4 lxml openpyxl xlrd playwright"
 $installed = @()
 
 function Update-SessionPath {
@@ -123,23 +123,110 @@ else { Write-Warning "Google Chrome 을 찾지 못했습니다. 웹 다운로드
 # 2) skill 복사
 Write-Host "=== 2. skill 설치 ($app)"
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
-foreach ($skill in @("sci-retr", "sci-index", "sci-tldr")) {
-    $src = Join-Path $Root $skill
-    if (-not (Test-Path (Join-Path $src "SKILL.md"))) { throw "skill 폴더가 없습니다: $src" }
-    $to = Join-Path $Dest $skill
-    $tokenPath = Join-Path $to "token.txt"
-    $keepToken = $null
-    if (Test-Path $tokenPath) { $keepToken = [IO.File]::ReadAllBytes($tokenPath) }   # 다시 설치해도 키·토큰 파일은 남긴다
-    if (Test-Path $to) {
-        $item = Get-Item $to -Force
-        if ($item.LinkType) { cmd /c rmdir "$to" | Out-Null }     # 링크(junction)면 링크만 지운다
-        else { Remove-Item -Recurse -Force $to }
+$skills = @("sci-retr", "sci-index", "sci-tldr")
+$destFull = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $Dest).ProviderPath)
+$destPrefix = if ($destFull.EndsWith('\')) { $destFull } else { "$destFull\" }
+function Assert-InDestination([string]$path) {
+    $full = [IO.Path]::GetFullPath($path)
+    if (-not $full.StartsWith($destPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "설치 대상 경로가 목적지 밖입니다: $full"
     }
-    # _history·__pycache__ 는 빼고 복사
-    robocopy $src $to /E /XD _history __pycache__ /XF token.txt python.txt /NFL /NDL /NJH /NJS /NC /NS /NP | Out-Null
-    if ($LASTEXITCODE -ge 8) { throw "복사 실패: $skill (robocopy $LASTEXITCODE)" }
-    Write-Host "설치: $to"
-    if ($keepToken) { [IO.File]::WriteAllBytes($tokenPath, $keepToken); Write-Host "  키·토큰 파일(token.txt)은 그대로 두었습니다." }
+}
+foreach ($skill in $skills) {
+    $src = Join-Path $Root $skill
+    if (-not (Test-Path -LiteralPath (Join-Path $src "SKILL.md") -PathType Leaf)) { throw "skill 폴더가 없습니다: $src" }
+    $to = Join-Path $Dest $skill
+    Assert-InDestination $to
+    $srcFull = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $src).ProviderPath).TrimEnd('\')
+    $toFull = [IO.Path]::GetFullPath($to).TrimEnd('\')
+    if ($srcFull.Equals($toFull, [StringComparison]::OrdinalIgnoreCase) -or
+        $srcFull.StartsWith("$toFull\", [StringComparison]::OrdinalIgnoreCase) -or
+        $toFull.StartsWith("$srcFull\", [StringComparison]::OrdinalIgnoreCase)) {
+        throw "패키지 원본과 설치 대상 경로가 겹칩니다: $srcFull / $toFull"
+    }
+}
+$stageRoot = Join-Path $Dest (".sci-retr-install-" + [Guid]::NewGuid().ToString('N'))
+$backupRoot = Join-Path $stageRoot "backup"
+Assert-InDestination $stageRoot
+$backedUp = @()
+$placed = @()
+$installSucceeded = $false
+$rollbackSucceeded = $true
+try {
+    New-Item -ItemType Directory -Path $stageRoot | Out-Null
+    foreach ($skill in $skills) {
+        $src = Join-Path $Root $skill
+        $stage = Join-Path $stageRoot $skill
+        Assert-InDestination $stage
+        # 원본 설치본을 건드리기 전에 세 skill 을 모두 준비한다.
+        robocopy $src $stage /E /XD _history __pycache__ /XF token.txt python.txt /NFL /NDL /NJH /NJS /NC /NS /NP | Out-Null
+        if ($LASTEXITCODE -ge 8) { throw "복사 실패: $skill (robocopy $LASTEXITCODE)" }
+        if (-not (Test-Path -LiteralPath (Join-Path $stage 'SKILL.md') -PathType Leaf)) { throw "복사 결과에 SKILL.md 가 없습니다: $skill" }
+        $tokenPath = Join-Path (Join-Path $Dest $skill) "token.txt"
+        if (Test-Path -LiteralPath $tokenPath -PathType Leaf) {
+            Copy-Item -LiteralPath $tokenPath -Destination (Join-Path $stage 'token.txt') -Force
+        }
+        $pythonPath = Join-Path (Join-Path $Dest $skill) 'python.txt'
+        if (Test-Path -LiteralPath $pythonPath -PathType Leaf) {
+            Copy-Item -LiteralPath $pythonPath -Destination (Join-Path $stage 'python.txt') -Force
+        }
+    }
+    New-Item -ItemType Directory -Path $backupRoot | Out-Null
+    foreach ($skill in $skills) {
+        $to = Join-Path $Dest $skill
+        $stage = Join-Path $stageRoot $skill
+        $backup = Join-Path $backupRoot $skill
+        Assert-InDestination $to
+        Assert-InDestination $stage
+        Assert-InDestination $backup
+        if (Test-Path -LiteralPath $to) {
+            Move-Item -LiteralPath $to -Destination $backup
+            $backedUp += $skill
+        }
+        Move-Item -LiteralPath $stage -Destination $to
+        $placed += $skill
+        Write-Host "설치: $to"
+        if (Test-Path -LiteralPath (Join-Path $to 'token.txt')) { Write-Host "  키·토큰 파일(token.txt)은 그대로 두었습니다." }
+    }
+    $installSucceeded = $true
+} catch {
+    $installError = $_
+    for ($i = $skills.Count - 1; $i -ge 0; $i--) {
+        $skill = $skills[$i]
+        $to = Join-Path $Dest $skill
+        $backup = Join-Path $backupRoot $skill
+        try {
+            if ($placed -contains $skill) {
+                Assert-InDestination $to
+                Remove-Item -LiteralPath $to -Recurse -Force
+            }
+            if ($backedUp -contains $skill) {
+                Assert-InDestination $backup
+                Move-Item -LiteralPath $backup -Destination $to
+            }
+        } catch {
+            $rollbackSucceeded = $false
+            Write-Warning "기존 설치 복구 실패 ($skill): $_"
+        }
+    }
+    throw $installError
+} finally {
+    if ($installSucceeded -or $rollbackSucceeded) {
+        # 백업에 junction 이 남아 있으면 링크만 제거한 뒤 임시 폴더를 지운다.
+        foreach ($skill in $skills) {
+            $backup = Join-Path $backupRoot $skill
+            if (Test-Path -LiteralPath $backup) {
+                $item = Get-Item -LiteralPath $backup -Force
+                if ($item.LinkType) { [IO.Directory]::Delete($backup) }
+            }
+        }
+        if (Test-Path -LiteralPath $stageRoot) {
+            Assert-InDestination $stageRoot
+            Remove-Item -LiteralPath $stageRoot -Recurse -Force
+        }
+    } else {
+        Write-Warning "기존 설치 백업을 보존했습니다: $backupRoot"
+    }
 }
 if (-not $Codex) {
     # 한 줄 요약 전용 에이전트: 도구 Read·Write, sonnet — 범용 에이전트보다 토큰·시간이 훨씬 적다 (sci-tldr 지침 6절)
@@ -174,6 +261,7 @@ if ($pyExe) {
 Write-Host "=== 4. 환경 점검"
 $checkRoot = Join-Path $env:TEMP "sci-retr-check"
 $doctorOut = @(cmd /c "$py `"$Dest\sci-retr\scripts\sci_collect.py`" doctor --kb-root `"$checkRoot`" 2>&1")
+$doctorExit = $LASTEXITCODE
 $doctorOut | ForEach-Object { Write-Host $_ }
 Write-Host "(위 root 는 점검용 임시 폴더입니다. 논문을 저장할 폴더는 수집을 시작할 때 정합니다.)"
 $needChromeSettings = [bool]($doctorOut | Select-String -Pattern "\[문제\] Chrome\(" -Quiet)
@@ -190,10 +278,13 @@ if (-not $Codex) {
 }
 
 Write-Host ""
+$n = 1
+if ($doctorExit -ne 0 -or -not ($doctorOut | Select-String -Pattern '^=== 점검 끝: 문제 0, 주의 [0-9]+' -Quiet)) {
+    throw "skill 파일은 설치했지만 환경 점검을 통과하지 못했습니다. 위의 [문제] 또는 오류를 고친 뒤 doctor 를 다시 실행하세요."
+}
 Write-Host "▼・ᴥ・▼  sci-retr 설치 완료"
 if ($installed.Count -gt 0) { Write-Host "새로 설치한 프로그램: $($installed -join ', ')" }
 Write-Host "이렇게 시작하세요:"
-$n = 1
 if ($needExt) { Write-Host "  $n) Claude in Chrome 확장 설치·로그인: $ExtUrl"; $n++ }
 if ($needChromeSettings) { Write-Host "  $n) Chrome 설정: 위 점검에서 [문제] 로 나온 항목 고치기 (chrome://settings/content/pdfDocuments → 'PDF 다운로드', chrome://settings/downloads → '다운로드 전에 각 파일의 저장 위치 확인' 끄기)"; $n++ }
 Write-Host "  $n) $app 에서 새 대화를 열거나 $app 를 다시 시작하기 (새 skill 을 읽게)"; $n++
