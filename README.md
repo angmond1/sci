@@ -72,6 +72,8 @@ https://github.com/angmond1/sci 설치해줘
 
 ## 사용법 예시
 
+스킬이름 몰라도 "리버", "김리버", "댕댕아" + 원하는 내용 치면 됩니다.
+
 * 논문 PDF 파일이나 웹 링크를 codex, claude code 대화창에 주면서,<br>
   "리버야, 이 논문의 reference 논문들 모두 수집해줘. 캡챠도 네가 눌러줘."
 
