@@ -3,7 +3,7 @@
 > 이 문서는 Claude (Claude Code CLI / Claude Desktop 앱) 가 sci-retr 을 설치하고 쓸 때 따르는 기준이다.
 > 사용자가 "https://github.com/angmond1/sci 설치해줘", "sci-retr 설치해줘", "이거 설치해줘" 라고 하면 추측하지 말고 아래 1번 절차를 순서대로 실행한다.
 > 공용 skill 본문(SKILL.md·요령 문서)은 Claude 와 Codex 가 함께 읽는다. 그중 Codex 기준으로 적힌 동작(CAPTCHA 풀이, Computer Use, 쿠키 배너 처리)을 Claude 에서 어떻게 하는지는 2.1 에 둔다. Codex 지침은 [CODEX.md](CODEX.md).
-> 갱신 기준: 2026-09-29, 패키지 `VERSION` 0.2.1.
+> 갱신 기준: 2026-09-30, 패키지 `VERSION` 0.2.1.
 
 ## 0. sci-retr 이 무엇인가 (한 줄)
 
@@ -94,8 +94,9 @@ SKILL.md 5.5 와 전용 에이전트 `sci-retr-web` 이 이 확장으로 받는�
 `<python> ~/.claude/skills/sci-retr/scripts/sci_collect.py doctor --kb-root <논문 폴더>` 를 돌려 "문제 0" 을 확인한다. `<python>` 은 `~/.claude/skills/sci-retr/python.txt` 에 적힌 인터프리터다(가상환경에 설치했으면 `~/.sci-retr/venv/bin/python`). 논문 폴더를 아직 정하지 않았으면 `--kb-root` 에 임시 폴더(예: `%TEMP%\sci-retr-check`, macOS/Linux `/tmp/sci-retr-check`)를 준다. 논문 폴더는 수집할 때 정한다(SKILL.md 5.0). 문제가 있으면 출력의 안내대로 고친 뒤 다시 돌린다. 키·토큰(선택)은 수집 목록에 Elsevier OA·Wiley 논문이 있을 때 안내한다(SKILL.md 3.2.1). 값은 사용자가 skill 폴더의 `token.txt` 에 직접 넣고, 채팅창에는 절대 적지 않게 한다.
 
 ## 2. 실행
-사용자가 DOI 목록이나 "논문 받아줘" 라고 하면 `sci-retr` skill 지침(SKILL.md)을 따른다. 수집 전에 저장 폴더를 묻고 확인하며(5.0), 수집이 끝나면 편수와 관계없이 색인(sci-index, 몇 초)을 바로 만들고, 한국어 한 줄 요약(sci-tldr)은 한 번 물어 원할 때만 한다(5.7). 논문 PDF·링크를 주며 참고문헌 수집을 부탁하면 SKILL.md 5.10(`refs`).
+사용자가 DOI 목록·엑셀 목록·WoS/Scopus 내보내기 파일을 주거나 "논문 받아줘" 라고 하면 `sci-retr` skill 지침(SKILL.md)을 따른다. 수집 전에 저장 폴더를 묻고 확인하며(5.0), 수집이 끝나면 편수와 관계없이 색인(sci-index, 몇 초)을 바로 만들고, 한국어 한 줄 요약(sci-tldr)은 한 번 물어 원할 때만 한다(5.7). 논문 PDF·링크를 주며 참고문헌 수집을 부탁하면 SKILL.md 5.10(`refs`).
 
+- **부르는 말**: `리버`·`김리버`·`댕댕아`·`댕댕이`(`리버야`·`김리버씨` 같은 호격·존칭 포함)는 세 skill 을 부르는 말이다. 문장 앞의 부르는 말은 요청 내용에서 빼고 읽는다(저자 이름·검색어로 쓰지 않는다). 뒤의 요청으로 skill 을 고른다: 수집(DOI·엑셀 목록, 논문의 reference)은 `sci-retr` 로 받고 이어서 `sci-index`, 색인·목록 정리는 `sci-index`, 한 줄 요약은 요청에 적혀 있을 때만 `sci-tldr`. 부르는 말만으로 한 줄 요약을 만들지 않는다.
 - 진행 상황은 세 시점에 `## 🐶 1. 수집 전략`(5.2), `## 🐶 2. 자동 수집 결과`(5.4), `## 🐶 3. 웹 수집 결과`(5.5) 제목으로 채팅에 알린다. 웹 수집 결과는 `sci-retr-web` 이 intake·status 까지 마치고 보고한 뒤에 쓴다.
 - 한 줄 요약을 만들었으면 끝난 뒤 논문마다 세 줄(번호·연도·저널·교신저자 / 제목 / 한줄요약)을 채팅에 모두 출력한다(sci-tldr 5절). 파일 링크나 편수만으로 끝내지 않는다.
 
